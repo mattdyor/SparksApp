@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, ScrollView, TextInput, Alert, Animated } from 'react-native';
 import * as Speech from 'expo-speech';
+import { Audio } from 'expo-av';
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
 import { useTheme } from '../contexts/ThemeContext';
@@ -321,8 +322,11 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
   const [totalAsked, setTotalAsked] = useState(0);
   const [sessionActive, setSessionActive] = useState(false);
   const [seenCards, setSeenCards] = useState<Set<number>>(new Set()); // Track which cards we've already shown
-  
+
+  // Animation values
   const celebrationAnimation = useRef(new Animated.Value(0)).current;
+  const cardSlideAnimation = useRef(new Animated.Value(0)).current;
+  const cardFlipAnimation = useRef(new Animated.Value(0)).current;
 
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -330,10 +334,8 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
   useEffect(() => {
     const savedData = getSparkData('flashcards');
     if (savedData.cards && savedData.cards.length > 0) {
-      console.log('Loading saved cards:', savedData.cards.length);
       setCards(savedData.cards);
     } else {
-      console.log('No saved cards, using defaults:', defaultTranslations.length);
       setCards(defaultTranslations);
     }
   }, [getSparkData]);
@@ -346,26 +348,38 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
         lastPlayed: new Date().toISOString(),
       });
     }
-  }, [cards, setSparkData]);
+  }, [cards]);
 
-  // Debug effect to monitor state changes
-  useEffect(() => {
-    console.log('State update:', {
-      cardsCount: cards.length,
-      sessionActive,
-      currentCardId: currentCard?.id,
-      queueLength: sessionQueue.length,
-      answeredCount: answeredCorrectly.size
-    });
-  }, [cards.length, sessionActive, currentCard?.id, sessionQueue.length, answeredCorrectly.size]);
+
 
   // Text-to-speech function
-  const speakSpanish = (text: string) => {
-    Speech.speak(text, {
-      language: 'es-ES', // Spanish (Spain)
-      rate: 0.8, // Slightly slower for learning
-      pitch: 1.0,
-    });
+  const speakSpanish = async (text: string) => {
+    try {
+      // Stop any current speech first
+      const isSpeaking = await Speech.isSpeakingAsync();
+      if (isSpeaking) {
+        await Speech.stop();
+      }
+
+      Speech.speak(text, {
+        language: 'es-ES',
+        rate: 0.6,
+        pitch: 1.0,
+        volume: 1.0,
+        voice: 'Mónica',
+        onStart: () => {
+          HapticFeedback.light();
+        },
+        onDone: () => {
+          HapticFeedback.light();
+        },
+        onError: (error) => {
+          console.error('Speech error:', error);
+        },
+      });
+    } catch (error) {
+      console.error('Error in speakSpanish:', error);
+    }
   };
 
   // Fisher-Yates shuffle algorithm
@@ -380,57 +394,59 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
 
   // Start a new session - initialize the queue with shuffled cards
   const startNewSession = () => {
-    console.log('Starting new session with', cards.length, 'cards');
-    
     if (cards.length === 0) {
-      console.log('No cards available!');
       return;
     }
 
     const shuffledCards = shuffleArray(cards);
-    console.log('Cards shuffled! First card will be:', shuffledCards[0]?.english);
-    
-    // Set all states at once
-    const firstCard = shuffledCards[0];
-    const remainingQueue = shuffledCards.slice(1); // Remove first card from queue since we're showing it
-    
-    setSessionQueue(remainingQueue); // Queue starts with remaining cards
+
+    // Clear any existing countdown first
+    if (countdownRef.current) {
+      clearInterval(countdownRef.current);
+    }
+
+    // Reset all session state in batch
+    setSessionQueue(shuffledCards);
     setAnsweredCorrectly(new Set());
-    setSeenCards(new Set()); // Reset seen cards tracker
-    setTotalAsked(0); // Reset total asked, will be incremented in startNextCard
-    setSessionActive(true);
+    setSeenCards(new Set());
+    setTotalAsked(0);
     setIsCompleted(false);
     setShowCelebration(false);
-    
-    // Start the first card immediately with the shuffled cards
-    if (firstCard) {
-      console.log('Setting up first card immediately:', firstCard.english, 'Remaining queue:', remainingQueue.length);
-      setCurrentCard(firstCard);
-      setShowAnswer(false);
-      setCountdown(5);
-      setIsCountingDown(true);
-      setTotalAsked(1);
-      setSeenCards(new Set([firstCard.id]));
-      
-      // Start countdown for first card
-      countdownRef.current = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            setIsCountingDown(false);
-            setShowAnswer(true);
-            // Automatically speak the Spanish phrase when answer is revealed
-            if (firstCard) {
-              speakSpanish(firstCard.spanish);
-            }
+    setCurrentCard(null);
+    setShowAnswer(false);
+    setIsCountingDown(false);
+
+    // Set session active LAST to ensure all other state is ready
+    setSessionActive(true);
+
+    // Start the first card immediately
+    setTimeout(() => {
+      // Use the shuffledCards we just created instead of relying on sessionQueue state
+      if (shuffledCards.length > 0) {
+        // Start the first card directly
+        const firstCard = shuffledCards[0];
+        setCurrentCard(firstCard);
+        setSessionQueue(prev => prev.slice(1)); // Remove first card from queue
+        setShowAnswer(false);
+        setIsCountingDown(true);
+
+        // Start countdown
+        let countdown = 5;
+        setCountdown(countdown);
+        countdownRef.current = setInterval(() => {
+          countdown--;
+          setCountdown(countdown);
+          if (countdown <= 0) {
             if (countdownRef.current) {
               clearInterval(countdownRef.current);
             }
-            return 0;
+            setIsCountingDown(false);
+            setShowAnswer(true);
+            flipCard(); // Trigger flip animation when timer ends
           }
-          return prev - 1;
-        });
-      }, 1000);
-    }
+        }, 1000);
+      }
+    }, 100);
   };
 
   // Check if session is completed
@@ -464,6 +480,41 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
     ]).start();
   };
 
+  // Animation functions
+  const slideInCard = () => {
+    cardSlideAnimation.setValue(-300); // Start off-screen
+    cardFlipAnimation.setValue(0); // Reset flip
+
+    Animated.spring(cardSlideAnimation, {
+      toValue: 0,
+      tension: 100,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const flipCard = () => {
+    HapticFeedback.light();
+    Animated.spring(cardFlipAnimation, {
+      toValue: 1,
+      tension: 80,
+      friction: 8,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const slideOutCard = () => {
+    return new Promise<void>((resolve) => {
+      Animated.timing(cardSlideAnimation, {
+        toValue: 300, // Slide out to the right
+        duration: 300,
+        useNativeDriver: true,
+      }).start(() => {
+        resolve();
+      });
+    });
+  };
+
   const getNextCard = (): TranslationCard | null => {
     // If session not active or completed, don't show cards
     if (!sessionActive || isCompleted || sessionQueue.length === 0) {
@@ -475,24 +526,26 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
   };
 
   const startNextCard = () => {
-    const nextCard = getNextCard();
-    console.log('\n=== STARTING NEXT CARD ===');
-    console.log('Queue length:', sessionQueue.length);
-    console.log('Next few cards in queue:', sessionQueue.slice(0, 3).map(c => c.english));
-    console.log('Selected next card:', nextCard?.english);
-    
-    if (!nextCard) {
-      console.log('No next card, checking completion');
-      // Check if we've completed all cards
+    if (!sessionActive) {
+      return;
+    }
+
+    if (sessionQueue.length === 0) {
       checkCompletion();
       return;
     }
-    
+
+    // Take the first card from the queue and remove it
+    const nextCard = sessionQueue[0];
+
+    // Remove the card from the queue since we're about to show it
+    setSessionQueue(prev => prev.slice(1));
+
     // Clear any existing countdown
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
     }
-    
+
     setCurrentCard(nextCard);
     setShowAnswer(false);
     setCountdown(5);
@@ -504,13 +557,17 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
       setSeenCards(prev => new Set([...prev, nextCard.id]));
     }
 
+    // Slide in the new card
+    slideInCard();
+
     // Start countdown
     countdownRef.current = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           setIsCountingDown(false);
           setShowAnswer(true);
-          // Automatically speak the Spanish phrase when answer is revealed
+          // Flip the card and speak Spanish when answer is revealed
+          flipCard();
           if (nextCard) {
             speakSpanish(nextCard.spanish);
           }
@@ -528,24 +585,12 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
     if (!currentCard) return;
 
     if (correct) {
-      // Mark as answered correctly - remove from queue
+      // Mark as answered correctly - don't add back to queue
       setAnsweredCorrectly(prev => new Set([...prev, currentCard.id]));
-      setSessionQueue(prev => {
-        const newQueue = prev.filter(card => card.id !== currentCard.id);
-        console.log('Correct answer! Removing card. New queue length:', newQueue.length);
-        return newQueue;
-      });
       HapticFeedback.success();
     } else {
-      // Put the card at the end of the queue to ask again later
-      setSessionQueue(prev => {
-        const filtered = prev.filter(card => card.id !== currentCard.id);
-        const newQueue = [...filtered, currentCard];
-        console.log('Wrong answer! Moving card to END of queue.');
-        console.log('Next card will be:', newQueue[0]?.english);
-        console.log('Wrong card now at position:', newQueue.length - 1, '- will be asked after', newQueue.length - 1, 'other cards');
-        return newQueue;
-      });
+      // Put the current card at the end of the queue to ask again later
+      setSessionQueue(prev => [...prev, currentCard]);
       HapticFeedback.error();
     }
 
@@ -564,10 +609,27 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
 
     setCards(updatedCards);
 
-    // Start next card after a short delay
+    // Start next card
     setTimeout(() => {
-      startNextCard();
-    }, 1000);
+      if (sessionActive && !isCompleted) {
+        startNextCard();
+      }
+    }, 500);
+  };
+
+  const handleManualFlip = () => {
+    if (!showAnswer && isCountingDown) {
+      // Clear the countdown and flip immediately
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+      }
+      setIsCountingDown(false);
+      setShowAnswer(true);
+      flipCard();
+      if (currentCard) {
+        speakSpanish(currentCard.spanish);
+      }
+    }
   };
 
   const resetSession = () => {
@@ -584,6 +646,9 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
     }
+    // Reset animations
+    cardSlideAnimation.setValue(0);
+    cardFlipAnimation.setValue(0);
   };
 
   const saveCustomCards = (newCards: TranslationCard[]) => {
@@ -674,6 +739,20 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
       shadowRadius: 8,
       elevation: 4,
     },
+    animatedCardContainer: {
+      backgroundColor: colors.surface,
+      borderRadius: 15,
+      padding: 15,
+      marginBottom: 10,
+      alignItems: 'center',
+      minHeight: 80,
+      justifyContent: 'center',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 4,
+    },
     englishText: {
       fontSize: 24,
       fontWeight: '600',
@@ -709,7 +788,7 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
       flex: 1,
     },
     playButton: {
-      backgroundColor: colors.primary,
+      backgroundColor: 'transparent',
       borderRadius: 25,
       width: 40,
       height: 40,
@@ -718,8 +797,20 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
       marginLeft: 15,
     },
     playButtonText: {
+      color: colors.primary,
+      fontSize: 20,
+    },
+    flipButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 20,
+      marginTop: 15,
+    },
+    flipButtonText: {
       color: '#fff',
-      fontSize: 18,
+      fontSize: 16,
+      fontWeight: '600',
     },
     answerButtons: {
       flexDirection: 'row',
@@ -906,43 +997,64 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
           <TouchableOpacity style={styles.startButton} onPress={startNewSession}>
             <Text style={styles.startButtonText}>Start Learning</Text>
           </TouchableOpacity>
+
         </View>
       ) : sessionActive && currentCard ? (
         <View>
-          <View style={styles.cardContainer}>
-            <Text style={styles.englishText}>{currentCard.english}</Text>
-            
-            {isCountingDown && (
-              <View style={styles.countdownContainer}>
-                <Text style={styles.countdownText}>{countdown}</Text>
-                <Text style={styles.countdownLabel}>Think about the translation...</Text>
+          <View style={styles.animatedCardContainer}>
+            {!showAnswer ? (
+              /* Front of card (English) */
+              <View
+                style={{
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={styles.englishText}>{currentCard.english}</Text>
+
+                {isCountingDown && (
+                  <View style={styles.countdownContainer}>
+                    <Text style={styles.countdownText}>{countdown}</Text>
+                    <Text style={styles.countdownLabel}>Think about the translation...</Text>
+                    <TouchableOpacity style={styles.flipButton} onPress={handleManualFlip}>
+                      <Text style={styles.flipButtonText}>🔄 Flip Now</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
-            )}
-            
-            {showAnswer && (
-              <View style={styles.spanishContainer}>
-                <Text style={styles.spanishText}>{currentCard.spanish}</Text>
-                <TouchableOpacity 
-                  style={styles.playButton}
-                  onPress={() => speakSpanish(currentCard.spanish)}
-                >
-                  <Text style={styles.playButtonText}>🔊</Text>
-                </TouchableOpacity>
+            ) : (
+              /* Back of card (Spanish) */
+              <View
+                style={{
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Text style={styles.englishText}>{currentCard.english}</Text>
+                <View style={styles.spanishContainer}>
+                  <Text style={styles.spanishText}>{currentCard.spanish}</Text>
+                  <TouchableOpacity
+                    style={styles.playButton}
+                    onPress={() => speakSpanish(currentCard.spanish)}
+                  >
+                    <Text style={styles.playButtonText}>🔊</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
           </View>
 
           {showAnswer && (
             <View style={styles.answerButtons}>
-              <TouchableOpacity 
-                style={[styles.answerButton, styles.incorrectButton]} 
+              <TouchableOpacity
+                style={[styles.answerButton, styles.incorrectButton]}
                 onPress={() => handleAnswer(false)}
               >
                 <Text style={styles.answerButtonText}>❌ Wrong</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.answerButton, styles.correctButton]} 
+
+              <TouchableOpacity
+                style={[styles.answerButton, styles.correctButton]}
                 onPress={() => handleAnswer(true)}
               >
                 <Text style={styles.answerButtonText}>✅ Correct</Text>

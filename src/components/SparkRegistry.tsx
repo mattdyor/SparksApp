@@ -8,6 +8,7 @@ import { FlashcardsSpark } from '../sparks/FlashcardsSpark';
 import { BusinessSpark } from '../sparks/BusinessSpark';
 import { PackingListSpark } from '../sparks/PackingListSpark';
 import { TodoSpark } from '../sparks/TodoSpark';
+import { FoodCamSpark } from '../sparks/FoodCamSpark';
 import styled from 'styled-components/native';
 
 const PlaceholderContainer = styled.View`
@@ -96,6 +97,19 @@ export const sparkRegistry: Record<string, BaseSpark> = {
       available: true,
     },
     component: TodoSpark,
+  },
+  'food-cam': {
+    metadata: {
+      id: 'food-cam',
+      title: 'FoodCam',
+      description: 'Visual food diary with photo timeline and camera integration',
+      icon: '📸',
+      category: 'utility',
+      difficulty: 'medium',
+      estimatedTime: 15,
+      available: true,
+    },
+    component: FoodCamSpark,
   },
 };
 

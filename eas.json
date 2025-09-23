@@ -24,10 +24,15 @@
     },
     "production": {
       "ios": {
-        "resourceClass": "m-medium"
+        "resourceClass": "m-medium",
+        "autoIncrement": true,
+        "env": {
+          "EXPO_USE_STANDARD_ENCRYPTION": "true"
+        }
       },
       "android": {
-        "resourceClass": "medium"
+        "resourceClass": "medium",
+        "autoIncrement": true
       }
     }
   },

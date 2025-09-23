@@ -2,114 +2,75 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
+import { useTheme } from '../contexts/ThemeContext';
 
-interface GameState {
-  cash: number;
-  day: number;
-  businessLevel: number;
-  customers: number;
-  reputation: number;
-  inventory: number;
-  staff: number;
+interface Printer {
+  id: string;
+  purchaseDay: number;
+  daysUsed: number;
+  status: 'working' | 'needs_repair' | 'under_repair';
+  repairDay?: number;
 }
 
-interface Event {
+interface FinancialSnapshot {
+  cash: number;
+  revenue: number;
+  expenses: number;
+  netIncome: number;
+  totalAssets: number;
+  totalEquity: number;
+  materialsInventory: number;
+  employees: number;
+  workingPrinters: number;
+}
+
+interface GameState {
+  day: number;
+  cash: number;
+  employees: number;
+  printers: Printer[];
+  materialsInventory: number;
+  cumulativeRevenue: number;
+  cumulativeExpenses: number;
+  previousFinancials: FinancialSnapshot;
+  gameStarted: boolean;
+  gameEnded: boolean;
+  dailyLog: string[];
+}
+
+interface Decision {
+  id: string;
+  type: 'investment' | 'operations';
   title: string;
   description: string;
-  choices: {
-    text: string;
-    effect: Partial<GameState>;
-    cost?: number;
-  }[];
+  cost?: number;
+  potentialRevenue?: number;
+  action: (state: GameState) => { newState: GameState; log: string[] };
 }
 
 const initialState: GameState = {
-  cash: 1000,
   day: 1,
-  businessLevel: 1,
-  customers: 10,
-  reputation: 50,
-  inventory: 20,
-  staff: 1,
+  cash: 1000,
+  employees: 0,
+  printers: [],
+  materialsInventory: 0,
+  cumulativeRevenue: 0,
+  cumulativeExpenses: 0,
+  previousFinancials: {
+    cash: 1000,
+    revenue: 0,
+    expenses: 0,
+    netIncome: 0,
+    totalAssets: 1000,
+    totalEquity: 1000,
+    materialsInventory: 0,
+    employees: 0,
+    workingPrinters: 0,
+  },
+  gameStarted: false,
+  gameEnded: false,
+  dailyLog: [],
 };
-
-const events: Event[] = [
-  {
-    title: "Customer Complaint",
-    description: "A customer is unhappy with their service. How do you handle it?",
-    choices: [
-      {
-        text: "Offer full refund + apology",
-        effect: { cash: -50, reputation: 15, customers: 2 }
-      },
-      {
-        text: "Offer 50% discount",
-        effect: { cash: -25, reputation: 8, customers: 1 }
-      },
-      {
-        text: "Apologize but no refund",
-        effect: { reputation: -5, customers: -1 }
-      }
-    ]
-  },
-  {
-    title: "Marketing Opportunity",
-    description: "A local newspaper wants to feature your business. What's your approach?",
-    choices: [
-      {
-        text: "Pay for premium feature",
-        effect: { customers: 15, reputation: 10 },
-        cost: 200
-      },
-      {
-        text: "Accept free basic mention",
-        effect: { customers: 8, reputation: 5 }
-      },
-      {
-        text: "Decline the offer",
-        effect: { cash: 0 }
-      }
-    ]
-  },
-  {
-    title: "Inventory Decision",
-    description: "Your popular item is running low. Customers are asking for it.",
-    choices: [
-      {
-        text: "Bulk order (cheaper per unit)",
-        effect: { inventory: 50, cash: -300 },
-        cost: 300
-      },
-      {
-        text: "Small order (more expensive)",
-        effect: { inventory: 20, cash: -150 },
-        cost: 150
-      },
-      {
-        text: "Wait for next week",
-        effect: { customers: -3, reputation: -3 }
-      }
-    ]
-  },
-  {
-    title: "Staff Issue",
-    description: "Your employee wants a raise, threatening to quit otherwise.",
-    choices: [
-      {
-        text: "Give the raise",
-        effect: { cash: -100, reputation: 5 }
-      },
-      {
-        text: "Negotiate a smaller raise",
-        effect: { cash: -50, reputation: 2 }
-      },
-      {
-        text: "Let them quit",
-        effect: { staff: -1, customers: -5, reputation: -8 }
-      }
-    ]
-  }
-];
 
 interface BusinessSparkProps {
   showSettings?: boolean;
@@ -118,572 +79,731 @@ interface BusinessSparkProps {
   onComplete?: (result: any) => void;
 }
 
-export const BusinessSpark: React.FC<BusinessSparkProps> = ({ 
-  showSettings = false,
-  onCloseSettings,
+export const BusinessSpark: React.FC<BusinessSparkProps> = ({
   onStateChange,
-  onComplete 
+  onComplete,
 }) => {
   const { getSparkData, setSparkData } = useSparkStore();
-  
-  const [gameState, setGameState] = useState<GameState>(initialState);
-  const [currentEvent, setCurrentEvent] = useState<Event | null>(null);
-  const [gameEnded, setGameEnded] = useState(false);
-  const [score, setScore] = useState(0);
-  const [bestScore, setBestScore] = useState(0);
-  const [gamesPlayed, setGamesPlayed] = useState(0);
+  const { colors } = useTheme();
 
-  // Load persisted data on mount
+  const [gameState, setGameState] = useState<GameState>(initialState);
+  const [showFinancials, setShowFinancials] = useState(false);
+  const [currentDecisions, setCurrentDecisions] = useState<Decision[]>([]);
+
+  // Load saved data
   useEffect(() => {
-    const savedData = getSparkData('business-sim');
-    if (savedData.bestScore) setBestScore(savedData.bestScore);
-    if (savedData.gamesPlayed) setGamesPlayed(savedData.gamesPlayed);
+    const savedData = getSparkData('business-sim') as { gameState?: GameState };
+    if (savedData?.gameState) {
+      setGameState(savedData.gameState);
+    }
   }, [getSparkData]);
 
-  // Calculate daily income based on customers, reputation, and business level
-  const calculateDailyIncome = () => {
-    const baseIncome = gameState.customers * (5 + gameState.businessLevel);
-    const reputationMultiplier = 1 + (gameState.reputation / 100);
-    const staffEfficiency = Math.min(gameState.staff / 2, 1.5);
-    
-    return Math.round(baseIncome * reputationMultiplier * staffEfficiency);
+  // Save data whenever game state changes
+  useEffect(() => {
+    setSparkData('business-sim', { gameState });
+    onStateChange?.({
+      day: gameState.day,
+      cash: gameState.cash,
+      netWorth: calculateNetWorth(gameState)
+    });
+  }, [gameState]); // Removed setSparkData and onStateChange from dependencies
+
+  const calculateNetWorth = (state: GameState): number => {
+    const printerValue = state.printers.length * 150; // Depreciated value
+    const materialsValue = state.materialsInventory * 15;
+    return state.cash + printerValue + materialsValue;
   };
 
-  // Progress to next day
-  const nextDay = () => {
-    HapticFeedback.light();
-    
-    if (gameState.day >= 30 || gameState.cash < 0) {
-      endGame();
-      return;
-    }
-
-    const dailyIncome = calculateDailyIncome();
-    const dailyCosts = gameState.staff * 30 + gameState.businessLevel * 20;
-    const netIncome = dailyIncome - dailyCosts;
-
-    setGameState(prev => ({
-      ...prev,
-      day: prev.day + 1,
-      cash: prev.cash + netIncome,
-      inventory: Math.max(0, prev.inventory - Math.floor(prev.customers / 3)),
-      customers: Math.max(1, prev.customers + Math.random() > 0.5 ? 1 : -1),
-      reputation: Math.max(0, Math.min(100, prev.reputation + (Math.random() > 0.7 ? 1 : 0)))
-    }));
-
-    // Random event trigger (30% chance)
-    if (Math.random() < 0.3) {
-      const randomEvent = events[Math.floor(Math.random() * events.length)];
-      setCurrentEvent(randomEvent);
-    }
+  const getWorkingPrinters = (printers: Printer[]): Printer[] => {
+    return printers.filter(p => p.status === 'working');
   };
 
-  // Handle event choice
-  const handleEventChoice = (choice: Event['choices'][0]) => {
-    if (choice.cost && gameState.cash < choice.cost) {
-      HapticFeedback.error();
-      Alert.alert("Insufficient Funds", "You don't have enough cash for this option.");
-      return;
-    }
-    
-    HapticFeedback.medium();
+  const getPrintersNeedingRepair = (printers: Printer[]): Printer[] => {
+    return printers.filter(p => p.status === 'needs_repair');
+  };
 
-    setGameState(prev => {
-      const newState = { ...prev };
-      
-      // Apply effects
-      Object.entries(choice.effect).forEach(([key, value]) => {
-        if (key in newState && typeof value === 'number') {
-          (newState as any)[key] = Math.max(0, (newState as any)[key] + value);
+  const generateDecisions = (state: GameState): Decision[] => {
+    const decisions: Decision[] = [];
+
+    // Investment Decisions
+    if (state.cash >= 200) {
+      decisions.push({
+        id: 'buy_printer',
+        type: 'investment',
+        title: 'Buy 3D Printer',
+        description: 'Purchase a new 3D printer to increase production capacity',
+        cost: 200,
+        action: (state) => {
+          const newPrinter: Printer = {
+            id: `printer_${Date.now()}`,
+            purchaseDay: state.day,
+            daysUsed: 0,
+            status: 'working',
+          };
+          return {
+            newState: {
+              ...state,
+              cash: state.cash - 200,
+              printers: [...state.printers, newPrinter],
+            },
+            log: ['Purchased new 3D printer for $200']
+          };
         }
       });
+    }
 
-      // Apply cost
-      if (choice.cost) {
-        newState.cash -= choice.cost;
+    if (state.cash >= 100) {
+      decisions.push({
+        id: 'hire_employee',
+        type: 'investment',
+        title: 'Hire Employee',
+        description: 'Hire an operator to run 3D printers ($25/day salary)',
+        cost: 100,
+        action: (state) => {
+          return {
+            newState: {
+              ...state,
+              cash: state.cash - 100,
+              employees: state.employees + 1,
+            },
+            log: ['Hired new employee for $100 upfront']
+          };
+        }
+      });
+    }
+
+    const printersNeedingRepair = getPrintersNeedingRepair(state.printers);
+    if (printersNeedingRepair.length > 0 && state.cash >= 50) {
+      decisions.push({
+        id: 'repair_printers',
+        type: 'investment',
+        title: 'Repair Equipment',
+        description: `Repair ${printersNeedingRepair.length} printer(s) needing maintenance`,
+        cost: printersNeedingRepair.length * 50,
+        action: (state) => {
+          const repairedPrinters = state.printers.map(printer => {
+            if (printer.status === 'needs_repair') {
+              return {
+                ...printer,
+                status: 'under_repair' as const,
+                repairDay: state.day,
+                daysUsed: 0,
+              };
+            }
+            return printer;
+          });
+
+          return {
+            newState: {
+              ...state,
+              cash: state.cash - (printersNeedingRepair.length * 50),
+              printers: repairedPrinters,
+            },
+            log: [`Repaired ${printersNeedingRepair.length} printer(s) for $${printersNeedingRepair.length * 50}`]
+          };
+        }
+      });
+    }
+
+    if (state.cash >= 150) {
+      decisions.push({
+        id: 'buy_materials',
+        type: 'investment',
+        title: 'Buy Materials in Bulk',
+        description: 'Purchase materials for 10 items at discounted rate ($15/item)',
+        cost: 150,
+        action: (state) => {
+          return {
+            newState: {
+              ...state,
+              cash: state.cash - 150,
+              materialsInventory: state.materialsInventory + 10,
+            },
+            log: ['Purchased bulk materials for $150 (10 units)']
+          };
+        }
+      });
+    }
+
+    // Operations Decisions
+    const workingPrinters = getWorkingPrinters(state.printers);
+    const operablePrinters = Math.min(workingPrinters.length, state.employees);
+    const potentialProduction = operablePrinters * 5;
+    const productionCost = potentialProduction * 20;
+    const salaryCost = state.employees * 25;
+
+    if (operablePrinters > 0 && state.materialsInventory >= potentialProduction) {
+      decisions.push({
+        id: 'full_production',
+        type: 'operations',
+        title: 'Full Production',
+        description: `Produce ${potentialProduction} items with ${operablePrinters} printer(s)`,
+        potentialRevenue: potentialProduction * 100 - salaryCost,
+        action: (state) => processProduction(state, potentialProduction, false)
+      });
+    }
+
+    if (operablePrinters > 0 && state.materialsInventory >= potentialProduction) {
+      decisions.push({
+        id: 'marketing_boost',
+        type: 'operations',
+        title: 'Production + Marketing',
+        description: `Produce ${potentialProduction} items with 20% price boost ($120/item)`,
+        potentialRevenue: potentialProduction * 120 - salaryCost,
+        action: (state) => processProduction(state, potentialProduction, true)
+      });
+    }
+
+    // Fallback option if no materials
+    if (state.materialsInventory < potentialProduction && operablePrinters > 0) {
+      const affordableProduction = Math.min(potentialProduction, state.materialsInventory);
+      if (affordableProduction > 0) {
+        decisions.push({
+          id: 'limited_production',
+          type: 'operations',
+          title: 'Limited Production',
+          description: `Produce ${affordableProduction} items (limited by materials)`,
+          potentialRevenue: affordableProduction * 100 - salaryCost,
+          action: (state) => processProduction(state, affordableProduction, false)
+        });
       }
+    }
 
-      return newState;
+    return decisions;
+  };
+
+  const processProduction = (state: GameState, itemsProduced: number, marketingBoost: boolean) => {
+    const salaryCost = state.employees * 25;
+    const materialsCost = itemsProduced * 20;
+    const pricePerItem = marketingBoost ? 120 : 100;
+    const revenue = itemsProduced * pricePerItem;
+    const totalExpenses = salaryCost + materialsCost;
+
+    const log = [
+      `Produced ${itemsProduced} items`,
+      `Revenue: $${revenue} (${itemsProduced} × $${pricePerItem})`,
+      `Materials cost: $${materialsCost}`,
+      `Employee salaries: $${salaryCost}`,
+      `Net profit: $${revenue - totalExpenses}`
+    ];
+
+    if (marketingBoost) {
+      log.push('Applied marketing boost (+$20/item)');
+    }
+
+    return {
+      newState: {
+        ...state,
+        cash: state.cash + revenue - totalExpenses,
+        materialsInventory: state.materialsInventory - itemsProduced,
+        cumulativeRevenue: state.cumulativeRevenue + revenue,
+        cumulativeExpenses: state.cumulativeExpenses + totalExpenses,
+      },
+      log
+    };
+  };
+
+  const advanceDay = (state: GameState) => {
+    // Age printers and handle repairs
+    const updatedPrinters = state.printers.map(printer => {
+      if (printer.status === 'under_repair' && printer.repairDay === state.day - 1) {
+        return { ...printer, status: 'working' as const, repairDay: undefined };
+      }
+      if (printer.status === 'working') {
+        const newDaysUsed = printer.daysUsed + 1;
+        if (newDaysUsed >= 5) {
+          return { ...printer, status: 'needs_repair' as const, daysUsed: newDaysUsed };
+        }
+        return { ...printer, daysUsed: newDaysUsed };
+      }
+      return printer;
     });
 
-    setCurrentEvent(null);
+    return {
+      ...state,
+      day: state.day + 1,
+      printers: updatedPrinters,
+    };
   };
 
-  // Upgrade business
-  const upgradeBusiness = () => {
-    const cost = gameState.businessLevel * 500;
-    if (gameState.cash >= cost) {
-      HapticFeedback.success();
-      setGameState(prev => ({
-        ...prev,
-        cash: prev.cash - cost,
-        businessLevel: prev.businessLevel + 1,
-        reputation: prev.reputation + 5
-      }));
-    } else {
-      HapticFeedback.error();
-      Alert.alert("Insufficient Funds", `You need $${cost} to upgrade your business.`);
-    }
-  };
+  const makeDecision = (decision: Decision) => {
+    HapticFeedback.light();
 
-  // Hire staff
-  const hireStaff = () => {
-    const cost = 200;
-    if (gameState.cash >= cost) {
-      HapticFeedback.success();
-      setGameState(prev => ({
-        ...prev,
-        cash: prev.cash - cost,
-        staff: prev.staff + 1
-      }));
-    } else {
-      HapticFeedback.error();
-      Alert.alert("Insufficient Funds", `You need $${cost} to hire staff.`);
-    }
-  };
+    const result = decision.action(gameState);
+    const newStateAfterDecision = result.newState;
 
-  // End game
-  const endGame = () => {
-    const finalScore = gameState.cash + (gameState.reputation * 10) + (gameState.customers * 20) + (gameState.businessLevel * 100);
-    const newGamesPlayed = gamesPlayed + 1;
-    const newBestScore = Math.max(bestScore, finalScore);
-    
-    // Update state
-    setScore(finalScore);
-    setGamesPlayed(newGamesPlayed);
-    setBestScore(newBestScore);
-    setGameEnded(true);
-    
-    // Persist data
-    setSparkData('business-sim', {
-      bestScore: newBestScore,
-      gamesPlayed: newGamesPlayed,
-      lastScore: finalScore,
-      lastPlayed: new Date().toISOString(),
+    // Advance to next day
+    const finalState = advanceDay({
+      ...newStateAfterDecision,
+      dailyLog: result.log,
+      previousFinancials: generateFinancialSnapshot(gameState),
     });
+
+    // Check win/lose conditions
+    if (finalState.day > 30) {
+      finalState.gameEnded = true;
+      const netWorth = calculateNetWorth(finalState);
+      onComplete?.({
+        days: 30,
+        finalCash: finalState.cash,
+        netWorth,
+        totalRevenue: finalState.cumulativeRevenue,
+        success: netWorth > 1500
+      });
+    } else if (finalState.cash < 0) {
+      finalState.gameEnded = true;
+      Alert.alert('Bankruptcy!', 'Your business has run out of cash. Game over!');
+    }
+
+    setGameState(finalState);
+    setCurrentDecisions(generateDecisions(finalState));
   };
 
-  // Reset game
+  const generateFinancialSnapshot = (state: GameState): FinancialSnapshot => {
+    const workingPrinters = getWorkingPrinters(state.printers).length;
+    const printerValue = state.printers.length * 150;
+    const materialsValue = state.materialsInventory * 15;
+    const totalAssets = state.cash + printerValue + materialsValue;
+
+    return {
+      cash: state.cash,
+      revenue: state.cumulativeRevenue,
+      expenses: state.cumulativeExpenses,
+      netIncome: state.cumulativeRevenue - state.cumulativeExpenses,
+      totalAssets,
+      totalEquity: totalAssets,
+      materialsInventory: state.materialsInventory,
+      employees: state.employees,
+      workingPrinters,
+    };
+  };
+
+  const startGame = () => {
+    HapticFeedback.success();
+    const newState = { ...initialState, gameStarted: true };
+    setGameState(newState);
+    setCurrentDecisions(generateDecisions(newState));
+  };
+
   const resetGame = () => {
+    HapticFeedback.medium();
     setGameState(initialState);
-    setCurrentEvent(null);
-    setGameEnded(false);
-    setScore(0);
+    setCurrentDecisions([]);
+    setShowFinancials(false);
   };
 
-  const dailyIncome = calculateDailyIncome();
-  const dailyCosts = gameState.staff * 30 + gameState.businessLevel * 20;
-  const upgradeBusinessCost = gameState.businessLevel * 500;
-
-  if (gameEnded) {
-    let performanceText = "Keep trying!";
-    let performanceColor = "#DC3545";
-    
-    if (score > 3000) {
-      performanceText = "Outstanding Entrepreneur!";
-      performanceColor = "#28A745";
-    } else if (score > 2000) {
-      performanceText = "Successful Business Owner!";
-      performanceColor = "#FFC107";
-    } else if (score > 1000) {
-      performanceText = "Getting the hang of it!";
-      performanceColor = "#17A2B8";
+  // Generate decisions when game starts
+  useEffect(() => {
+    if (gameState.gameStarted && !gameState.gameEnded && currentDecisions.length === 0) {
+      setCurrentDecisions(generateDecisions(gameState));
     }
+  }, [gameState, currentDecisions.length]);
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scrollContent: {
+      padding: 20,
+    },
+    header: {
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontSize: 16,
+      color: colors.textSecondary,
+      textAlign: 'center',
+    },
+    statusCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 20,
+      marginBottom: 20,
+    },
+    statusRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    statusLabel: {
+      fontSize: 16,
+      color: colors.textSecondary,
+    },
+    statusValue: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    sectionTitle: {
+      fontSize: 20,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 15,
+      marginTop: 10,
+    },
+    decisionCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 12,
+      borderLeftWidth: 4,
+    },
+    investmentCard: {
+      borderLeftColor: '#e74c3c',
+    },
+    operationsCard: {
+      borderLeftColor: '#27ae60',
+    },
+    decisionTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text,
+      marginBottom: 4,
+    },
+    decisionDescription: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      marginBottom: 8,
+    },
+    decisionMeta: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginBottom: 12,
+    },
+    button: {
+      backgroundColor: colors.primary,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      alignItems: 'center',
+    },
+    buttonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    secondaryButton: {
+      backgroundColor: colors.border,
+      paddingVertical: 12,
+      paddingHorizontal: 20,
+      borderRadius: 8,
+      alignItems: 'center',
+      marginBottom: 10,
+    },
+    secondaryButtonText: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    logCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 20,
+    },
+    logText: {
+      fontSize: 14,
+      color: colors.text,
+      marginBottom: 4,
+    },
+    startContainer: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      flex: 1,
+      paddingTop: 100,
+    },
+    startButton: {
+      backgroundColor: colors.primary,
+      paddingVertical: 16,
+      paddingHorizontal: 32,
+      borderRadius: 25,
+      marginBottom: 20,
+    },
+    startButtonText: {
+      color: '#fff',
+      fontSize: 18,
+      fontWeight: '600',
+    },
+  });
+
+  if (!gameState.gameStarted) {
     return (
-      <ScrollView contentContainerStyle={styles.container}>
+      <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
         <View style={styles.header}>
-          <Text style={styles.title}>🎮 Game Over!</Text>
-          <Text style={styles.subtitle}>Day {gameState.day} - Business Simulation Complete</Text>
+          <Text style={styles.title}>💼 Business Simulator</Text>
+          <Text style={styles.subtitle}>
+            Build and manage your 3D printing business over 30 days
+          </Text>
         </View>
 
-        <View style={styles.resultsContainer}>
-          <Text style={styles.resultsTitle}>Final Results</Text>
-          
-          <View style={styles.finalStats}>
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Final Cash:</Text>
-              <Text style={styles.statValue}>${gameState.cash}</Text>
-            </View>
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Business Level:</Text>
-              <Text style={styles.statValue}>{gameState.businessLevel}</Text>
-            </View>
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Customers:</Text>
-              <Text style={styles.statValue}>{gameState.customers}</Text>
-            </View>
-            <View style={styles.statRow}>
-              <Text style={styles.statLabel}>Reputation:</Text>
-              <Text style={styles.statValue}>{gameState.reputation}%</Text>
-            </View>
+        <View style={styles.startContainer}>
+          <View style={styles.statusCard}>
+            <Text style={styles.sectionTitle}>Game Overview</Text>
+            <Text style={styles.logText}>• Start with $1,000 capital</Text>
+            <Text style={styles.logText}>• Buy 3D printers and hire employees</Text>
+            <Text style={styles.logText}>• Make strategic decisions each day</Text>
+            <Text style={styles.logText}>• Track your progress with financial statements</Text>
+            <Text style={styles.logText}>• Goal: Maximize your business value in 30 days</Text>
           </View>
 
-          <View style={styles.scoreContainer}>
-            <Text style={styles.scoreLabel}>Total Score</Text>
-            <Text style={[styles.scoreValue, { color: performanceColor }]}>{score}</Text>
-            <Text style={[styles.performanceText, { color: performanceColor }]}>
-              {performanceText}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.persistentStats}>
-          <Text style={styles.persistentStatsTitle}>Your Progress</Text>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Best Score:</Text>
-            <Text style={[styles.statValue, { color: '#FF9500' }]}>{bestScore}</Text>
-          </View>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>Games Played:</Text>
-            <Text style={[styles.statValue, { color: '#8E44AD' }]}>{gamesPlayed}</Text>
-          </View>
-          <View style={styles.statRow}>
-            <Text style={styles.statLabel}>This Score:</Text>
-            <Text style={[styles.statValue, { color: '#007AFF' }]}>{score}</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity style={styles.playAgainButton} onPress={resetGame}>
-          <Text style={styles.playAgainButtonText}>Play Again</Text>
-        </TouchableOpacity>
-      </ScrollView>
-    );
-  }
-
-  if (currentEvent) {
-    return (
-      <ScrollView contentContainerStyle={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>💼 Business Event</Text>
-          <Text style={styles.day}>Day {gameState.day}</Text>
-        </View>
-
-        <View style={styles.eventContainer}>
-          <Text style={styles.eventTitle}>{currentEvent.title}</Text>
-          <Text style={styles.eventDescription}>{currentEvent.description}</Text>
-
-          <View style={styles.eventChoices}>
-            {currentEvent.choices.map((choice, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.choiceButton,
-                  choice.cost && gameState.cash < choice.cost ? styles.choiceButtonDisabled : undefined
-                ]}
-                onPress={() => handleEventChoice(choice)}
-                disabled={choice.cost ? gameState.cash < choice.cost : false}
-              >
-                <Text style={styles.choiceText}>{choice.text}</Text>
-                {choice.cost && (
-                  <Text style={styles.choiceCost}>Cost: ${choice.cost}</Text>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
+          <TouchableOpacity style={styles.startButton} onPress={startGame}>
+            <Text style={styles.startButtonText}>Start Business</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     );
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
       <View style={styles.header}>
         <Text style={styles.title}>💼 Business Simulator</Text>
-        <Text style={styles.subtitle}>Build your empire one day at a time!</Text>
-        <Text style={styles.day}>Day {gameState.day}/30</Text>
+        <Text style={styles.subtitle}>Day {gameState.day} of 30</Text>
       </View>
 
-      <View style={styles.statsGrid}>
-        <View style={styles.statCard}>
-          <Text style={styles.statCardTitle}>💰 Cash</Text>
-          <Text style={styles.statCardValue}>${gameState.cash}</Text>
+      {/* Current Status */}
+      <View style={styles.statusCard}>
+        <Text style={styles.sectionTitle}>Current Status</Text>
+        <View style={styles.statusRow}>
+          <Text style={styles.statusLabel}>💰 Cash</Text>
+          <Text style={styles.statusValue}>${gameState.cash}</Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statCardTitle}>👥 Customers</Text>
-          <Text style={styles.statCardValue}>{gameState.customers}</Text>
+        <View style={styles.statusRow}>
+          <Text style={styles.statusLabel}>🏭 Working Printers</Text>
+          <Text style={styles.statusValue}>{getWorkingPrinters(gameState.printers).length}</Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statCardTitle}>⭐ Reputation</Text>
-          <Text style={styles.statCardValue}>{gameState.reputation}%</Text>
+        <View style={styles.statusRow}>
+          <Text style={styles.statusLabel}>🔧 Need Repair</Text>
+          <Text style={styles.statusValue}>{getPrintersNeedingRepair(gameState.printers).length}</Text>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statCardTitle}>📦 Inventory</Text>
-          <Text style={styles.statCardValue}>{gameState.inventory}</Text>
+        <View style={styles.statusRow}>
+          <Text style={styles.statusLabel}>👥 Employees</Text>
+          <Text style={styles.statusValue}>{gameState.employees}</Text>
+        </View>
+        <View style={styles.statusRow}>
+          <Text style={styles.statusLabel}>📦 Materials</Text>
+          <Text style={styles.statusValue}>{gameState.materialsInventory} units</Text>
+        </View>
+        <View style={styles.statusRow}>
+          <Text style={styles.statusLabel}>📊 Net Worth</Text>
+          <Text style={styles.statusValue}>${calculateNetWorth(gameState)}</Text>
         </View>
       </View>
 
-      <View style={styles.dailyInfo}>
-        <Text style={styles.dailyInfoTitle}>Today's Projection</Text>
-        <Text style={styles.dailyInfoText}>Income: ${dailyIncome}</Text>
-        <Text style={styles.dailyInfoText}>Costs: ${dailyCosts}</Text>
-        <Text style={[styles.dailyInfoText, styles.dailyNet]}>
-          Net: ${dailyIncome - dailyCosts}
+      {/* Daily Log */}
+      {gameState.dailyLog.length > 0 && (
+        <View style={styles.logCard}>
+          <Text style={styles.sectionTitle}>Yesterday's Results</Text>
+          {gameState.dailyLog.map((log, index) => (
+            <Text key={index} style={styles.logText}>• {log}</Text>
+          ))}
+        </View>
+      )}
+
+      {/* Decisions */}
+      {!gameState.gameEnded && (
+        <>
+          <Text style={styles.sectionTitle}>Today's Decision</Text>
+          {currentDecisions.map((decision) => (
+            <TouchableOpacity
+              key={decision.id}
+              style={[
+                styles.decisionCard,
+                decision.type === 'investment' ? styles.investmentCard : styles.operationsCard
+              ]}
+              onPress={() => makeDecision(decision)}
+            >
+              <Text style={styles.decisionTitle}>{decision.title}</Text>
+              <Text style={styles.decisionDescription}>{decision.description}</Text>
+              <Text style={styles.decisionMeta}>
+                {decision.cost && `Cost: $${decision.cost}`}
+                {decision.potentialRevenue && `Potential Net: $${decision.potentialRevenue}`}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </>
+      )}
+
+      {/* Controls */}
+      <TouchableOpacity style={styles.secondaryButton} onPress={() => setShowFinancials(!showFinancials)}>
+        <Text style={styles.secondaryButtonText}>
+          {showFinancials ? 'Hide' : 'Show'} Financial Statements
         </Text>
-      </View>
+      </TouchableOpacity>
 
-      <View style={styles.actions}>
-        <TouchableOpacity style={styles.primaryButton} onPress={nextDay}>
-          <Text style={styles.primaryButtonText}>Next Day</Text>
-        </TouchableOpacity>
+      {showFinancials && (
+        <FinancialStatements
+          current={generateFinancialSnapshot(gameState)}
+          previous={gameState.previousFinancials}
+          colors={colors}
+        />
+      )}
 
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              gameState.cash < upgradeBusinessCost && styles.actionButtonDisabled
-            ]}
-            onPress={upgradeBusiness}
-            disabled={gameState.cash < upgradeBusinessCost}
-          >
-            <Text style={styles.actionButtonText}>
-              Upgrade Business (${upgradeBusinessCost})
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              gameState.cash < 200 && styles.actionButtonDisabled
-            ]}
-            onPress={hireStaff}
-            disabled={gameState.cash < 200}
-          >
-            <Text style={styles.actionButtonText}>
-              Hire Staff ($200) - Current: {gameState.staff}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      <TouchableOpacity style={styles.secondaryButton} onPress={resetGame}>
+        <Text style={styles.secondaryButtonText}>Reset Game</Text>
+      </TouchableOpacity>
     </ScrollView>
   );
 };
 
-const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    backgroundColor: '#f5f5f5',
-    padding: 20,
-  },
-  header: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-  },
-  day: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#007AFF',
-    marginTop: 8,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  statCard: {
-    backgroundColor: '#fff',
-    width: '48%',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 10,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  statCardTitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
-  },
-  statCardValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  dailyInfo: {
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 20,
-  },
-  dailyInfoTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-  },
-  dailyInfoText: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 3,
-  },
-  dailyNet: {
-    fontWeight: 'bold',
-    color: '#28A745',
-  },
-  actions: {
-    alignItems: 'center',
-  },
-  primaryButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 15,
-    paddingHorizontal: 40,
-    borderRadius: 25,
-    marginBottom: 20,
-  },
-  primaryButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  actionButtons: {
-    width: '100%',
-    gap: 10,
-  },
-  actionButton: {
-    backgroundColor: '#28A745',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  actionButtonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  eventContainer: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 15,
-    marginBottom: 20,
-  },
-  eventTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 10,
-  },
-  eventDescription: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 20,
-    lineHeight: 24,
-  },
-  eventChoices: {
-    gap: 12,
-  },
-  choiceButton: {
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  choiceButtonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  choiceText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  choiceCost: {
-    color: '#fff',
-    fontSize: 12,
-    marginTop: 4,
-    opacity: 0.8,
-  },
-  resultsContainer: {
-    backgroundColor: '#fff',
-    padding: 25,
-    borderRadius: 15,
-    marginBottom: 20,
-  },
-  resultsTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 20,
-  },
-  finalStats: {
-    marginBottom: 20,
-  },
-  statRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  statLabel: {
-    fontSize: 16,
-    color: '#666',
-  },
-  statValue: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  scoreContainer: {
-    alignItems: 'center',
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
-  },
-  scoreLabel: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 10,
-  },
-  scoreValue: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  performanceText: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  playAgainButton: {
-    backgroundColor: '#007AFF',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 25,
-    alignSelf: 'center',
-  },
-  playAgainButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  persistentStats: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 15,
-    marginVertical: 15,
-  },
-  persistentStatsTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-});
+// Financial Statements Component
+const FinancialStatements: React.FC<{
+  current: FinancialSnapshot;
+  previous: FinancialSnapshot;
+  colors: any;
+}> = ({ current, previous, colors }) => {
+  const styles = StyleSheet.create({
+    financialCard: {
+      backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 16,
+      marginBottom: 16,
+    },
+    sectionTitle: {
+      fontSize: 18,
+      fontWeight: 'bold',
+      color: colors.text,
+      marginBottom: 12,
+    },
+    financialRow: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginBottom: 8,
+    },
+    financialLabel: {
+      fontSize: 14,
+      color: colors.textSecondary,
+    },
+    financialValue: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    oldValue: {
+      textDecorationLine: 'line-through',
+      color: colors.textSecondary,
+    },
+    newValue: {
+      fontWeight: 'bold',
+      color: colors.text,
+    },
+  });
+
+  const formatChange = (current: number, previous: number) => {
+    if (current === previous) {
+      return `$${current}`;
+    }
+    return (
+      <Text>
+        <Text style={styles.oldValue}>${previous}</Text>
+        {' '}
+        <Text style={styles.newValue}>${current}</Text>
+      </Text>
+    );
+  };
+
+  return (
+    <View>
+      {/* Income Statement */}
+      <View style={styles.financialCard}>
+        <Text style={styles.sectionTitle}>📊 Income Statement</Text>
+        <View style={styles.financialRow}>
+          <Text style={styles.financialLabel}>Revenue</Text>
+          <Text style={styles.financialValue}>
+            {formatChange(current.revenue, previous.revenue)}
+          </Text>
+        </View>
+        <View style={styles.financialRow}>
+          <Text style={styles.financialLabel}>Expenses</Text>
+          <Text style={styles.financialValue}>
+            {formatChange(current.expenses, previous.expenses)}
+          </Text>
+        </View>
+        <View style={styles.financialRow}>
+          <Text style={styles.financialLabel}>Net Income</Text>
+          <Text style={styles.financialValue}>
+            {formatChange(current.netIncome, previous.netIncome)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Balance Sheet */}
+      <View style={styles.financialCard}>
+        <Text style={styles.sectionTitle}>🏦 Balance Sheet</Text>
+        <View style={styles.financialRow}>
+          <Text style={styles.financialLabel}>Cash</Text>
+          <Text style={styles.financialValue}>
+            {formatChange(current.cash, previous.cash)}
+          </Text>
+        </View>
+        <View style={styles.financialRow}>
+          <Text style={styles.financialLabel}>Total Assets</Text>
+          <Text style={styles.financialValue}>
+            {formatChange(current.totalAssets, previous.totalAssets)}
+          </Text>
+        </View>
+        <View style={styles.financialRow}>
+          <Text style={styles.financialLabel}>Total Equity</Text>
+          <Text style={styles.financialValue}>
+            {formatChange(current.totalEquity, previous.totalEquity)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Key Metrics */}
+      <View style={styles.financialCard}>
+        <Text style={styles.sectionTitle}>📈 Key Metrics</Text>
+        <View style={styles.financialRow}>
+          <Text style={styles.financialLabel}>Employees</Text>
+          <Text style={styles.financialValue}>
+            {current.employees !== previous.employees ? (
+              <Text>
+                <Text style={styles.oldValue}>{previous.employees}</Text>
+                {' '}
+                <Text style={styles.newValue}>{current.employees}</Text>
+              </Text>
+            ) : (
+              current.employees
+            )}
+          </Text>
+        </View>
+        <View style={styles.financialRow}>
+          <Text style={styles.financialLabel}>Working Printers</Text>
+          <Text style={styles.financialValue}>
+            {current.workingPrinters !== previous.workingPrinters ? (
+              <Text>
+                <Text style={styles.oldValue}>{previous.workingPrinters}</Text>
+                {' '}
+                <Text style={styles.newValue}>{current.workingPrinters}</Text>
+              </Text>
+            ) : (
+              current.workingPrinters
+            )}
+          </Text>
+        </View>
+        <View style={styles.financialRow}>
+          <Text style={styles.financialLabel}>Materials Inventory</Text>
+          <Text style={styles.financialValue}>
+            {current.materialsInventory !== previous.materialsInventory ? (
+              <Text>
+                <Text style={styles.oldValue}>{previous.materialsInventory}</Text>
+                {' '}
+                <Text style={styles.newValue}>{current.materialsInventory}</Text>
+              </Text>
+            ) : (
+              current.materialsInventory
+            )}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};
