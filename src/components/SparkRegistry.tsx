@@ -9,6 +9,7 @@ import { BusinessSpark } from '../sparks/BusinessSpark';
 import { PackingListSpark } from '../sparks/PackingListSpark';
 import { TodoSpark } from '../sparks/TodoSpark';
 import { FoodCamSpark } from '../sparks/FoodCamSpark';
+import { SpanishFriendSpark } from '../sparks/SpanishFriendSpark';
 import styled from 'styled-components/native';
 
 const PlaceholderContainer = styled.View`
@@ -110,6 +111,19 @@ export const sparkRegistry: Record<string, BaseSpark> = {
       available: true,
     },
     component: FoodCamSpark,
+  },
+  'spanish-friend': {
+    metadata: {
+      id: 'spanish-friend',
+      title: 'Spanish Friend',
+      description: 'Practice Spanish pronunciation with audio greetings',
+      icon: '🇪🇸',
+      category: 'education',
+      difficulty: 'easy',
+      estimatedTime: 3,
+      available: true,
+    },
+    component: SpanishFriendSpark,
   },
 };
 

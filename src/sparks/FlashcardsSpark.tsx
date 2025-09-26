@@ -322,6 +322,7 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
   const [totalAsked, setTotalAsked] = useState(0);
   const [sessionActive, setSessionActive] = useState(false);
   const [seenCards, setSeenCards] = useState<Set<number>>(new Set()); // Track which cards we've already shown
+  const [audioSessionSet, setAudioSessionSet] = useState(false);
 
   // Animation values
   const celebrationAnimation = useRef(new Animated.Value(0)).current;
@@ -350,11 +351,35 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
     }
   }, [cards]);
 
+  // Initialize audio session on component mount
+  useEffect(() => {
+    setupAudioSession();
+  }, []);
 
+  // Setup audio session for iOS silent mode compatibility
+  const setupAudioSession = async () => {
+    try {
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        staysActiveInBackground: false,
+        playsInSilentModeIOS: true, // This is key for iOS silent mode
+        shouldDuckAndroid: true,
+        playThroughEarpieceAndroid: false,
+      });
+      setAudioSessionSet(true);
+    } catch (error) {
+      console.error('Audio session setup failed:', error);
+    }
+  };
 
   // Text-to-speech function
   const speakSpanish = async (text: string) => {
     try {
+      // Ensure audio session is set up
+      if (!audioSessionSet) {
+        await setupAudioSession();
+      }
+
       // Stop any current speech first
       const isSpeaking = await Speech.isSpeakingAsync();
       if (isSpeaking) {
@@ -362,7 +387,7 @@ export const FlashcardsSpark: React.FC<FlashcardsSparkProps> = ({
       }
 
       Speech.speak(text, {
-        language: 'es-ES',
+        language: 'es-ES', // Use Spain Spanish for more authentic accent
         rate: 0.6,
         pitch: 1.0,
         volume: 1.0,

@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
-import { File, Directory } from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
 import { useTheme } from '../contexts/ThemeContext';
@@ -99,22 +99,23 @@ export const FoodCamSpark: React.FC<FoodCamSparkProps> = ({
 
   const saveImagePermanently = async (tempUri: string, photoId: string): Promise<string> => {
     try {
-      // Create the FoodCam directory if it doesn't exist
-      const appDir = new Directory('app://');
-      const foodCamDir = appDir.validatePath('foodcam');
-      await foodCamDir.create();
+      // Create the FoodCam directory (intermediates: true creates it if it doesn't exist)
+      const foodCamDir = `${FileSystem.documentDirectory}foodcam/`;
+      await FileSystem.makeDirectoryAsync(foodCamDir, { intermediates: true });
 
       // Create permanent file path
       const fileExtension = tempUri.split('.').pop() || 'jpg';
       const fileName = `${photoId}.${fileExtension}`;
-      const permanentFile = foodCamDir.validatePath(fileName);
+      const permanentUri = `${foodCamDir}${fileName}`;
 
       // Copy the temporary file to permanent storage
-      const tempFile = new File(tempUri);
-      await tempFile.copy(permanentFile);
+      await FileSystem.copyAsync({
+        from: tempUri,
+        to: permanentUri,
+      });
 
-      console.log(`Saved image permanently: ${permanentFile.uri}`);
-      return permanentFile.uri;
+      console.log(`Saved image permanently: ${permanentUri}`);
+      return permanentUri;
     } catch (error) {
       console.error('Failed to save image permanently:', error);
       throw error;
@@ -249,8 +250,7 @@ export const FoodCamSpark: React.FC<FoodCamSparkProps> = ({
             // Try to delete the physical file
             if (photoToDelete?.uri) {
               try {
-                const fileToDelete = new File(photoToDelete.uri);
-                await fileToDelete.delete();
+                await FileSystem.deleteAsync(photoToDelete.uri, { idempotent: true });
               } catch (error) {
                 console.warn('Failed to delete physical file:', error);
               }
@@ -309,8 +309,7 @@ export const FoodCamSpark: React.FC<FoodCamSparkProps> = ({
 
             // Try to delete the physical file
             try {
-              const fileToDelete = new File(editingPhoto.uri);
-              await fileToDelete.delete();
+              await FileSystem.deleteAsync(editingPhoto.uri, { idempotent: true });
             } catch (error) {
               console.warn('Failed to delete physical file:', error);
             }

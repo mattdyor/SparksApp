@@ -26,8 +26,8 @@ function SparkSelectionScreen({ onBack, onSparkSelect }: {
   onSparkSelect: (sparkId: string) => void;
 }) {
   const sparks = [
-    { id: 'spinner', title: '🎡 Spinner', status: 'Available', available: true },
-    { id: 'flashcards', title: '🃏 Flashcards', status: 'Available', available: true },
+    { id: 'spinner', title: '🎡 Decision Spinner', status: 'Available', available: true },
+    { id: 'flashcards', title: '🃏 Spanish Flashcards', status: 'Available', available: true },
     { id: 'business', title: '💼 Business Sim', status: 'Available', available: true },
   ];
 

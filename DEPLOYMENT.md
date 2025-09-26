@@ -175,6 +175,8 @@ npm run build:all
 # Or build individually:
 npm run build:ios    # Same as: npx eas build --platform ios --profile production
 npm run build:android # Same as: npx eas build --platform android --profile production
+# not sure if this is handled by build all 
+ npm run build:web #this publishes it in /dist and is runnable at http://localhost:8080/
 ```
 
 #### 3. Submit to App Stores
