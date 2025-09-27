@@ -21,12 +21,12 @@ interface TimerState {
 }
 
 const defaultActivities: Activity[] = [
-  { id: '1', name: '20 Putts', duration: 8, order: 1 },
-  { id: '2', name: '15 Chips', duration: 8, order: 2 },
-  { id: '3', name: '15 Drives', duration: 7, order: 3 },
-  { id: '4', name: '20 Irons', duration: 7, order: 4 },
-  { id: '5', name: 'Drive to Course', duration: 15, order: 5 },
-  { id: '6', name: 'Make Coffee', duration: 5, order: 6 },
+  { id: '1', name: '⛳️ 20 Putts', duration: 8, order: 1 },
+  { id: '2', name: '⛳️ 15 Chips', duration: 8, order: 2 },
+  { id: '3', name: '🏌️‍♂️ 15 Drives', duration: 7, order: 3 },
+  { id: '4', name: '🏌️‍♂️ 20 Irons', duration: 7, order: 4 },
+  { id: '5', name: '🚙 Drive to Course', duration: 15, order: 5 },
+  { id: '6', name: '☕️ Make Coffee', duration: 5, order: 6 },
 ];
 
 // Circular Progress Component with proper countdown logic
@@ -39,12 +39,24 @@ const CircularProgress: React.FC<{
   const { colors } = useTheme();
 
   // For a countdown ring, we want to show the remaining time (1 - progress)
+  // So if we're 95% done, we want to show 5% of the ring (1 - 0.95 = 0.05)
   const remainingProgress = 1 - progress;
 
-  // Create overlapping circles to simulate proper circular progress
-  const createProgressRing = (percent: number) => {
-    if (percent <= 0) return null;
-    if (percent >= 1) {
+  // Debug logging to track the progress value
+  console.log(`CircularProgress: progress=${progress}, remainingProgress=${remainingProgress}`);
+
+  // Simple circular progress using your exact equation: (100% - % complete) * 360 degrees
+  const createProgressRing = (remainingPercent: number) => {
+    if (remainingPercent <= 0) return null;
+
+    // remainingPercent is already (1 - progress) = (100% - % complete)
+    // So degrees to show = remainingPercent * 360
+    const degrees = remainingPercent * 360;
+
+    // Debug logging to see what's happening
+    console.log(`createProgressRing: remainingPercent=${remainingPercent}, degrees=${degrees}`);
+
+    if (degrees >= 360) {
       // Full circle
       return (
         <View style={{
@@ -58,56 +70,50 @@ const CircularProgress: React.FC<{
       );
     }
 
-    // Partial circle - use clip mask approach
-
-    // For React Native, we'll approximate the circular progress using rotation
-    // Each segment represents roughly 90 degrees (quarter circle)
+    // Use a much simpler approach: create multiple quarter-circles
+    // and show only the ones we need, with proper rotation for partial quarters
     const segments = [];
 
-    // Calculate how many full segments to show (each = 25% = 0.25)
-    const fullSegments = Math.floor(percent / 0.25);
+    // Calculate full quarters (90-degree segments) to show
+    const fullQuarters = Math.floor(degrees / 90);
+    const remainingDegrees = degrees % 90;
 
-    // Calculate partial segment progress (0-1 for the current segment)
-    const partialProgress = (percent % 0.25) / 0.25;
-
-    // Show full segments first
-    for (let i = 0; i < fullSegments; i++) {
-      const rotation = i * 90 - 90; // Start from top (-90°), then right (0°), bottom (90°), left (180°)
+    // Add full quarter segments
+    for (let i = 0; i < fullQuarters; i++) {
       segments.push(
-        <View key={`segment-${i}`} style={{
-          position: 'absolute',
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          borderWidth: strokeWidth,
-          borderColor: 'transparent',
-          borderTopColor: colors.primary,
-          transform: [{ rotate: `${rotation}deg` }],
-        }} />
+        <View
+          key={`quarter-${i}`}
+          style={{
+            position: 'absolute',
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            borderWidth: strokeWidth,
+            borderColor: 'transparent',
+            borderTopColor: colors.primary,
+            transform: [{ rotate: `${-90 + (i * 90)}deg` }],
+          }}
+        />
       );
     }
 
-    // Show partial segment if there's remaining progress
-    if (partialProgress > 0 && fullSegments < 4) {
-      const rotation = fullSegments * 90 - 90;
-      const borderColors = ['borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor'];
-      const borderColor = borderColors[fullSegments] || 'borderTopColor';
-
-      const partialStyle: any = {
-        position: 'absolute',
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        borderWidth: strokeWidth,
-        borderColor: 'transparent',
-        transform: [{ rotate: `${rotation}deg` }],
-      };
-
-      // Apply the appropriate border color
-      partialStyle[borderColor] = colors.primary;
-
+    // Add partial quarter if there are remaining degrees
+    if (remainingDegrees > 0) {
       segments.push(
-        <View key="partial" style={partialStyle} />
+        <View
+          key="partial"
+          style={{
+            position: 'absolute',
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            borderWidth: strokeWidth,
+            borderColor: 'transparent',
+            borderTopColor: colors.primary,
+            transform: [{ rotate: `${-90 + (fullQuarters * 90)}deg` }],
+            // This will show a full 90-degree segment, but it's the best we can do with React Native borders
+          }}
+        />
       );
     }
 
