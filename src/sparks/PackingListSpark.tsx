@@ -3,6 +3,18 @@ import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert 
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
 import { useTheme } from '../contexts/ThemeContext';
+import {
+  SettingsContainer,
+  SettingsScrollView,
+  SettingsHeader,
+  SettingsSection,
+  SettingsInput,
+  SettingsButton,
+  SaveCancelButtons,
+  SettingsItem,
+  SettingsText,
+  SettingsRemoveButton
+} from '../components/SettingsComponents';
 
 interface PackingItem {
   id: number;
@@ -89,54 +101,10 @@ const PackingListSettings: React.FC<{
   };
 
   const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    scrollContainer: {
-      padding: 20,
-    },
-    header: {
-      alignItems: 'center',
-      marginBottom: 30,
-    },
-    title: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      color: colors.text,
-      marginBottom: 8,
-    },
-    subtitle: {
-      fontSize: 16,
-      color: colors.textSecondary,
-      textAlign: 'center',
-    },
-    addSection: {
-      backgroundColor: colors.surface,
-      padding: 20,
-      borderRadius: 12,
-      marginBottom: 20,
-    },
-    sectionTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: colors.text,
-      marginBottom: 15,
-    },
     addRow: {
       flexDirection: 'row',
       gap: 10,
       marginBottom: 15,
-    },
-    itemInput: {
-      flex: 1,
-      backgroundColor: colors.background,
-      borderColor: colors.border,
-      borderWidth: 1,
-      borderRadius: 8,
-      padding: 12,
-      fontSize: 16,
-      color: colors.text,
     },
     countInput: {
       width: 80,
@@ -148,30 +116,6 @@ const PackingListSettings: React.FC<{
       fontSize: 16,
       color: colors.text,
       textAlign: 'center',
-    },
-    addButton: {
-      backgroundColor: colors.primary,
-      padding: 12,
-      borderRadius: 8,
-      alignItems: 'center',
-    },
-    addButtonText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    itemsSection: {
-      backgroundColor: colors.surface,
-      padding: 20,
-      borderRadius: 12,
-      marginBottom: 20,
-    },
-    itemRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
     },
     itemInputInline: {
       flex: 1,
@@ -191,60 +135,21 @@ const PackingListSettings: React.FC<{
       textAlign: 'center',
       marginRight: 10,
     },
-    removeButton: {
-      backgroundColor: colors.error,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 6,
-    },
-    removeButtonText: {
-      color: '#fff',
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    buttonContainer: {
-      flexDirection: 'row',
-      gap: 12,
-    },
-    button: {
-      flex: 1,
-      padding: 16,
-      borderRadius: 8,
-      alignItems: 'center',
-    },
-    saveButton: {
-      backgroundColor: colors.primary,
-    },
-    cancelButton: {
-      backgroundColor: colors.border,
-    },
-    saveButtonText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    cancelButtonText: {
-      color: colors.text,
-      fontSize: 16,
-      fontWeight: '600',
-    },
   });
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.scrollContainer}>
-        <View style={styles.header}>
-          <Text style={styles.title}>⚙️ Packing List Settings</Text>
-          <Text style={styles.subtitle}>Manage your packing items</Text>
-        </View>
+    <SettingsContainer>
+      <SettingsScrollView>
+        <SettingsHeader
+          title="Packing List Settings"
+          subtitle="Manage your packing items"
+          icon="⚙️"
+        />
 
-        <View style={styles.addSection}>
-          <Text style={styles.sectionTitle}>Add New Item</Text>
+        <SettingsSection title="Add New Item">
           <View style={styles.addRow}>
-            <TextInput
-              style={styles.itemInput}
+            <SettingsInput
               placeholder="Item name"
-              placeholderTextColor={colors.textSecondary}
               value={newItem.item}
               onChangeText={(text) => setNewItem({ ...newItem, item: text })}
             />
@@ -257,15 +162,12 @@ const PackingListSettings: React.FC<{
               keyboardType="numeric"
             />
           </View>
-          <TouchableOpacity style={styles.addButton} onPress={addNewItem}>
-            <Text style={styles.addButtonText}>Add Item</Text>
-          </TouchableOpacity>
-        </View>
+          <SettingsButton title="Add Item" onPress={addNewItem} />
+        </SettingsSection>
 
-        <View style={styles.itemsSection}>
-          <Text style={styles.sectionTitle}>Your Items ({packingItems.length})</Text>
+        <SettingsSection title={`Your Items (${packingItems.length})`}>
           {packingItems.map((item) => (
-            <View key={item.id} style={styles.itemRow}>
+            <SettingsItem key={item.id}>
               <TextInput
                 style={styles.itemInputInline}
                 value={item.item}
@@ -277,26 +179,14 @@ const PackingListSettings: React.FC<{
                 onChangeText={(text) => updateItem(item.id, 'count', text)}
                 keyboardType="numeric"
               />
-              <TouchableOpacity 
-                style={styles.removeButton} 
-                onPress={() => removeItem(item.id)}
-              >
-                <Text style={styles.removeButtonText}>Remove</Text>
-              </TouchableOpacity>
-            </View>
+              <SettingsRemoveButton onPress={() => removeItem(item.id)} />
+            </SettingsItem>
           ))}
-        </View>
+        </SettingsSection>
 
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onClose}>
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={saveSettings}>
-            <Text style={styles.saveButtonText}>Save Changes</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </ScrollView>
+        <SaveCancelButtons onSave={saveSettings} onCancel={onClose} />
+      </SettingsScrollView>
+    </SettingsContainer>
   );
 };
 

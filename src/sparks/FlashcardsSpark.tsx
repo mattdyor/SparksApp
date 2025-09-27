@@ -5,6 +5,18 @@ import { setAudioModeAsync } from 'expo-audio';
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
 import { useTheme } from '../contexts/ThemeContext';
+import {
+  SettingsContainer,
+  SettingsScrollView,
+  SettingsHeader,
+  SettingsSection,
+  SettingsInput,
+  SettingsButton,
+  SaveCancelButtons,
+  SettingsItem,
+  SettingsText,
+  SettingsRemoveButton
+} from '../components/SettingsComponents';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -81,7 +93,6 @@ const FlashcardSettings: React.FC<{
   onSave: (cards: TranslationCard[]) => void;
   onClose: () => void;
 }> = ({ cards, onSave, onClose }) => {
-  const { colors } = useTheme();
   const [customCards, setCustomCards] = useState<TranslationCard[]>(cards);
   const [newCard, setNewCard] = useState<FlashcardSettings>({ english: '', spanish: '' });
 
@@ -120,175 +131,41 @@ const FlashcardSettings: React.FC<{
     onClose();
   };
 
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    scrollContainer: {
-      padding: 20,
-    },
-    header: {
-      alignItems: 'center',
-      marginBottom: 30,
-    },
-    title: {
-      fontSize: 28,
-      fontWeight: 'bold',
-      color: colors.text,
-      marginBottom: 8,
-    },
-    subtitle: {
-      fontSize: 16,
-      color: colors.textSecondary,
-      textAlign: 'center',
-    },
-    addSection: {
-      backgroundColor: colors.surface,
-      padding: 20,
-      borderRadius: 12,
-      marginBottom: 20,
-    },
-    sectionTitle: {
-      fontSize: 18,
-      fontWeight: '600',
-      color: colors.text,
-      marginBottom: 15,
-    },
-    input: {
-      backgroundColor: colors.background,
-      borderColor: colors.border,
-      borderWidth: 1,
-      borderRadius: 8,
-      padding: 12,
-      fontSize: 16,
-      color: colors.text,
-      marginBottom: 12,
-    },
-    addButton: {
-      backgroundColor: colors.primary,
-      padding: 12,
-      borderRadius: 8,
-      alignItems: 'center',
-    },
-    addButtonText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    cardsSection: {
-      backgroundColor: colors.surface,
-      padding: 20,
-      borderRadius: 12,
-      marginBottom: 20,
-    },
-    cardItem: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      paddingVertical: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    cardText: {
-      flex: 1,
-      fontSize: 14,
-      color: colors.text,
-    },
-    removeButton: {
-      backgroundColor: colors.error,
-      paddingHorizontal: 12,
-      paddingVertical: 6,
-      borderRadius: 6,
-      marginLeft: 10,
-    },
-    removeButtonText: {
-      color: '#fff',
-      fontSize: 12,
-      fontWeight: '600',
-    },
-    buttonContainer: {
-      flexDirection: 'row',
-      gap: 12,
-    },
-    button: {
-      flex: 1,
-      padding: 16,
-      borderRadius: 8,
-      alignItems: 'center',
-    },
-    saveButton: {
-      backgroundColor: colors.primary,
-    },
-    cancelButton: {
-      backgroundColor: colors.border,
-    },
-    saveButtonText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    cancelButtonText: {
-      color: colors.text,
-      fontSize: 16,
-      fontWeight: '600',
-    },
-  });
-
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.scrollContainer}>
-        <View style={styles.header}>
-          <Text style={styles.title}>⚙️ Flashcard Settings</Text>
-          <Text style={styles.subtitle}>Manage your English-Spanish phrases</Text>
-        </View>
+    <SettingsContainer>
+      <SettingsScrollView>
+        <SettingsHeader
+          title="Flashcard Settings"
+          subtitle="Manage your English-Spanish phrases"
+          icon="⚙️"
+        />
 
-        <View style={styles.addSection}>
-          <Text style={styles.sectionTitle}>Add New Phrase</Text>
-          <TextInput
-            style={styles.input}
+        <SettingsSection title="Add New Phrase">
+          <SettingsInput
             placeholder="English phrase"
-            placeholderTextColor={colors.textSecondary}
             value={newCard.english}
             onChangeText={(text) => setNewCard({ ...newCard, english: text })}
           />
-          <TextInput
-            style={styles.input}
+          <SettingsInput
             placeholder="Spanish translation"
-            placeholderTextColor={colors.textSecondary}
             value={newCard.spanish}
             onChangeText={(text) => setNewCard({ ...newCard, spanish: text })}
           />
-          <TouchableOpacity style={styles.addButton} onPress={addCustomCard}>
-            <Text style={styles.addButtonText}>Add Phrase</Text>
-          </TouchableOpacity>
-        </View>
+          <SettingsButton title="Add Phrase" onPress={addCustomCard} />
+        </SettingsSection>
 
-        <View style={styles.cardsSection}>
-          <Text style={styles.sectionTitle}>Your Phrases ({customCards.length})</Text>
+        <SettingsSection title={`Your Phrases (${customCards.length})`}>
           {customCards.map((card) => (
-            <View key={card.id} style={styles.cardItem}>
-              <Text style={styles.cardText}>{card.english} → {card.spanish}</Text>
-              <TouchableOpacity 
-                style={styles.removeButton} 
-                onPress={() => removeCard(card.id)}
-              >
-                <Text style={styles.removeButtonText}>Remove</Text>
-              </TouchableOpacity>
-            </View>
+            <SettingsItem key={card.id}>
+              <SettingsText>{card.english} → {card.spanish}</SettingsText>
+              <SettingsRemoveButton onPress={() => removeCard(card.id)} />
+            </SettingsItem>
           ))}
-        </View>
+        </SettingsSection>
 
-        <View style={styles.buttonContainer}>
-          <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onClose}>
-            <Text style={styles.cancelButtonText}>Cancel</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.button, styles.saveButton]} onPress={saveSettings}>
-            <Text style={styles.saveButtonText}>Save Changes</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </ScrollView>
+        <SaveCancelButtons onSave={saveSettings} onCancel={onClose} />
+      </SettingsScrollView>
+    </SettingsContainer>
   );
 };
 

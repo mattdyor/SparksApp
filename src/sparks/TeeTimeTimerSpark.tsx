@@ -705,17 +705,33 @@ export const TeeTimeTimerSpark: React.FC<TeeTimeTimerSparkProps> = ({
     if (savedData.activities && savedData.activities.length > 0) {
       setActivities(savedData.activities);
     }
+    // Load saved timer state
+    if (savedData.timerState) {
+      const savedTimerState = savedData.timerState;
+      setTimerState({
+        ...savedTimerState,
+        teeTime: savedTimerState.teeTime ? new Date(savedTimerState.teeTime) : null,
+        startTime: savedTimerState.startTime ? new Date(savedTimerState.startTime) : null,
+        completedActivities: new Set(savedTimerState.completedActivities || []),
+      });
+    }
   }, [getSparkData]);
 
-  // Save data whenever activities change
+  // Save data whenever activities or timer state change
   useEffect(() => {
     if (activities.length > 0) {
       setSparkData('tee-time-timer', {
         activities,
+        timerState: {
+          ...timerState,
+          teeTime: timerState.teeTime ? timerState.teeTime.toISOString() : null,
+          startTime: timerState.startTime ? timerState.startTime.toISOString() : null,
+          completedActivities: Array.from(timerState.completedActivities),
+        },
         lastUsed: new Date().toISOString(),
       });
     }
-  }, [activities, setSparkData]);
+  }, [activities, timerState, setSparkData]);
 
   // Timer logic
   useEffect(() => {

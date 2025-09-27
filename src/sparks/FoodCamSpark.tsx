@@ -10,6 +10,7 @@ import {
   Dimensions,
   Modal,
   TextInput,
+  Linking,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import * as MediaLibrary from 'expo-media-library';
@@ -17,6 +18,13 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
 import { useTheme } from '../contexts/ThemeContext';
+import {
+  SettingsContainer,
+  SettingsScrollView,
+  SettingsHeader,
+  SettingsSection,
+  SettingsButton,
+} from '../components/SettingsComponents';
 
 interface FoodPhoto {
   id: string;
@@ -44,7 +52,79 @@ interface FoodCamSparkProps {
 const { width } = Dimensions.get('window');
 const PHOTO_SIZE = (width - 60) / 3; // 3 columns with proper padding and gaps
 
+// Settings Component
+const FoodCamSettings: React.FC<{
+  onClose: () => void;
+}> = ({ onClose }) => {
+  const handleShareFeedback = async () => {
+    const subject = encodeURIComponent('FoodCam Feedback - Sparks App');
+    const body = encodeURIComponent(`Hi Matt,
+
+I'd like to share some feedback about FoodCam:
+
+[Please share your thoughts, suggestions, or issues here]
+
+Thanks!`);
+
+    const emailUrl = `mailto:matt@dyor.com?subject=${subject}&body=${body}`;
+
+    try {
+      const canOpen = await Linking.canOpenURL(emailUrl);
+      if (canOpen) {
+        await Linking.openURL(emailUrl);
+        HapticFeedback.success();
+      } else {
+        Alert.alert(
+          'Email Not Available',
+          'Please send your feedback to matt@dyor.com',
+          [
+            { text: 'OK', onPress: () => HapticFeedback.light() }
+          ]
+        );
+      }
+    } catch (error) {
+      Alert.alert(
+        'Error',
+        'Could not open email app. Please send feedback to matt@dyor.com',
+        [
+          { text: 'OK', onPress: () => HapticFeedback.light() }
+        ]
+      );
+    }
+  };
+
+  return (
+    <SettingsContainer>
+      <SettingsScrollView>
+        <SettingsHeader
+          title="FoodCam Settings"
+          subtitle="Manage your visual food diary preferences"
+          icon="📸"
+        />
+
+        <SettingsSection title="Feedback">
+          <SettingsButton
+            title="📧 Share Feedback"
+            onPress={handleShareFeedback}
+          />
+        </SettingsSection>
+
+        <SettingsSection title="About">
+          <View style={{ padding: 16, backgroundColor: 'transparent' }}>
+            <Text style={{ fontSize: 14, color: '#666', textAlign: 'center', lineHeight: 20 }}>
+              FoodCam helps you track your meals with visual photos.{'\n'}
+              Take photos, add details, and build your food diary.
+            </Text>
+          </View>
+        </SettingsSection>
+      </SettingsScrollView>
+    </SettingsContainer>
+  );
+};
+
 export const FoodCamSpark: React.FC<FoodCamSparkProps> = ({
+  showSettings = false,
+  onCloseSettings,
   onStateChange,
 }) => {
   const { getSparkData, setSparkData } = useSparkStore();
@@ -543,6 +623,14 @@ export const FoodCamSpark: React.FC<FoodCamSparkProps> = ({
       fontWeight: '600',
     },
   });
+
+  if (showSettings) {
+    return (
+      <FoodCamSettings
+        onClose={onCloseSettings || (() => {})}
+      />
+    );
+  }
 
   if (!hasPermissions) {
     return (

@@ -1,10 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, TextInput, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Speech from 'expo-speech';
 import { setAudioModeAsync } from 'expo-audio';
 import { useTheme } from '../contexts/ThemeContext';
 import { HapticFeedback } from '../utils/haptics';
+import {
+  SettingsContainer,
+  SettingsScrollView,
+  SettingsHeader,
+  SettingsSection,
+  SettingsInput,
+  SaveCancelButtons
+} from '../components/SettingsComponents';
 
 const STORAGE_KEY = 'spanish_friend_user_name';
 
@@ -33,40 +41,7 @@ const SpanishFriendSettings: React.FC<SpanishFriendSettingsProps> = ({
     }
   };
 
-  const settingsStyles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-      padding: 20,
-    },
-    header: {
-      alignItems: 'center',
-      marginTop: 40,
-      marginBottom: 40,
-    },
-    title: {
-      fontSize: 32,
-      fontWeight: 'bold',
-      color: colors.text,
-      marginBottom: 16,
-    },
-    subtitle: {
-      fontSize: 18,
-      color: colors.textSecondary,
-      textAlign: 'center',
-    },
-    scrollContent: {
-      flex: 1,
-    },
-    settingSection: {
-      marginBottom: 32,
-    },
-    settingLabel: {
-      fontSize: 20,
-      fontWeight: '600',
-      color: colors.text,
-      marginBottom: 16,
-    },
+  const styles = StyleSheet.create({
     modeButton: {
       backgroundColor: colors.surface,
       padding: 16,
@@ -86,15 +61,6 @@ const SpanishFriendSettings: React.FC<SpanishFriendSettingsProps> = ({
       fontWeight: '600',
       textAlign: 'center',
     },
-    nameInput: {
-      backgroundColor: colors.surface,
-      padding: 16,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-      color: colors.text,
-      fontSize: 18,
-    },
     voiceInfo: {
       fontSize: 16,
       color: colors.text,
@@ -106,102 +72,58 @@ const SpanishFriendSettings: React.FC<SpanishFriendSettingsProps> = ({
       textAlign: 'center',
       marginTop: 16,
     },
-    buttons: {
-      flexDirection: 'row',
-      gap: 12,
-      paddingTop: 20,
-      paddingBottom: 20,
-    },
-    cancelButton: {
-      flex: 1,
-      backgroundColor: colors.surface,
-      paddingVertical: 16,
-      borderRadius: 12,
-      alignItems: 'center',
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    cancelButtonText: {
-      color: colors.text,
-      fontSize: 18,
-      fontWeight: '600',
-    },
-    saveButton: {
-      flex: 1,
-      backgroundColor: colors.primary,
-      paddingVertical: 16,
-      borderRadius: 12,
-      alignItems: 'center',
-    },
-    saveButtonText: {
-      color: '#fff',
-      fontSize: 18,
-      fontWeight: '600',
-    },
   });
 
   return (
-    <View style={settingsStyles.container}>
-      <View style={settingsStyles.header}>
-        <Text style={settingsStyles.title}>Spanish Friend Settings</Text>
-        <Text style={settingsStyles.subtitle}>Customize your conversation experience</Text>
-      </View>
+    <SettingsContainer>
+      <SettingsScrollView>
+        <SettingsHeader
+          title="Spanish Friend Settings"
+          subtitle="Customize your conversation experience"
+        />
 
-      <ScrollView style={settingsStyles.scrollContent} showsVerticalScrollIndicator={false}>
-        <View style={settingsStyles.settingSection}>
-          <Text style={settingsStyles.settingLabel}>Conversation Mode</Text>
+        <SettingsSection title="Conversation Mode">
           <TouchableOpacity
             style={[
-              settingsStyles.modeButton,
-              editingMode === '1-friend' ? settingsStyles.modeButtonActive : settingsStyles.modeButtonInactive
+              styles.modeButton,
+              editingMode === '1-friend' ? styles.modeButtonActive : styles.modeButtonInactive
             ]}
             onPress={() => setEditingMode('1-friend')}
           >
-            <Text style={[settingsStyles.modeButtonText, { color: editingMode === '1-friend' ? colors.primary : colors.text }]}>
+            <Text style={[styles.modeButtonText, { color: editingMode === '1-friend' ? colors.primary : colors.text }]}>
               1 Amigo - Tú hablas, Ana responde
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
-              settingsStyles.modeButton,
-              editingMode === '2-friends' ? settingsStyles.modeButtonActive : settingsStyles.modeButtonInactive
+              styles.modeButton,
+              editingMode === '2-friends' ? styles.modeButtonActive : styles.modeButtonInactive
             ]}
             onPress={() => setEditingMode('2-friends')}
           >
-            <Text style={[settingsStyles.modeButtonText, { color: editingMode === '2-friends' ? colors.primary : colors.text }]}>
+            <Text style={[styles.modeButtonText, { color: editingMode === '2-friends' ? colors.primary : colors.text }]}>
               2 Amigos - Ana y Miguel hablan
             </Text>
           </TouchableOpacity>
-        </View>
+        </SettingsSection>
 
-        <View style={settingsStyles.settingSection}>
-          <Text style={settingsStyles.settingLabel}>Your Name</Text>
-          <TextInput
-            style={settingsStyles.nameInput}
+        <SettingsSection title="Your Name">
+          <SettingsInput
+            placeholder="Enter your name"
             value={editingName}
             onChangeText={setEditingName}
-            placeholder="Enter your name"
-            placeholderTextColor={colors.textSecondary}
           />
-        </View>
+        </SettingsSection>
 
-        <View style={settingsStyles.settingSection}>
-          <Text style={settingsStyles.settingLabel}>Voice Configuration</Text>
-          <Text style={settingsStyles.voiceInfo}>
+        <SettingsSection title="Voice Configuration">
+          <Text style={styles.voiceInfo}>
             Ana: 🇪🇸 España (Femenina){editingMode === '2-friends' ? `\n${editingName || 'Miguel'}: 🇲🇽 México (Masculina)` : ''}
           </Text>
-        </View>
-      </ScrollView>
+        </SettingsSection>
 
-      <View style={settingsStyles.buttons}>
-        <TouchableOpacity style={settingsStyles.cancelButton} onPress={onClose}>
-          <Text style={settingsStyles.cancelButtonText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={settingsStyles.saveButton} onPress={handleSave}>
-          <Text style={settingsStyles.saveButtonText}>Save</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+        <SaveCancelButtons onSave={handleSave} onCancel={onClose} />
+      </SettingsScrollView>
+    </SettingsContainer>
   );
 };
 
@@ -215,7 +137,6 @@ interface SpanishFriendSparkProps {
 export const SpanishFriendSpark: React.FC<SpanishFriendSparkProps> = ({
   showSettings = false,
   onCloseSettings,
-  onStateChange,
 }) => {
   const { colors } = useTheme();
   const [audioSessionSet, setAudioSessionSet] = useState(false);
@@ -224,6 +145,7 @@ export const SpanishFriendSpark: React.FC<SpanishFriendSparkProps> = ({
   const [userName, setUserName] = useState<string>('');
   const [showNameInput, setShowNameInput] = useState(false);
   const [nameInputText, setNameInputText] = useState('');
+  const [isLoadingName, setIsLoadingName] = useState(true);
 
   // Storage functions for user name
   const loadStoredName = async () => {
@@ -234,6 +156,8 @@ export const SpanishFriendSpark: React.FC<SpanishFriendSparkProps> = ({
       }
     } catch (error) {
       console.error('Error loading stored name:', error);
+    } finally {
+      setIsLoadingName(false);
     }
   };
 
@@ -316,20 +240,22 @@ export const SpanishFriendSpark: React.FC<SpanishFriendSparkProps> = ({
     loadStoredName();
   }, []);
 
-  // Check for name and play first phrase on component load
+  // Check for name and play first phrase after loading is complete
   useEffect(() => {
-    if (!userName) {
-      setShowNameInput(true);
-    } else {
-      // Auto-play first phrase when component loads and name is set
-      setTimeout(() => {
-        const firstPhrase = getConversation()[0];
-        if (conversationMode === '2-friends' || firstPhrase.speaker === 'friend1') {
-          speakSpanish(firstPhrase.spanish, firstPhrase.speaker as 'friend1' | 'friend2');
-        }
-      }, 500);
+    if (!isLoadingName) {
+      if (!userName) {
+        setShowNameInput(true);
+      } else {
+        // Auto-play first phrase when component loads and name is set
+        setTimeout(() => {
+          const firstPhrase = getConversation()[0];
+          if (conversationMode === '2-friends' || firstPhrase.speaker === 'friend1') {
+            speakSpanish(firstPhrase.spanish, firstPhrase.speaker as 'friend1' | 'friend2');
+          }
+        }, 500);
+      }
     }
-  }, [userName]);
+  }, [userName, conversationMode, isLoadingName]);
 
   const handleContinue = () => {
     const conversation = getConversation();
@@ -517,9 +443,13 @@ export const SpanishFriendSpark: React.FC<SpanishFriendSparkProps> = ({
     modalOverlay: {
       flex: 1,
       backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    },
+    modalScrollContainer: {
+      flex: 1,
       justifyContent: 'center',
       alignItems: 'center',
       padding: 20,
+      minHeight: '100%',
     },
     nameInputModal: {
       backgroundColor: colors.surface,
@@ -617,24 +547,34 @@ export const SpanishFriendSpark: React.FC<SpanishFriendSparkProps> = ({
 
       {/* Name Input Modal for First Visit */}
       <Modal visible={showNameInput} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.nameInputModal}>
-            <Text style={styles.modalTitle}>¡Bienvenido!</Text>
-            <Text style={styles.modalSubtitle}>Para personalizar tu experiencia, ¿cuál es tu nombre?</Text>
-            <TextInput
-              style={styles.modalNameInput}
-              value={nameInputText}
-              onChangeText={setNameInputText}
-              placeholder="Tu nombre"
-              placeholderTextColor={colors.textSecondary}
-              autoFocus
-              onSubmitEditing={handleNameSubmit}
-            />
-            <TouchableOpacity style={styles.modalSubmitButton} onPress={handleNameSubmit}>
-              <Text style={styles.modalSubmitText}>Comenzar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <ScrollView
+            contentContainerStyle={styles.modalScrollContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.nameInputModal}>
+              <Text style={styles.modalTitle}>¡Bienvenido!</Text>
+              <Text style={styles.modalSubtitle}>Para personalizar tu experiencia, ¿cuál es tu nombre?</Text>
+              <TextInput
+                style={styles.modalNameInput}
+                value={nameInputText}
+                onChangeText={setNameInputText}
+                placeholder="Tu nombre"
+                placeholderTextColor={colors.textSecondary}
+                autoFocus
+                onSubmitEditing={handleNameSubmit}
+                returnKeyType="done"
+              />
+              <TouchableOpacity style={styles.modalSubmitButton} onPress={handleNameSubmit}>
+                <Text style={styles.modalSubmitText}>Comenzar</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </View>
   );
