@@ -4,6 +4,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
 import { useTheme } from '../contexts/ThemeContext';
+import Svg, { Circle } from 'react-native-svg';
 
 interface Activity {
   id: string;
@@ -29,8 +30,8 @@ const defaultActivities: Activity[] = [
   { id: '6', name: '☕️ Make Coffee', duration: 5, order: 6 },
 ];
 
-// Circular Progress Component with proper countdown logic
-const CircularProgress: React.FC<{
+// SVG-based circular progress that works perfectly with exact degrees
+const TeeTimeCircularProgress: React.FC<{
   progress: number; // 0-1
   size: number;
   strokeWidth: number;
@@ -38,110 +39,60 @@ const CircularProgress: React.FC<{
 }> = ({ progress, size, strokeWidth, children }) => {
   const { colors } = useTheme();
 
-  // For a countdown ring, we want to show the remaining time (1 - progress)
-  // So if we're 95% done, we want to show 5% of the ring (1 - 0.95 = 0.05)
+  // Calculate remaining progress: (100% - % complete)
   const remainingProgress = 1 - progress;
 
-  // Debug logging to track the progress value
-  console.log(`CircularProgress: progress=${progress}, remainingProgress=${remainingProgress}`);
+  // SVG circle calculations
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
 
-  // Simple circular progress using your exact equation: (100% - % complete) * 360 degrees
-  const createProgressRing = (remainingPercent: number) => {
-    if (remainingPercent <= 0) return null;
-
-    // remainingPercent is already (1 - progress) = (100% - % complete)
-    // So degrees to show = remainingPercent * 360
-    const degrees = remainingPercent * 360;
-
-    // Debug logging to see what's happening
-    console.log(`createProgressRing: remainingPercent=${remainingPercent}, degrees=${degrees}`);
-
-    if (degrees >= 360) {
-      // Full circle
-      return (
-        <View style={{
-          position: 'absolute',
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          borderWidth: strokeWidth,
-          borderColor: colors.primary,
-        }} />
-      );
-    }
-
-    // Use a much simpler approach: create multiple quarter-circles
-    // and show only the ones we need, with proper rotation for partial quarters
-    const segments = [];
-
-    // Calculate full quarters (90-degree segments) to show
-    const fullQuarters = Math.floor(degrees / 90);
-    const remainingDegrees = degrees % 90;
-
-    // Add full quarter segments
-    for (let i = 0; i < fullQuarters; i++) {
-      segments.push(
-        <View
-          key={`quarter-${i}`}
-          style={{
-            position: 'absolute',
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            borderWidth: strokeWidth,
-            borderColor: 'transparent',
-            borderTopColor: colors.primary,
-            transform: [{ rotate: `${-90 + (i * 90)}deg` }],
-          }}
-        />
-      );
-    }
-
-    // Add partial quarter if there are remaining degrees
-    if (remainingDegrees > 0) {
-      segments.push(
-        <View
-          key="partial"
-          style={{
-            position: 'absolute',
-            width: size,
-            height: size,
-            borderRadius: size / 2,
-            borderWidth: strokeWidth,
-            borderColor: 'transparent',
-            borderTopColor: colors.primary,
-            transform: [{ rotate: `${-90 + (fullQuarters * 90)}deg` }],
-            // This will show a full 90-degree segment, but it's the best we can do with React Native borders
-          }}
-        />
-      );
-    }
-
-    return <>{segments}</>;
-  };
+  // Calculate stroke dash offset for countdown
+  // When progress = 0 (0% done), remainingProgress = 1 (show full circle)
+  // When progress = 1 (100% done), remainingProgress = 0 (show no circle)
+  const strokeDashoffset = circumference * (1 - remainingProgress);
 
   return (
     <View style={{
       width: size,
       height: size,
-      justifyContent: 'center',
-      alignItems: 'center',
       position: 'relative',
+      justifyContent: 'center',
+      alignItems: 'center'
     }}>
-      {/* Background circle */}
+      {/* SVG Circular Progress */}
+      <Svg width={size} height={size} style={{ position: 'absolute' }}>
+        {/* Background circle */}
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={colors.border}
+          strokeWidth={strokeWidth}
+          fill="transparent"
+        />
+
+        {/* Progress circle */}
+        <Circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          stroke={colors.primary}
+          strokeWidth={strokeWidth}
+          fill="transparent"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`} // Start from top
+        />
+      </Svg>
+
+      {/* Custom children overlay */}
       <View style={{
-        position: 'absolute',
-        width: size,
-        height: size,
-        borderRadius: size / 2,
-        borderWidth: strokeWidth,
-        borderColor: colors.border,
-      }} />
-
-      {/* Progress ring */}
-      {createProgressRing(remainingProgress)}
-
-      {children}
+        justifyContent: 'center',
+        alignItems: 'center',
+      }}>
+        {children}
+      </View>
     </View>
   );
 };
@@ -1247,7 +1198,7 @@ export const TeeTimeTimerSpark: React.FC<TeeTimeTimerSparkProps> = ({
 
           <View style={styles.timerSection}>
             <View style={styles.progressContainer}>
-              <CircularProgress
+              <TeeTimeCircularProgress
                 progress={getOverallProgress()}
                 size={200}
                 strokeWidth={12}
@@ -1264,7 +1215,7 @@ export const TeeTimeTimerSpark: React.FC<TeeTimeTimerSparkProps> = ({
                     {Math.round(getOverallProgress() * 100)}% done
                   </Text>
                 </View>
-              </CircularProgress>
+              </TeeTimeCircularProgress>
             </View>
           </View>
 
