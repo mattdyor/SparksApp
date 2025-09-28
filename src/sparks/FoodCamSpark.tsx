@@ -166,8 +166,15 @@ export const FoodCamSpark: React.FC<FoodCamSparkProps> = ({
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    const todayStr = today.toISOString().split('T')[0];
-    const yesterdayStr = yesterday.toISOString().split('T')[0];
+    // Use local date formatting for comparison instead of UTC
+    const formatLocalDate = (d: Date) => {
+      return d.getFullYear() + '-' + 
+        String(d.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(d.getDate()).padStart(2, '0');
+    };
+
+    const todayStr = formatLocalDate(today);
+    const yesterdayStr = formatLocalDate(yesterday);
 
     if (dateString === todayStr) return 'Today';
     if (dateString === yesterdayStr) return 'Yesterday';
@@ -186,7 +193,10 @@ export const FoodCamSpark: React.FC<FoodCamSparkProps> = ({
       const asset = result.assets[0];
       const now = new Date();
       const timestamp = now.getTime();
-      const date = now.toISOString().split('T')[0];
+      // Use local date instead of UTC to avoid timezone issues
+      const date = now.getFullYear() + '-' + 
+        String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+        String(now.getDate()).padStart(2, '0');
       const photoId = generatePhotoId();
 
       try {

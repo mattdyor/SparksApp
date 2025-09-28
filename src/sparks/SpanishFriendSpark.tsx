@@ -91,7 +91,7 @@ const SpanishFriendSettings: React.FC<SpanishFriendSettingsProps> = ({
             onPress={() => setEditingMode('1-friend')}
           >
             <Text style={[styles.modeButtonText, { color: editingMode === '1-friend' ? colors.primary : colors.text }]}>
-              1 Amigo - Tú hablas, Ana responde
+              1 Amigo - Tú hablas, Avery responde
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -102,7 +102,7 @@ const SpanishFriendSettings: React.FC<SpanishFriendSettingsProps> = ({
             onPress={() => setEditingMode('2-friends')}
           >
             <Text style={[styles.modeButtonText, { color: editingMode === '2-friends' ? colors.primary : colors.text }]}>
-              2 Amigos - Ana y Miguel hablan
+              2 Amigos - Avery y Isaac hablan
             </Text>
           </TouchableOpacity>
         </SettingsSection>
@@ -117,7 +117,7 @@ const SpanishFriendSettings: React.FC<SpanishFriendSettingsProps> = ({
 
         <SettingsSection title="Voice Configuration">
           <Text style={styles.voiceInfo}>
-            Ana: 🇪🇸 España (Femenina){editingMode === '2-friends' ? `\n${editingName || 'Miguel'}: 🇲🇽 México (Masculina)` : ''}
+            Avery: 🇪🇸 España (Femenina){editingMode === '2-friends' ? `\n${editingName || 'Isaac'}: 🇲🇽 México (Masculina)` : ''}
           </Text>
         </SettingsSection>
 
@@ -171,7 +171,7 @@ export const SpanishFriendSpark: React.FC<SpanishFriendSparkProps> = ({
 
   // Beach planning conversation - function to get conversation with dynamic name
   const getConversation = () => [
-    { spanish: `¡Hola ${userName || 'Miguel'}! ¿Qué tal tu día?`, english: `Hi ${userName || 'Miguel'}! How's your day?`, speaker: 'friend1' },
+    { spanish: `¡Hola ${userName || 'Isaac'}! ¿Qué tal tu día?`, english: `Hi ${userName || 'Isaac'}! How's your day?`, speaker: 'friend1' },
     { spanish: "¡Muy bien! Hace mucho calor hoy.", english: "Very good! It's so hot today.", speaker: 'friend2' },
     { spanish: "¡Exacto! ¿Te apetece ir a la playa?", english: "Exactly! Do you feel like going to the beach?", speaker: 'friend1' },
     { spanish: "¡Me encanta la idea! ¿A qué hora vamos?", english: "I love the idea! What time should we go?", speaker: 'friend2' },
@@ -209,7 +209,7 @@ export const SpanishFriendSpark: React.FC<SpanishFriendSparkProps> = ({
         Speech.stop();
       }
 
-      // Ana (friend1) uses female voice (Spain Spanish), Miguel (friend2) uses male voice (Mexico Spanish)
+      // Avery (friend1) uses female voice (Spain Spanish), Isaac (friend2) uses male voice (Mexico Spanish)
       const voiceSettings = speaker === 'friend1'
         ? { language: 'es-ES', pitch: 1.1, rate: 0.7 } // Female - Spain Spanish, higher pitch
         : { language: 'es-MX', pitch: 0.8, rate: 0.7 }; // Male - Mexico Spanish, lower pitch
@@ -267,7 +267,7 @@ export const SpanishFriendSpark: React.FC<SpanishFriendSparkProps> = ({
       // In 2-friends mode, phone speaks with different voices for each character
       speakSpanish(nextPhrase.spanish, nextPhrase.speaker as 'friend1' | 'friend2');
     }
-    // In 1-friend mode, only phone speaks for friend1 (Ana), user speaks for friend2 (Miguel)
+    // In 1-friend mode, only phone speaks for friend1 (Avery), user speaks for friend2 (Isaac)
     else if (nextPhrase.speaker === 'friend1') {
       speakSpanish(nextPhrase.spanish, 'friend1');
     }
@@ -288,11 +288,11 @@ export const SpanishFriendSpark: React.FC<SpanishFriendSparkProps> = ({
 
   const getCurrentSpeakerInfo = () => {
     const currentPhrase = getCurrentPhrase();
-    const displayName = userName || 'Miguel';
+    const displayName = userName || 'Isaac';
     if (conversationMode === '1-friend') {
-      return currentPhrase.speaker === 'friend1' ? 'Ana (Phone)' : `${displayName} (Tú)`;
+      return currentPhrase.speaker === 'friend1' ? 'Avery (Phone)' : `${displayName} (Tú)`;
     } else {
-      return currentPhrase.speaker === 'friend1' ? 'Ana' : displayName;
+      return currentPhrase.speaker === 'friend1' ? 'Avery' : displayName;
     }
   };
 
@@ -518,7 +518,7 @@ export const SpanishFriendSpark: React.FC<SpanishFriendSparkProps> = ({
 
       <View style={styles.header}>
         <Text style={styles.title}>Spanish Friend</Text>
-        <Text style={styles.subtitle}>Ana y Miguel planean ir a la playa</Text>
+        <Text style={styles.subtitle}>Avery y Isaac planean ir a la playa</Text>
       </View>
 
       <View style={styles.greetingContainer}>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Dimensions, TextInput, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Dimensions, TextInput } from 'react-native';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
 import { useSparkStore } from '../store';
@@ -59,249 +59,7 @@ const SoundboardSettings: React.FC<{
 }> = ({ soundChips, onSave, onClose }) => {
   const { colors } = useTheme();
   const [editingSoundChips, setEditingSoundChips] = useState<SoundChip[]>([...soundChips]);
-  const [recordingState, setRecordingState] = useState<RecordingState>('ready');
-  const [countdown, setCountdown] = useState(3);
-  const [recordingCountdown, setRecordingCountdown] = useState(10);
-  const [recording, setRecording] = useState<Audio.Recording | null>(null);
-  const [recordedUri, setRecordedUri] = useState<string | null>(null);
-  const [recordedDuration, setRecordedDuration] = useState<number>(0);
-  const [newSoundName, setNewSoundName] = useState('');
-  const [sound, setSound] = useState<Audio.Sound | null>(null);
 
-  const countdownRef = useRef<NodeJS.Timeout | null>(null);
-  const recordingRef = useRef<NodeJS.Timeout | null>(null);
-
-  useEffect(() => {
-    return () => {
-      if (countdownRef.current) clearInterval(countdownRef.current);
-      if (recordingRef.current) clearInterval(recordingRef.current);
-      if (sound) sound.unloadAsync();
-      if (recording) recording.stopAndUnloadAsync();
-    };
-  }, []);
-
-  const setupAudioMode = async (forRecording = false) => {
-    try {
-      await Audio.requestPermissionsAsync();
-
-      if (forRecording) {
-        // Audio mode for recording
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: true,
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: false,
-          shouldDuckAndroid: true,
-          playThroughEarpieceAndroid: false,
-        });
-      } else {
-        // Audio mode for playback - fixes quiet volume issue
-        await Audio.setAudioModeAsync({
-          allowsRecordingIOS: false, // Critical for proper playback volume
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: false,
-          shouldDuckAndroid: false,
-          playThroughEarpieceAndroid: false,
-        });
-      }
-    } catch (error) {
-      console.error('Failed to setup audio mode:', error);
-    }
-  };
-
-  const startRecording = async () => {
-    try {
-      // Clean up any existing recording first
-      if (recording) {
-        try {
-          await recording.stopAndUnloadAsync();
-        } catch (error) {
-          console.warn('Failed to cleanup existing recording:', error);
-        }
-        setRecording(null);
-      }
-
-      await setupAudioMode(true); // Setup for recording
-
-      setRecordingState('countdown');
-      setCountdown(3);
-
-      countdownRef.current = setInterval(() => {
-        setCountdown((prev) => {
-          if (prev <= 1) {
-            if (countdownRef.current) clearInterval(countdownRef.current);
-            beginRecording();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } catch (error) {
-      console.error('Failed to start recording:', error);
-      Alert.alert('Error', 'Failed to start recording. Please check microphone permissions.');
-      setRecordingState('ready');
-    }
-  };
-
-  const beginRecording = async () => {
-    try {
-      // Clean up any existing recording first
-      if (recording) {
-        try {
-          await recording.stopAndUnloadAsync();
-        } catch (error) {
-          console.warn('Failed to cleanup existing recording:', error);
-        }
-        setRecording(null);
-      }
-
-      const recordingOptions = {
-        ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
-        android: {
-          ...Audio.RecordingOptionsPresets.HIGH_QUALITY.android,
-          numberOfChannels: 1, // Mono for better gain
-          bitRate: 128000,
-        },
-        ios: {
-          ...Audio.RecordingOptionsPresets.HIGH_QUALITY.ios,
-          numberOfChannels: 1, // Mono for better gain
-          bitRate: 128000,
-        },
-        web: {
-          mimeType: 'audio/webm',
-          bitsPerSecond: 128000,
-        },
-      };
-
-      const { recording: newRecording } = await Audio.Recording.createAsync(recordingOptions);
-
-      setRecording(newRecording);
-      setRecordingState('recording');
-      setRecordingCountdown(10);
-
-      recordingRef.current = setInterval(() => {
-        setRecordingCountdown((prev) => {
-          if (prev <= 1) {
-            stopRecording();
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    } catch (error) {
-      console.error('Failed to begin recording:', error);
-      Alert.alert('Error', 'Failed to start recording.');
-      setRecordingState('ready');
-    }
-  };
-
-  const stopRecording = async () => {
-    try {
-      if (recordingRef.current) {
-        clearInterval(recordingRef.current);
-      }
-
-      if (recording) {
-        // Get status BEFORE stopping to capture duration
-        const status = await recording.getStatusAsync();
-        const actualDuration = status.durationMillis ? status.durationMillis / 1000 : 0;
-
-        await recording.stopAndUnloadAsync();
-        const uri = recording.getURI();
-
-        console.log('Recording status:', status);
-        console.log('Duration in ms:', status.durationMillis);
-        console.log('Calculated duration:', actualDuration);
-
-        setRecordedUri(uri);
-        setRecordedDuration(actualDuration);
-        setRecordingState('recorded');
-        setRecording(null);
-      }
-    } catch (error) {
-      console.error('Failed to stop recording:', error);
-      Alert.alert('Error', 'Failed to stop recording.');
-      setRecordingState('ready');
-    }
-  };
-
-  const playRecordedSound = async () => {
-    try {
-      if (recordedUri) {
-        // Setup audio mode for playback (fixes quiet volume)
-        await setupAudioMode(false);
-
-        if (sound) {
-          await sound.unloadAsync();
-        }
-
-        const { sound: newSound } = await Audio.Sound.createAsync({ uri: recordedUri });
-        setSound(newSound);
-        await newSound.playAsync();
-        HapticFeedback.light();
-      }
-    } catch (error) {
-      console.error('Failed to play sound:', error);
-    }
-  };
-
-  const saveRecording = async () => {
-    if (!recordedUri || !newSoundName.trim()) {
-      Alert.alert('Error', 'Please enter a name for your sound.');
-      return;
-    }
-
-    try {
-      const { category, displayText } = parseTaskText(newSoundName.trim());
-      const id = Date.now().toString();
-      const fileName = `sound_${Date.now()}_${id}.m4a`;
-      const newPath = `${FileSystem.documentDirectory}${fileName}`;
-
-      await FileSystem.copyAsync({
-        from: recordedUri,
-        to: newPath,
-      });
-
-      const newSoundChip: SoundChip = {
-        id,
-        name: newSoundName.trim(),
-        displayName: displayText,
-        category,
-        duration: recordedDuration,
-        filePath: newPath,
-        createdDate: new Date().toISOString(),
-        playCount: 0,
-      };
-
-      setEditingSoundChips([...editingSoundChips, newSoundChip]);
-
-      // Reset recording state
-      setRecordingState('ready');
-      setRecordedUri(null);
-      setNewSoundName('');
-      setRecordedDuration(0);
-
-      HapticFeedback.success();
-    } catch (error) {
-      console.error('Failed to save recording:', error);
-      Alert.alert('Error', 'Failed to save recording.');
-    }
-  };
-
-  const discardRecording = () => {
-    setRecordingState('ready');
-    setRecordedUri(null);
-    setNewSoundName('');
-    setRecordedDuration(0);
-    if (sound) {
-      sound.unloadAsync();
-      setSound(null);
-    }
-  };
-
-  const reRecord = () => {
-    discardRecording();
-    startRecording();
-  };
 
   const deleteSoundChip = async (id: string) => {
     const chipToDelete = editingSoundChips.find(chip => chip.id === id);
@@ -340,224 +98,14 @@ const SoundboardSettings: React.FC<{
     onClose();
   };
 
-  const renderRecordingInterface = () => {
-    const styles = StyleSheet.create({
-      recordingContainer: {
-        backgroundColor: colors.surface,
-        padding: 20,
-        borderRadius: 12,
-        alignItems: 'center',
-        marginBottom: 20,
-      },
-      recordButton: {
-        backgroundColor: colors.primary,
-        paddingHorizontal: 30,
-        paddingVertical: 15,
-        borderRadius: 25,
-        marginBottom: 20,
-      },
-      recordButtonText: {
-        color: '#fff',
-        fontSize: 18,
-        fontWeight: '600',
-      },
-      countdownText: {
-        fontSize: 48,
-        fontWeight: 'bold',
-        color: colors.primary,
-        marginBottom: 10,
-      },
-      recordingIndicator: {
-        backgroundColor: '#FF3B30',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 20,
-        marginBottom: 10,
-      },
-      recordingText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-      },
-      stopButton: {
-        backgroundColor: '#FF3B30',
-        paddingHorizontal: 20,
-        paddingVertical: 10,
-        borderRadius: 20,
-        marginTop: 10,
-      },
-      stopButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-      },
-      previewContainer: {
-        alignItems: 'center',
-      },
-      previewText: {
-        fontSize: 16,
-        color: colors.text,
-        marginBottom: 15,
-        textAlign: 'center',
-      },
-      playbackControls: {
-        flexDirection: 'row',
-        gap: 10,
-        marginBottom: 20,
-      },
-      playButton: {
-        flex: 1,
-        backgroundColor: colors.primary,
-        paddingHorizontal: 15,
-        paddingVertical: 12,
-        borderRadius: 10,
-        alignItems: 'center',
-      },
-      playButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-      },
-      categoryHelpText: {
-        fontSize: 12,
-        color: colors.textSecondary,
-        textAlign: 'center',
-        marginTop: 8,
-        marginBottom: 20,
-        lineHeight: 16,
-      },
-      actionButtons: {
-        flexDirection: 'row',
-        gap: 10,
-        marginTop: 10,
-      },
-      actionButton: {
-        flex: 1,
-        paddingVertical: 12,
-        paddingHorizontal: 15,
-        borderRadius: 10,
-        alignItems: 'center',
-      },
-      saveButton: {
-        backgroundColor: colors.success,
-      },
-      discardButton: {
-        backgroundColor: colors.error,
-      },
-      reRecordButton: {
-        flex: 1,
-        backgroundColor: colors.border,
-        paddingHorizontal: 15,
-        paddingVertical: 12,
-        borderRadius: 10,
-        alignItems: 'center',
-      },
-      actionButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-      },
-      reRecordButtonText: {
-        color: colors.text,
-        fontSize: 14,
-        fontWeight: '600',
-      },
-    });
-
-    switch (recordingState) {
-      case 'ready':
-        return (
-          <View style={styles.recordingContainer}>
-            <TouchableOpacity style={styles.recordButton} onPress={startRecording}>
-              <Text style={styles.recordButtonText}>🎤 Record New Sound</Text>
-            </TouchableOpacity>
-          </View>
-        );
-
-      case 'countdown':
-        return (
-          <View style={styles.recordingContainer}>
-            <Text style={styles.countdownText}>{countdown}</Text>
-            <Text style={styles.previewText}>Get ready to record...</Text>
-          </View>
-        );
-
-      case 'recording':
-        return (
-          <View style={styles.recordingContainer}>
-            <View style={styles.recordingIndicator}>
-              <Text style={styles.recordingText}>● Recording</Text>
-            </View>
-            <Text style={styles.countdownText}>{recordingCountdown}</Text>
-            <TouchableOpacity style={styles.stopButton} onPress={stopRecording}>
-              <Text style={styles.stopButtonText}>Stop</Text>
-            </TouchableOpacity>
-          </View>
-        );
-
-      case 'recorded':
-        return (
-          <View style={styles.recordingContainer}>
-            <View style={styles.previewContainer}>
-              <Text style={styles.previewText}>
-                Recording complete! Duration: {recordedDuration.toFixed(1)}s
-              </Text>
-
-              <View style={styles.playbackControls}>
-                <TouchableOpacity style={styles.playButton} onPress={playRecordedSound}>
-                  <Text style={styles.playButtonText}>▶ Play</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.reRecordButton} onPress={reRecord}>
-                  <Text style={styles.reRecordButtonText}>Re-record</Text>
-                </TouchableOpacity>
-              </View>
-
-              <SettingsInput
-                placeholder="Enter sound name (e.g., 'Golf: Get in your hole')"
-                value={newSoundName}
-                onChangeText={setNewSoundName}
-              />
-
-              <Text style={styles.categoryHelpText}>
-                {newSoundName.trim() ? (
-                  (() => {
-                    const { category, displayText } = parseTaskText(newSoundName.trim());
-                    return `Category: ${category} • Display: "${displayText}"`;
-                  })()
-                ) : (
-                  "Use format 'Category: Sound Name' to organize sounds into categories"
-                )}
-              </Text>
-
-              <View style={styles.actionButtons}>
-                <TouchableOpacity style={[styles.actionButton, styles.discardButton]} onPress={discardRecording}>
-                  <Text style={styles.actionButtonText}>Discard</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.actionButton, styles.saveButton]} onPress={saveRecording}>
-                  <Text style={styles.actionButtonText}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        );
-
-      default:
-        return null;
-    }
-  };
-
   return (
     <SettingsContainer>
       <SettingsScrollView>
         <SettingsHeader
           title="Soundboard Settings"
-          subtitle="Record and manage your sound collection"
+          subtitle="Manage your sound collection"
           icon="🎛️"
         />
-
-        <SettingsSection title="Record New Sound">
-          {renderRecordingInterface()}
-        </SettingsSection>
 
         <SettingsSection title={`Your Sounds (${editingSoundChips.length})`}>
           {editingSoundChips.length === 0 ? (
@@ -591,14 +139,12 @@ interface SoundboardSparkProps {
   showSettings?: boolean;
   onCloseSettings?: () => void;
   onStateChange?: (state: any) => void;
-  onComplete?: (result: any) => void;
 }
 
 export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
   showSettings = false,
   onCloseSettings,
-  onStateChange,
-  onComplete
+  onStateChange
 }) => {
   const { getSparkData, setSparkData } = useSparkStore();
   const { colors } = useTheme();
@@ -616,20 +162,66 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
   const [recordedUri, setRecordedUri] = useState<string | null>(null);
   const [recordedDuration, setRecordedDuration] = useState<number>(0);
   const [newSoundName, setNewSoundName] = useState('');
-  const [showRecordingModal, setShowRecordingModal] = useState(false);
 
   const countdownRef = useRef<NodeJS.Timeout | null>(null);
   const recordingRef = useRef<NodeJS.Timeout | null>(null);
+  const recordingObjectRef = useRef<Audio.Recording | null>(null);
 
-  // Cleanup on unmount
+  // Cleanup on unmount and when recording changes
   useEffect(() => {
     return () => {
       if (countdownRef.current) clearInterval(countdownRef.current);
       if (recordingRef.current) clearInterval(recordingRef.current);
-      if (sound) sound.unloadAsync();
-      if (recording) recording.stopAndUnloadAsync();
+      if (sound) {
+        sound.unloadAsync().catch(console.warn);
+      }
+      if (recording || recordingObjectRef.current) {
+        const currentRecording = recordingObjectRef.current || recording;
+        if (currentRecording) {
+          currentRecording.stopAndUnloadAsync().catch(console.warn);
+        }
+      }
     };
   }, []);
+
+
+  const cleanupAllRecordings = async () => {
+    try {
+      // Clear any timers
+      if (countdownRef.current) {
+        clearInterval(countdownRef.current);
+        countdownRef.current = null;
+      }
+      if (recordingRef.current) {
+        clearInterval(recordingRef.current);
+        recordingRef.current = null;
+      }
+
+      // Stop and cleanup current recording
+      if (recording || recordingObjectRef.current) {
+        try {
+          const currentRecording = recordingObjectRef.current || recording;
+          if (currentRecording) {
+            await currentRecording.stopAndUnloadAsync();
+          }
+        } catch (error) {
+          console.warn('Failed to stop existing recording:', error);
+        }
+        setRecording(null);
+        recordingObjectRef.current = null;
+      }
+
+      // Reset all recording state
+      setRecordingState('ready');
+      setRecordedUri(null);
+      setNewSoundName('');
+      setRecordedDuration(0);
+      setCountdown(3);
+      setRecordingCountdown(10);
+    } catch (error) {
+      console.warn('Failed to cleanup recordings:', error);
+    }
+  };
 
   const setupAudioMode = async (forRecording = false) => {
     try {
@@ -659,15 +251,11 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
 
   const startRecording = async () => {
     try {
-      // Clean up any existing recording first
-      if (recording) {
-        try {
-          await recording.stopAndUnloadAsync();
-        } catch (error) {
-          console.warn('Failed to cleanup existing recording:', error);
-        }
-        setRecording(null);
-      }
+      // Comprehensive cleanup first
+      await cleanupAllRecordings();
+
+      // Add a delay to ensure cleanup is complete
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       await setupAudioMode(true);
       setRecordingState('countdown');
@@ -676,6 +264,10 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
       countdownRef.current = setInterval(() => {
         setCountdown((prev) => {
           if (prev <= 1) {
+            if (countdownRef.current) {
+              clearInterval(countdownRef.current);
+              countdownRef.current = null;
+            }
             beginRecording();
             return 0;
           }
@@ -690,7 +282,15 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
 
   const beginRecording = async () => {
     try {
-      // Clean up any existing recording first
+      // Prevent multiple simultaneous calls
+      if (recordingState === 'recording') {
+        console.log('Recording already in progress, skipping');
+        return;
+      }
+
+      console.log('Starting beginRecording...');
+
+      // Ensure we're starting from a clean state
       if (recording) {
         try {
           await recording.stopAndUnloadAsync();
@@ -699,6 +299,9 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
         }
         setRecording(null);
       }
+
+      // Add a delay to ensure cleanup is complete
+      await new Promise(resolve => setTimeout(resolve, 200));
 
       const recordingOptions = {
         ...Audio.RecordingOptionsPresets.HIGH_QUALITY,
@@ -718,20 +321,32 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
         },
       };
 
+      console.log('Attempting to create recording...');
       const { recording: newRecording } = await Audio.Recording.createAsync(recordingOptions);
+      console.log('Recording created successfully');
+
       setRecording(newRecording);
+      recordingObjectRef.current = newRecording;
       setRecordingState('recording');
       setRecordingCountdown(10);
 
+      console.log('Setting up recording countdown timer...');
       recordingRef.current = setInterval(() => {
         setRecordingCountdown((prev) => {
+          console.log(`Recording countdown: ${prev}`);
           if (prev <= 1) {
+            console.log('Auto-stopping recording after countdown');
+            if (recordingRef.current) {
+              clearInterval(recordingRef.current);
+              recordingRef.current = null;
+            }
             stopRecording();
             return 0;
           }
           return prev - 1;
         });
       }, 1000);
+      console.log('Recording countdown timer started');
     } catch (error) {
       console.error('Failed to begin recording:', error);
       Alert.alert('Error', 'Failed to start recording.');
@@ -741,21 +356,31 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
 
   const stopRecording = async () => {
     try {
+      console.log('Stopping recording...');
       if (recordingRef.current) {
         clearInterval(recordingRef.current);
+        recordingRef.current = null;
       }
 
-      if (recording) {
-        const status = await recording.getStatusAsync();
+      const currentRecording = recordingObjectRef.current || recording;
+      if (currentRecording) {
+        console.log('Getting recording status...');
+        const status = await currentRecording.getStatusAsync();
         const actualDuration = status.durationMillis ? status.durationMillis / 1000 : 0;
+        console.log(`Recording duration: ${actualDuration}s`);
 
-        await recording.stopAndUnloadAsync();
-        const uri = recording.getURI();
+        console.log('Stopping and unloading recording...');
+        await currentRecording.stopAndUnloadAsync();
+        const uri = currentRecording.getURI();
 
         setRecordedUri(uri);
         setRecordedDuration(actualDuration);
+        console.log('Setting recording state to recorded');
         setRecordingState('recorded');
         setRecording(null);
+        recordingObjectRef.current = null;
+      } else {
+        console.log('No recording object found to stop');
       }
     } catch (error) {
       console.error('Failed to stop recording:', error);
@@ -819,7 +444,6 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
       setRecordedUri(null);
       setNewSoundName('');
       setRecordedDuration(0);
-      setShowRecordingModal(false);
 
       HapticFeedback.success();
     } catch (error) {
@@ -833,15 +457,15 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
     setRecordedUri(null);
     setNewSoundName('');
     setRecordedDuration(0);
-    setShowRecordingModal(false);
-    HapticFeedback.light();
+    if (sound) {
+      sound.unloadAsync();
+      setSound(null);
+    }
   };
 
   const reRecord = () => {
-    setRecordingState('ready');
-    setRecordedUri(null);
-    setRecordedDuration(0);
-    HapticFeedback.light();
+    discardRecording();
+    startRecording();
   };
 
   // Load saved data on mount
@@ -936,6 +560,217 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
   const saveSoundChips = (newSoundChips: SoundChip[]) => {
     setSoundChips(newSoundChips);
     HapticFeedback.success();
+  };
+
+  const renderRecordingInterface = () => {
+    const recordingStyles = StyleSheet.create({
+      recordingContainer: {
+        backgroundColor: colors.surface,
+        padding: 20,
+        borderRadius: 12,
+        alignItems: 'center',
+        marginBottom: 20,
+      },
+      recordButton: {
+        backgroundColor: colors.primary,
+        paddingHorizontal: 30,
+        paddingVertical: 15,
+        borderRadius: 25,
+        marginBottom: 20,
+      },
+      recordButtonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '600',
+      },
+      countdownText: {
+        fontSize: 48,
+        fontWeight: 'bold',
+        color: colors.primary,
+        marginBottom: 10,
+      },
+      recordingText: {
+        color: '#FF3B30',
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 20,
+      },
+      stopButton: {
+        backgroundColor: '#FF3B30',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 20,
+        marginTop: 10,
+      },
+      stopButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+      },
+      previewContainer: {
+        alignItems: 'center',
+      },
+      previewText: {
+        fontSize: 16,
+        color: colors.text,
+        marginBottom: 15,
+        textAlign: 'center',
+      },
+      playbackControls: {
+        flexDirection: 'row',
+        gap: 10,
+        marginBottom: 20,
+      },
+      playButton: {
+        flex: 1,
+        backgroundColor: colors.primary,
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        borderRadius: 10,
+        alignItems: 'center',
+      },
+      playButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+      },
+      categoryHelpText: {
+        fontSize: 12,
+        color: colors.textSecondary,
+        textAlign: 'center',
+        marginTop: 8,
+        marginBottom: 20,
+        lineHeight: 16,
+      },
+      actionButtons: {
+        flexDirection: 'row',
+        gap: 10,
+        marginTop: 10,
+      },
+      actionButton: {
+        flex: 1,
+        paddingVertical: 12,
+        paddingHorizontal: 15,
+        borderRadius: 10,
+        alignItems: 'center',
+      },
+      saveButton: {
+        backgroundColor: colors.success,
+      },
+      discardButton: {
+        backgroundColor: colors.error,
+      },
+      reRecordButton: {
+        flex: 1,
+        backgroundColor: colors.border,
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        borderRadius: 10,
+        alignItems: 'center',
+      },
+      actionButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+      },
+      reRecordButtonText: {
+        color: colors.text,
+        fontSize: 14,
+        fontWeight: '600',
+      },
+      nameInput: {
+        alignSelf: 'stretch',
+        backgroundColor: colors.surface,
+        borderRadius: 10,
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        fontSize: 16,
+        color: colors.text,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: colors.border,
+      },
+    });
+
+    switch (recordingState) {
+      case 'ready':
+        return (
+          <View style={recordingStyles.recordingContainer}>
+            <TouchableOpacity style={recordingStyles.recordButton} onPress={startRecording}>
+              <Text style={recordingStyles.recordButtonText}>🎤 Record New Sound</Text>
+            </TouchableOpacity>
+          </View>
+        );
+
+      case 'countdown':
+        return (
+          <View style={recordingStyles.recordingContainer}>
+            <Text style={recordingStyles.countdownText}>{countdown}</Text>
+            <Text style={recordingStyles.previewText}>Get ready to record...</Text>
+          </View>
+        );
+
+      case 'recording':
+        return (
+          <View style={recordingStyles.recordingContainer}>
+            <Text style={recordingStyles.recordingText}>● Recording</Text>
+            <Text style={recordingStyles.countdownText}>{recordingCountdown}</Text>
+            <TouchableOpacity style={recordingStyles.stopButton} onPress={stopRecording}>
+              <Text style={recordingStyles.stopButtonText}>Stop</Text>
+            </TouchableOpacity>
+          </View>
+        );
+
+      case 'recorded':
+        return (
+          <View style={recordingStyles.recordingContainer}>
+            <View style={recordingStyles.previewContainer}>
+              <Text style={recordingStyles.previewText}>
+                Recording complete! Duration: {recordedDuration.toFixed(1)}s
+              </Text>
+
+              <View style={recordingStyles.playbackControls}>
+                <TouchableOpacity style={recordingStyles.playButton} onPress={playRecordedSound}>
+                  <Text style={recordingStyles.playButtonText}>▶ Play</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={recordingStyles.reRecordButton} onPress={reRecord}>
+                  <Text style={recordingStyles.reRecordButtonText}>Re-record</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TextInput
+                style={recordingStyles.nameInput}
+                placeholder="Enter Sound Name"
+                value={newSoundName}
+                onChangeText={setNewSoundName}
+              />
+
+              <Text style={recordingStyles.categoryHelpText}>
+                {newSoundName.trim() ? (
+                  (() => {
+                    const { category, displayText } = parseTaskText(newSoundName.trim());
+                    return `Category: ${category} • Display: "${displayText}"`;
+                  })()
+                ) : (
+                  "Use format 'Category: Sound Name' to organize sounds into categories"
+                )}
+              </Text>
+
+              <View style={recordingStyles.actionButtons}>
+                <TouchableOpacity style={[recordingStyles.actionButton, recordingStyles.discardButton]} onPress={discardRecording}>
+                  <Text style={recordingStyles.actionButtonText}>Discard</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[recordingStyles.actionButton, recordingStyles.saveButton]} onPress={saveRecording}>
+                  <Text style={recordingStyles.actionButtonText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        );
+
+      default:
+        return null;
+    }
   };
 
   const getFilteredSoundChips = () => {
@@ -1062,192 +897,11 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
       fontSize: 14,
       fontWeight: '600',
     },
-    recordButton: {
-      backgroundColor: colors.primary,
-      paddingVertical: 15,
-      paddingHorizontal: 25,
-      borderRadius: 25,
-      alignItems: 'center',
-      marginTop: 10,
-    },
-    recordButtonText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: '600',
-    },
     emptyHelpText: {
       fontSize: 14,
       color: colors.textSecondary,
       textAlign: 'center',
       fontStyle: 'italic',
-    },
-    modalContainer: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    modalHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      padding: 20,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    modalCloseButton: {
-      width: 40,
-      height: 40,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    modalCloseText: {
-      fontSize: 18,
-      color: colors.text,
-    },
-    modalTitle: {
-      flex: 1,
-      fontSize: 18,
-      fontWeight: 'bold',
-      color: colors.text,
-      textAlign: 'center',
-    },
-    modalHeaderSpacer: {
-      width: 40,
-    },
-    recordingContainer: {
-      flex: 1,
-      padding: 20,
-      justifyContent: 'center',
-      alignItems: 'center',
-    },
-    startRecordButton: {
-      backgroundColor: colors.primary,
-      paddingVertical: 20,
-      paddingHorizontal: 40,
-      borderRadius: 25,
-      alignItems: 'center',
-    },
-    startRecordButtonText: {
-      color: '#fff',
-      fontSize: 18,
-      fontWeight: '600',
-    },
-    countdownContainer: {
-      alignItems: 'center',
-    },
-    countdownText: {
-      fontSize: 18,
-      color: colors.text,
-      marginBottom: 10,
-    },
-    countdownNumber: {
-      fontSize: 48,
-      fontWeight: 'bold',
-      color: colors.primary,
-    },
-    recordingActiveContainer: {
-      alignItems: 'center',
-    },
-    recordingText: {
-      fontSize: 20,
-      color: colors.error,
-      marginBottom: 10,
-    },
-    recordingCountdown: {
-      fontSize: 16,
-      color: colors.text,
-      marginBottom: 20,
-    },
-    stopButton: {
-      backgroundColor: colors.error,
-      paddingVertical: 12,
-      paddingHorizontal: 25,
-      borderRadius: 20,
-    },
-    stopButtonText: {
-      color: '#fff',
-      fontSize: 16,
-      fontWeight: '600',
-    },
-    recordedContainer: {
-      width: '100%',
-      alignItems: 'center',
-    },
-    recordedText: {
-      fontSize: 16,
-      color: colors.text,
-      textAlign: 'center',
-      marginBottom: 20,
-    },
-    playbackControls: {
-      flexDirection: 'row',
-      gap: 10,
-      marginBottom: 20,
-    },
-    playButton: {
-      flex: 1,
-      backgroundColor: colors.primary,
-      paddingHorizontal: 15,
-      paddingVertical: 12,
-      borderRadius: 10,
-      alignItems: 'center',
-    },
-    playButtonText: {
-      color: '#fff',
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    reRecordButton: {
-      flex: 1,
-      backgroundColor: colors.border,
-      paddingHorizontal: 15,
-      paddingVertical: 12,
-      borderRadius: 10,
-      alignItems: 'center',
-    },
-    reRecordButtonText: {
-      color: colors.text,
-      fontSize: 14,
-      fontWeight: '600',
-    },
-    nameInput: {
-      width: '100%',
-      backgroundColor: colors.surface,
-      borderRadius: 10,
-      paddingHorizontal: 15,
-      paddingVertical: 12,
-      fontSize: 16,
-      color: colors.text,
-      marginBottom: 10,
-    },
-    categoryHelpText: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      textAlign: 'center',
-      marginTop: 8,
-      marginBottom: 20,
-      lineHeight: 16,
-    },
-    actionButtons: {
-      flexDirection: 'row',
-      gap: 10,
-      marginTop: 10,
-    },
-    actionButton: {
-      flex: 1,
-      paddingVertical: 12,
-      paddingHorizontal: 15,
-      borderRadius: 10,
-      alignItems: 'center',
-    },
-    saveButton: {
-      backgroundColor: colors.success,
-    },
-    discardButton: {
-      backgroundColor: colors.error,
-    },
-    actionButtonText: {
-      color: '#fff',
-      fontSize: 14,
-      fontWeight: '600',
     },
   });
 
@@ -1271,12 +925,7 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
         <Text style={styles.subtitle}>Tap to play your recorded sounds</Text>
       </View>
 
-      <TouchableOpacity
-        style={styles.recordButton}
-        onPress={() => setShowRecordingModal(true)}
-      >
-        <Text style={styles.recordButtonText}>🎤 Record New Sound</Text>
-      </TouchableOpacity>
+      {renderRecordingInterface()}
 
       {categories.length > 1 && (
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryTabs}>
@@ -1340,96 +989,6 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
           ))}
         </View>
       )}
-
-      {/* Recording Modal */}
-      <Modal
-        visible={showRecordingModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowRecordingModal(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setShowRecordingModal(false)}
-            >
-              <Text style={styles.modalCloseText}>✕</Text>
-            </TouchableOpacity>
-            <Text style={styles.modalTitle}>Record New Sound</Text>
-            <View style={styles.modalHeaderSpacer} />
-          </View>
-
-          <View style={styles.recordingContainer}>
-            {recordingState === 'ready' && (
-              <TouchableOpacity style={styles.startRecordButton} onPress={startRecording}>
-                <Text style={styles.startRecordButtonText}>🎤 Start Recording</Text>
-              </TouchableOpacity>
-            )}
-
-            {recordingState === 'countdown' && (
-              <View style={styles.countdownContainer}>
-                <Text style={styles.countdownText}>Recording starts in</Text>
-                <Text style={styles.countdownNumber}>{countdown}</Text>
-              </View>
-            )}
-
-            {recordingState === 'recording' && (
-              <View style={styles.recordingActiveContainer}>
-                <Text style={styles.recordingText}>🔴 Recording...</Text>
-                <Text style={styles.recordingCountdown}>{recordingCountdown}s remaining</Text>
-                <TouchableOpacity style={styles.stopButton} onPress={stopRecording}>
-                  <Text style={styles.stopButtonText}>Stop</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {recordingState === 'recorded' && (
-              <View style={styles.recordedContainer}>
-                <Text style={styles.recordedText}>
-                  Recording complete! Duration: {recordedDuration.toFixed(1)}s
-                </Text>
-
-                <View style={styles.playbackControls}>
-                  <TouchableOpacity style={styles.playButton} onPress={playRecordedSound}>
-                    <Text style={styles.playButtonText}>▶ Play</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.reRecordButton} onPress={reRecord}>
-                    <Text style={styles.reRecordButtonText}>Re-record</Text>
-                  </TouchableOpacity>
-                </View>
-
-                <TextInput
-                  style={styles.nameInput}
-                  placeholder="Enter sound name (e.g., 'Golf: Get in your hole')"
-                  value={newSoundName}
-                  onChangeText={setNewSoundName}
-                />
-
-                <Text style={styles.categoryHelpText}>
-                  {newSoundName.trim() ? (
-                    (() => {
-                      const { category, displayText } = parseTaskText(newSoundName.trim());
-                      return `Category: ${category} • Display: "${displayText}"`;
-                    })()
-                  ) : (
-                    "Use format 'Category: Sound Name' to organize sounds into categories"
-                  )}
-                </Text>
-
-                <View style={styles.actionButtons}>
-                  <TouchableOpacity style={[styles.actionButton, styles.discardButton]} onPress={discardRecording}>
-                    <Text style={styles.actionButtonText}>Discard</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={[styles.actionButton, styles.saveButton]} onPress={saveRecording}>
-                    <Text style={styles.actionButtonText}>Save</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
     </ScrollView>
   );
 };
