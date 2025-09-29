@@ -12,6 +12,7 @@ import { FoodCamSpark } from '../sparks/FoodCamSpark';
 import { SpanishFriendSpark } from '../sparks/SpanishFriendSpark';
 import { TeeTimeTimerSpark } from '../sparks/TeeTimeTimerSpark';
 import { SoundboardSpark } from '../sparks/SoundboardSpark';
+import { GolfTrackerSpark } from '../sparks/GolfTrackerSpark';
 import styled from 'styled-components/native';
 
 const PlaceholderContainer = styled.View`
@@ -153,6 +154,19 @@ export const sparkRegistry: Record<string, BaseSpark> = {
     },
     component: SoundboardSpark,
   },
+      'golf-brain': {
+        metadata: {
+          id: 'golf-brain',
+          title: 'Golf Brain',
+          description: 'Track golf rounds with detailed shot analysis and course management',
+          icon: '🏌️‍♂️',
+          category: 'utility',
+          difficulty: 'medium',
+          estimatedTime: 20,
+          available: true,
+        },
+        component: GolfTrackerSpark,
+      },
 };
 
 export const getSparkById = (id: string): BaseSpark | undefined => {

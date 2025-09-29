@@ -73,7 +73,7 @@ export const useSparkStore = create<SparkState>()(
         set((state) => ({
           sparkData: {
             ...state.sparkData,
-            [sparkId]: { ...state.sparkData[sparkId], ...data },
+            [sparkId]: { ...(state.sparkData[sparkId] || {}), ...data },
           },
         })),
       

@@ -177,6 +177,7 @@ npm run build:ios    # Same as: npx eas build --platform ios --profile productio
 npm run build:android # Same as: npx eas build --platform android --profile production
 # not sure if this is handled by build all 
  npm run build:web #this publishes it in /dist and is runnable at http://localhost:8080/
+ cd /Users/mattdyor/SparksApp && pkill -f "expo start" && npx expo start --web --port 8082
 ```
 
 #### 3. Submit to App Stores
@@ -213,6 +214,7 @@ npx eas credentials
 ```bash
 # Build and deploy web updates (instant, no review needed)
 npm run build:web
+npx expo export --platform web #newer version
 # Then deploy the 'dist/' folder to your web hosting service
 ```
 
