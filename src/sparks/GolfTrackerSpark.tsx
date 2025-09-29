@@ -410,7 +410,7 @@ const HoleHistoryModal: React.FC<{
     actionButtonsCard: {
       backgroundColor: colors.surface,
       margin: 20,
-      marginTop: 8,
+      marginTop: 4,
       marginBottom: 0,
       borderRadius: 12,
       padding: 16,
@@ -419,12 +419,11 @@ const HoleHistoryModal: React.FC<{
       flexDirection: 'row',
       padding: 20,
       paddingBottom: 40, // Move up from bottom
-      gap: 12,
+      gap: 8,
       backgroundColor: colors.surface,
       borderTopWidth: 1,
       borderTopColor: colors.border,
       minHeight: 80,
-      justifyContent: 'space-between',
     },
     shotCard: {
       backgroundColor: colors.surface,
@@ -443,6 +442,23 @@ const HoleHistoryModal: React.FC<{
       justifyContent: 'center',
       alignItems: 'center',
     },
+    addPuttContainer: {
+      margin: 20,
+      marginTop: 8,
+      marginBottom: 8,
+    },
+    todaysDistanceCard: {
+      backgroundColor: colors.surface,
+      margin: 20,
+      marginBottom: 0,
+      borderRadius: 12,
+      padding: 16,
+    },
+    todaysDistanceContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+    },
     sectionHeader: {
       backgroundColor: colors.surface,
       margin: 20,
@@ -452,6 +468,14 @@ const HoleHistoryModal: React.FC<{
       flexDirection: 'row',
       justifyContent: 'space-between',
       alignItems: 'center',
+    },
+    actionButtonsCard: {
+      backgroundColor: colors.surface,
+      margin: 20,
+      marginTop: 4,
+      marginBottom: 0,
+      borderRadius: 12,
+      padding: 16,
     },
     sectionTitle: {
       fontSize: 18,
@@ -2790,16 +2814,15 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
     },
     button: {
       flex: 1,
-      paddingVertical: 16,
-      paddingHorizontal: 20,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
       borderRadius: 12,
       alignItems: 'center',
-      minHeight: 50,
-      marginHorizontal: 4,
+      minHeight: 48,
     },
     primaryButton: {
       backgroundColor: colors.primary,
-      borderWidth: 2,
+      borderWidth: 1,
       borderColor: colors.primary,
     },
     secondaryButton: {
@@ -2821,10 +2844,14 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
+      borderRadius: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
     },
     historyButtonText: {
       color: colors.text,
       fontWeight: '600',
+      fontSize: 16,
     },
     actionButton: {
       backgroundColor: colors.surface,
@@ -2842,13 +2869,36 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       color: colors.background,
       fontWeight: '600',
     },
-    historyButton: {
-      backgroundColor: colors.border,
-      paddingVertical: 16,
-      paddingHorizontal: 20,
+    actionButtonsCard: {
+      backgroundColor: colors.surface,
+      margin: 20,
+      marginTop: 4,
+      marginBottom: 0,
       borderRadius: 12,
-      alignItems: 'center',
-      marginBottom: 16,
+      padding: 16,
+    },
+    nextHoleContainer: {
+      margin: 20,
+      marginTop: 8,
+      marginBottom: 20,
+    },
+    permanentNavigation: {
+      flexDirection: 'row',
+      padding: 20,
+      paddingBottom: 40,
+      gap: 12,
+      backgroundColor: '#f5f5f5', // Light gray background
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      minHeight: 80,
+    },
+    historyButton: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
     },
     historyButtonText: {
       color: colors.text,
@@ -2931,16 +2981,18 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       >
         {/* Today's Distance Card */}
         <View style={styles.todaysDistanceCard}>
-          <Text style={styles.todaysDistanceLabel}>Today's Distance:</Text>
-          <TextInput
-            style={styles.todaysDistanceInput}
-            placeholder="yards"
-            placeholderTextColor={colors.textSecondary}
-            value={todaysDistance}
-            onChangeText={setTodaysDistance}
-            keyboardType="numeric"
-            maxLength={4}
-          />
+          <View style={styles.todaysDistanceContainer}>
+            <Text style={styles.todaysDistanceLabel}>Today's Distance:</Text>
+            <TextInput
+              style={styles.todaysDistanceInput}
+              placeholder="yards"
+              placeholderTextColor={colors.textSecondary}
+              value={todaysDistance}
+              onChangeText={setTodaysDistance}
+              keyboardType="numeric"
+              maxLength={4}
+            />
+          </View>
         </View>
 
 
@@ -3061,7 +3113,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
         ))}
 
         {/* Add Putt Button */}
-        <View style={[styles.addShotCard, { height: SHOT_CARD_HEIGHT, marginTop: 8 }]}>
+        <View style={styles.addPuttContainer}>
           <TouchableOpacity style={styles.addButton} onPress={addPutt}>
             <Text style={styles.addButtonText}>+ Add Putt</Text>
           </TouchableOpacity>
@@ -3079,25 +3131,30 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
             </TouchableOpacity>
           </View>
         </View>
+
       </ScrollView>
 
-      {/* Navigation Buttons */}
-      <View style={styles.navigationButtons}>
-        <TouchableOpacity style={[styles.button, styles.historyButton]} onPress={onShowHistory}>
-          <Text style={[styles.buttonText, styles.historyButtonText]}>View Hole History</Text>
-        </TouchableOpacity>
-        
+      {/* Permanent Navigation - Fixed above spark bottom navigation */}
+      <View style={styles.permanentNavigation}>
         {currentHole > 1 && (
           <TouchableOpacity style={[styles.button, styles.secondaryButton]} onPress={onPreviousHole}>
             <Text style={[styles.buttonText, styles.secondaryButtonText]}>Previous</Text>
           </TouchableOpacity>
         )}
         
-        <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleCompleteHole}>
-          <Text style={[styles.buttonText, styles.primaryButtonText]}>
-            {currentHole === 18 ? 'Complete Round' : 'Next Hole'}
-          </Text>
+        <TouchableOpacity style={[styles.button, styles.historyButton]} onPress={onShowHistory}>
+          <Text style={[styles.buttonText, styles.historyButtonText]}>History</Text>
         </TouchableOpacity>
+        
+        {currentHole < 18 ? (
+          <TouchableOpacity style={[styles.button, styles.primaryButton]} onPress={handleCompleteHole}>
+            <Text style={[styles.buttonText, styles.primaryButtonText]}>Next</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={[styles.button, styles.endRoundButton]} onPress={handleEndRound}>
+            <Text style={[styles.buttonText, styles.endRoundButtonText]}>End Round</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </View>
   );
