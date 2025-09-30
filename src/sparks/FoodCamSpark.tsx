@@ -106,6 +106,8 @@ export const FoodCamSpark: React.FC<FoodCamSparkProps> = ({
       setPhotos(savedData.photos);
     }
     requestPermissions();
+    // Debug file system status
+    checkFileSystemStatus();
   }, [getSparkData]);
 
   // Save data whenever photos change
@@ -135,6 +137,23 @@ export const FoodCamSpark: React.FC<FoodCamSparkProps> = ({
     return Date.now().toString() + Math.random().toString(36).substring(2);
   };
 
+  // Debug function to check file system status
+  const checkFileSystemStatus = async () => {
+    try {
+      const foodCamDir = `${FileSystem.documentDirectory}foodcam/`;
+      const dirInfo = await FileSystem.getInfoAsync(foodCamDir);
+      console.log('FoodCam directory exists:', dirInfo.exists);
+      
+      if (dirInfo.exists) {
+        const files = await FileSystem.readDirectoryAsync(foodCamDir);
+        console.log('FoodCam files count:', files.length);
+        console.log('FoodCam files:', files);
+      }
+    } catch (error) {
+      console.error('Error checking file system:', error);
+    }
+  };
+
   const saveImagePermanently = async (tempUri: string, photoId: string): Promise<string> => {
     try {
       // Create the FoodCam directory (intermediates: true creates it if it doesn't exist)
@@ -151,6 +170,12 @@ export const FoodCamSpark: React.FC<FoodCamSparkProps> = ({
         from: tempUri,
         to: permanentUri,
       });
+
+      // Verify the file was copied successfully
+      const fileInfo = await FileSystem.getInfoAsync(permanentUri);
+      if (!fileInfo.exists) {
+        throw new Error('Failed to copy image to permanent storage');
+      }
 
       console.log(`Saved image permanently: ${permanentUri}`);
       return permanentUri;

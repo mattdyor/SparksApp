@@ -45,6 +45,10 @@ Use **red background** for destructive actions:
 - **Remove buttons**: To the right of each removable item
 - **Action buttons**: Consistent spacing and sizing
 
+### Close-Only Settings (Read-only or Informational Pages)
+- For settings pages with no editable state (e.g., Todo, Business Simulator), use a single secondary-styled button labeled "Close" instead of Save/Cancel pairs.
+- Close button should be placed at the bottom, matching the styling of the standard Cancel button.
+
 ## Interactive Elements
 
 ### Editable Fields
@@ -69,7 +73,7 @@ Use **red background** for destructive actions:
 ### Labels & Text
 - **Button Labels**: Use consistent terminology
   - "Save Changes" (not "Save" or "Update")
-  - "Cancel" (not "Back" or "Close")
+  - "Cancel" (not "Back"). Use "Close" for non-editable settings pages.
   - "Add [Item Type]" (not just "Add")
   - "Remove" (not "Delete" or "X")
 

@@ -9,7 +9,8 @@ import {
   SettingsHeader,
   SettingsSection,
   SettingsFeedbackSection,
-  SettingsText
+  SettingsText,
+  SettingsButton
 } from '../components/SettingsComponents';
 
 interface TodoItem {
@@ -53,6 +54,7 @@ const TodoSettings: React.FC<{
             </SettingsText>
           </View>
         </SettingsSection>
+        <SettingsButton title="Close" variant="secondary" onPress={onClose} />
       </SettingsScrollView>
     </SettingsContainer>
   );
@@ -206,7 +208,14 @@ export const TodoSpark: React.FC<TodoSparkProps> = ({
     };
 
     setTodos(prev => [...prev, newTask]);
-    setNewTaskText('');
+    
+    // If a category is selected, pre-fill the input with the category prefix
+    if (selectedCategory) {
+      setNewTaskText(`${selectedCategory}: `);
+    } else {
+      setNewTaskText('');
+    }
+    
     HapticFeedback.light();
 
     // Small delay to prevent rapid successive clicks
@@ -315,9 +324,15 @@ export const TodoSpark: React.FC<TodoSparkProps> = ({
     if (selectedCategory === category) {
       // Toggle off - show all todos
       setSelectedCategory(null);
+      // Clear the category prefix from the input if it matches
+      if (newTaskText.startsWith(`${category}: `)) {
+        setNewTaskText('');
+      }
     } else {
       // Filter by this category
       setSelectedCategory(category);
+      // Pre-fill the input with the category prefix
+      setNewTaskText(`${category}: `);
     }
     HapticFeedback.light();
   };
@@ -358,6 +373,21 @@ export const TodoSpark: React.FC<TodoSparkProps> = ({
   };
 
   const filteredTodos = getFilteredAndSortedTodos();
+
+  // Check if there are future todos to show
+  const hasFutureTodos = () => {
+    const today = getTodayDateString();
+    
+    return todos.some(task => {
+      // First filter by category if selected
+      if (selectedCategory && task.category !== selectedCategory) {
+        return false;
+      }
+      
+      // Check if it's a future todo (incomplete and due date is after today)
+      return !task.completed && task.dueDate > today;
+    });
+  };
 
   const styles = StyleSheet.create({
     container: {
@@ -721,18 +751,20 @@ export const TodoSpark: React.FC<TodoSparkProps> = ({
           ))
         )}
 
-        {/* Toggle Future Todos Button */}
-        <TouchableOpacity
-          style={styles.toggleButton}
-          onPress={() => {
-            setShowFutureTodos(!showFutureTodos);
-            HapticFeedback.light();
-          }}
-        >
-          <Text style={styles.toggleButtonText}>
-            {showFutureTodos ? "Today's Todos" : "Show Future Todos"}
-          </Text>
-        </TouchableOpacity>
+        {/* Toggle Future Todos Button - only show if there are future todos */}
+        {hasFutureTodos() && (
+          <TouchableOpacity
+            style={styles.toggleButton}
+            onPress={() => {
+              setShowFutureTodos(!showFutureTodos);
+              HapticFeedback.light();
+            }}
+          >
+            <Text style={styles.toggleButtonText}>
+              {showFutureTodos ? "Today's Todos" : "Show Future Todos"}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Edit Task Modal */}

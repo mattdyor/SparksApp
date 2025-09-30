@@ -115,10 +115,13 @@ interface SoundboardData {
 - **Bulk Actions**: Select multiple sounds for deletion
 - **Export Options**: Share individual sounds or entire collection
 
-### Recording Section
+### Recording and Adding Section
 - **Microphone Permissions**: Check and request permissions
 - **Audio Quality Settings**: Option for quality preferences
 - **Recording Tips**: Help text about optimal recording practices
+- **Import Audio Files**: Users can import existing audio from device storage via a system picker
+- **File Types**: Any `audio/*` type supported by the platform can be imported
+- **Naming Convention**: Imported files may be auto-categorized using `Category: Sound Name`
 
 ## User Experience Features
 
@@ -156,6 +159,22 @@ interface SoundboardData {
 - **Spark Store**: Integration with useSparkStore
 - **Data Persistence**: Automatic saving of sound library
 - **Backup Friendly**: Export/import capability for data portability
+
+## Sharing
+
+- **Share Individual Sounds**: Share any sound file via the native system share sheet (email, text, AirDrop, etc.)
+- **Implementation**: Uses Expo `Sharing` API to share files from the app's documents directory
+
+## Persistent Storage Details
+
+- **Audio Files Location**: `FileSystem.documentDirectory + 'soundboard/'`
+  - Example path: `file:///.../documents/soundboard/sound_<id>.m4a`
+- **Why This Location**: Ensures files persist across app restarts and are sandboxed per app
+- **Metadata Persistence**: Stored via the Spark data store (`useSparkStore`) under the key `soundboard`
+  - Structure: `SoundboardData` containing `soundChips`, computed `categories`, and `lastUsed`
+- **Cleanup**: When a sound is deleted from Settings, the file at `filePath` is also removed (idempotent)
+- **Import Flow**: Imported file is copied into the `soundboard/` directory and tracked as a new `SoundChip`
+- **Share Flow**: Files are shared directly from their `filePath` using `expo-sharing`
 
 ## Technical Implementation Notes
 

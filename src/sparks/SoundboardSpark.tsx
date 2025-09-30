@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Dimensions, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Dimensions, TextInput, Modal } from 'react-native';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system/legacy';
+import * as DocumentPicker from 'expo-document-picker';
+import * as Sharing from 'expo-sharing';
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
 import { useTheme } from '../contexts/ThemeContext';
@@ -59,6 +61,8 @@ const SoundboardSettings: React.FC<{
 }> = ({ soundChips, onSave, onClose }) => {
   const { colors } = useTheme();
   const [editingSoundChips, setEditingSoundChips] = useState<SoundChip[]>([...soundChips]);
+  const [shareSelectionVisible, setShareSelectionVisible] = useState(false);
+  const [selectedShareId, setSelectedShareId] = useState<string | null>(editingSoundChips[0]?.id || null);
 
 
   const deleteSoundChip = async (id: string) => {
@@ -98,6 +102,83 @@ const SoundboardSettings: React.FC<{
     onClose();
   };
 
+  const importAudioFile = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({ type: 'audio/*', multiple: false, copyToCacheDirectory: false });
+      if (result.canceled) {
+        return;
+      }
+      const asset = result.assets?.[0];
+      if (!asset?.uri) {
+        Alert.alert('Import Failed', 'No file selected.');
+        return;
+      }
+
+      const originalName = asset.name || `import_${Date.now()}`;
+      const extMatch = originalName.match(/\.[a-zA-Z0-9]+$/);
+      const ext = extMatch ? extMatch[0] : '.m4a';
+
+      const { category, displayText } = parseTaskText(originalName.replace(ext, ''));
+
+      const id = Date.now().toString();
+      const soundboardDir = `${FileSystem.documentDirectory}soundboard/`;
+      await FileSystem.makeDirectoryAsync(soundboardDir, { intermediates: true });
+      const newPath = `${soundboardDir}sound_${id}${ext}`;
+
+      await FileSystem.copyAsync({ from: asset.uri, to: newPath });
+
+      // Probe duration
+      let duration = 0;
+      try {
+        const { sound } = await Audio.Sound.createAsync({ uri: newPath });
+        const status = await sound.getStatusAsync();
+        duration = (status as any).durationMillis ? ((status as any).durationMillis / 1000) : 0;
+        await sound.unloadAsync();
+      } catch {}
+
+      const newChip: SoundChip = {
+        id,
+        name: originalName,
+        displayName: displayText,
+        category,
+        duration,
+        filePath: newPath,
+        createdDate: new Date().toISOString(),
+        playCount: 0,
+      };
+
+      setEditingSoundChips(prev => [...prev, newChip]);
+      HapticFeedback.success();
+    } catch (e) {
+      console.error('Failed to import audio file:', e);
+      Alert.alert('Import Failed', 'Could not import the selected audio file.');
+    }
+  };
+
+  const shareSelectedSound = async () => {
+    try {
+      const chip = editingSoundChips.find(c => c.id === selectedShareId);
+      if (!chip) {
+        Alert.alert('Share Sound', 'Please select a sound to share.');
+        return;
+      }
+      const exists = await FileSystem.getInfoAsync(chip.filePath);
+      if (!exists.exists) {
+        Alert.alert('File Missing', 'The sound file could not be found on disk.');
+        return;
+      }
+      const available = await Sharing.isAvailableAsync();
+      if (!available) {
+        Alert.alert('Sharing Not Available', 'Sharing is not available on this device.');
+        return;
+      }
+      await Sharing.shareAsync(chip.filePath, { dialogTitle: `Share ${chip.displayName}` });
+    } catch (e) {
+      console.error('Share failed:', e);
+      Alert.alert('Share Failed', 'Could not share this sound.');
+    }
+  };
+
   return (
     <SettingsContainer>
       <SettingsScrollView>
@@ -127,10 +208,84 @@ const SoundboardSettings: React.FC<{
           )}
         </SettingsSection>
 
+        <SettingsSection title="Add or Import">
+          <View style={{ padding: 16 }}>
+            <SettingsButton onPress={importAudioFile}>
+              Import Audio File
+            </SettingsButton>
+            <SettingsText variant="caption" style={{ marginTop: 8 }}>
+              You can also type names like "Category: Sound Name" to organize.
+            </SettingsText>
+          </View>
+        </SettingsSection>
+
+        <SettingsSection title="Share">
+          <View style={{ padding: 16, gap: 12 }}>
+            <TouchableOpacity
+              style={{
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 12,
+                backgroundColor: colors.surface,
+              }}
+              onPress={() => setShareSelectionVisible(true)}
+            >
+              <Text style={{ color: colors.text, fontWeight: '600' }}>
+                {editingSoundChips.find(c => c.id === selectedShareId)?.displayName || 'Select a sound'}
+              </Text>
+              <Text style={{ color: colors.textSecondary, marginTop: 2 }}>
+                Tap to choose a sound to share
+              </Text>
+            </TouchableOpacity>
+
+            <SettingsButton onPress={shareSelectedSound}>
+              Share Selected Sound
+            </SettingsButton>
+          </View>
+        </SettingsSection>
+
         <SettingsFeedbackSection sparkName="Soundboard" />
 
         <SaveCancelButtons onSave={handleSave} onCancel={onClose} />
       </SettingsScrollView>
+
+      {/* Simple selection modal for choosing a sound to share */}
+      <Modal
+        visible={shareSelectionVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShareSelectionVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ width: '90%', maxWidth: 420, backgroundColor: colors.surface, borderRadius: 12, padding: 16 }}>
+            <Text style={{ color: colors.text, fontSize: 16, fontWeight: '700', marginBottom: 10 }}>Select Sound</Text>
+            <ScrollView style={{ maxHeight: 360 }}>
+              {editingSoundChips.map(chip => (
+                <TouchableOpacity
+                  key={chip.id}
+                  style={{ paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border }}
+                  onPress={() => {
+                    setSelectedShareId(chip.id);
+                    setShareSelectionVisible(false);
+                  }}
+                >
+                  <Text style={{ color: colors.text, fontSize: 14, fontWeight: selectedShareId === chip.id ? '700' : '500' }}>
+                    {chip.displayName} <Text style={{ color: colors.textSecondary }}>({chip.category})</Text>
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TouchableOpacity
+              style={{ marginTop: 12, alignSelf: 'flex-end' }}
+              onPress={() => setShareSelectionVisible(false)}
+            >
+              <Text style={{ color: colors.primary, fontWeight: '700' }}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SettingsContainer>
   );
 };
@@ -418,13 +573,26 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
     try {
       const { category, displayText } = parseTaskText(newSoundName.trim());
       const id = Date.now().toString();
+      
+      // Create soundboard directory for better organization
+      const soundboardDir = `${FileSystem.documentDirectory}soundboard/`;
+      await FileSystem.makeDirectoryAsync(soundboardDir, { intermediates: true });
+      
       const fileName = `sound_${Date.now()}_${id}.m4a`;
-      const newPath = `${FileSystem.documentDirectory}${fileName}`;
+      const newPath = `${soundboardDir}${fileName}`;
 
       await FileSystem.copyAsync({
         from: recordedUri,
         to: newPath,
       });
+
+      // Verify the file was copied successfully
+      const fileInfo = await FileSystem.getInfoAsync(newPath);
+      if (!fileInfo.exists) {
+        throw new Error('Failed to copy file to permanent storage');
+      }
+
+      console.log(`Sound saved permanently: ${newPath}`);
 
       const newSoundChip: SoundChip = {
         id,
@@ -474,6 +642,8 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
     if (savedData?.soundChips) {
       setSoundChips(savedData.soundChips);
     }
+    // Debug file system status
+    checkFileSystemStatus();
   }, [getSparkData]);
 
   // Save data whenever soundChips change
@@ -560,6 +730,23 @@ export const SoundboardSpark: React.FC<SoundboardSparkProps> = ({
   const saveSoundChips = (newSoundChips: SoundChip[]) => {
     setSoundChips(newSoundChips);
     HapticFeedback.success();
+  };
+
+  // Debug function to check file system status
+  const checkFileSystemStatus = async () => {
+    try {
+      const soundboardDir = `${FileSystem.documentDirectory}soundboard/`;
+      const dirInfo = await FileSystem.getInfoAsync(soundboardDir);
+      console.log('Soundboard directory exists:', dirInfo.exists);
+      
+      if (dirInfo.exists) {
+        const files = await FileSystem.readDirectoryAsync(soundboardDir);
+        console.log('Soundboard files count:', files.length);
+        console.log('Soundboard files:', files);
+      }
+    } catch (error) {
+      console.error('Error checking file system:', error);
+    }
   };
 
   const renderRecordingInterface = () => {
