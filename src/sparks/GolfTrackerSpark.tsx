@@ -167,11 +167,7 @@ const SHOT_QUALITY_GRID = [
 
 const LIE_OPTIONS = ['fairway', 'rough', 'sand', 'green', 'ob'] as const;
 
-const PUTT_DISTANCE_OPTIONS = [
-  { label: 'Less than 4 feet', value: '<4ft' },
-  { label: '5 to 10 feet', value: '5-10ft' },
-  { label: '10+ feet', value: '10+ft' }
-] as const;
+const PUTT_DISTANCE_OPTIONS = ['<4ft', '5-10ft', '10+ft'] as const;
 
 const DEFAULT_CLUBS = [
   'Driver',
@@ -484,6 +480,36 @@ const HoleHistoryModal: React.FC<{
       backgroundColor: colors.surface,
       borderTopWidth: 1,
       borderTopColor: colors.border,
+    },
+    viewButtonsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 8,
+      gap: 12,
+    },
+    viewButton: {
+      backgroundColor: colors.surface,
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+      borderRadius: 8,
+      borderWidth: 2,
+      borderColor: colors.border,
+      flex: 1,
+      maxWidth: 150,
+    },
+    viewButtonActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    viewButtonText: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    viewButtonTextActive: {
+      color: colors.background,
     },
     todaysDistanceContainer: {
       flexDirection: 'row',
@@ -1840,7 +1866,7 @@ const GolfTrackerSettings: React.FC<{
       backgroundColor: colors.primary,
     },
     deleteButton: {
-      backgroundColor: '#ff4444',
+      backgroundColor: colors.error || '#ff4444',
     },
     actionButtonText: {
       fontSize: 14,
@@ -1850,7 +1876,7 @@ const GolfTrackerSettings: React.FC<{
       color: colors.background,
     },
     deleteButtonText: {
-      color: '#fff',
+      color: colors.background,
     },
     handicapContainer: {
       marginBottom: 16,
@@ -1889,7 +1915,7 @@ const GolfTrackerSettings: React.FC<{
       color: colors.text,
     },
     removeClubButton: {
-      backgroundColor: '#ff4444',
+      backgroundColor: colors.error || '#ff4444',
       borderRadius: 12,
       width: 24,
       height: 24,
@@ -1897,7 +1923,7 @@ const GolfTrackerSettings: React.FC<{
       justifyContent: 'center',
     },
     removeClubButtonText: {
-      color: '#fff',
+      color: colors.background,
       fontSize: 16,
       fontWeight: 'bold',
     },
@@ -2305,14 +2331,14 @@ const OutcomeGrid: React.FC<{
     },
     grid: {
       flexDirection: 'row',
-      gap: 2,
+      gap: 1,
     },
     row: {
       flex: 1,
-      gap: 2,
+      gap: 1,
     },
     cell: {
-      aspectRatio: 2.0, // Slightly taller than current, less white space
+      aspectRatio: 1.5, // More compact, less white space
       borderRadius: 8,
       justifyContent: 'center',
       alignItems: 'center',
@@ -2844,10 +2870,17 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
 
   // Get all shots in order (iron shots first, then putts)
   const getAllShots = () => {
-    return [
+    const allShots = [
       ...ironShots.map((shot, index) =>  ({ shot, type: 'iron' as const, index, id: shot.id })),
       ...putts.map((shot, index) => ({ shot, type: 'putt' as const, index, id: shot.id }))
     ];
+    console.log('getAllShots debug:', {
+      ironShotsCount: ironShots.length,
+      puttsCount: putts.length,
+      totalShots: allShots.length,
+      allShots: allShots.map(s => ({ type: s.type, index: s.index }))
+    });
+    return allShots;
   };
 
   // Get current shot being displayed
@@ -2859,44 +2892,65 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
     }
   };
 
-  // Calculate shot card height for snap behavior
-  const SHOT_CARD_HEIGHT = 350; // Same height for both iron shots and putts
-  const CARD_SPACING = 12; // marginBottom between cards
+  // Calculate shot card height for snap behavior - full screen cards
+  const SHOT_CARD_HEIGHT = 350; // Increased card height to accommodate outcome grid
+  const ADD_SHOT_CARD_HEIGHT = 50; // Smaller height for add shot cards
+  const CARD_SPACING = 0; // No spacing between full screen cards
   const TOTAL_CARD_HEIGHT = SHOT_CARD_HEIGHT + CARD_SPACING; // Same for all cards
+  
 
   // Snap to current shot
   const snapToCurrentShot = () => {
-    const allShots = getAllShots();
-    const currentGlobalIndex = currentShotType === 'iron' ? currentShotIndex : ironShots.length + currentShotIndex;
-    const scrollY = currentGlobalIndex * TOTAL_CARD_HEIGHT;
-    
-    // For putts, add extra offset to account for navigation bar
-    const isPutt = currentShotType === 'putt';
-    const extraOffset = isPutt ? 100 : 0; // Extra space for putts to clear navigation bar
-    
-    scrollViewRef.current?.scrollTo({ y: scrollY + extraOffset, animated: true });
+    const scrollY = currentShotIndex * SHOT_CARD_HEIGHT;
+    scrollViewRef.current?.scrollTo({ y: scrollY, animated: true });
   };
 
   // Advance to next shot with snap
   const advanceToNextShot = () => {
-    const allShots = getAllShots();
-    const currentGlobalIndex = currentShotType === 'iron' ? currentShotIndex : ironShots.length + currentShotIndex;
-    
-    if (currentGlobalIndex < allShots.length - 1) {
-      const nextShot = allShots[currentGlobalIndex + 1];
-      setCurrentShotType(nextShot.type);
-      setCurrentShotIndex(nextShot.index);
-      
-      // Snap to the next shot
-      setTimeout(() => {
-        snapToCurrentShot();
-      }, 100);
-    } else {
-      // If this is the last shot, scroll to show the Add Putt button
-      setTimeout(() => {
-        const addPuttButtonY = (allShots.length) * TOTAL_CARD_HEIGHT;
-        scrollViewRef.current?.scrollTo({ y: addPuttButtonY, animated: true });
-      }, 100);
+    if (currentShotType === 'iron') {
+      // If we're on iron shots, check if there's a next iron shot
+      if (currentShotIndex < ironShots.length - 1) {
+        setCurrentShotIndex(currentShotIndex + 1);
+        setTimeout(() => {
+          snapToCurrentShot();
+        }, 100);
+      }
+      // Don't auto-switch to putts - let user manually add putts or use navigation
+    } else if (currentShotType === 'putt') {
+      // If we're on putts, check if there's a next putt
+      if (currentShotIndex < putts.length - 1) {
+        setCurrentShotIndex(currentShotIndex + 1);
+        setTimeout(() => {
+          snapToCurrentShot();
+        }, 100);
+      }
+    }
+  };
+
+  // Go to previous shot with snap
+  const goToPreviousShot = () => {
+    if (currentShotType === 'putt') {
+      // If we're on putts, check if we can go to previous putt
+      if (currentShotIndex > 0) {
+        setCurrentShotIndex(currentShotIndex - 1);
+        setTimeout(() => {
+          snapToCurrentShot();
+        }, 100);
+      } else {
+        // Switch back to iron shots if we're on the first putt
+        if (ironShots.length > 0) {
+          setCurrentShotType('iron');
+          setCurrentShotIndex(ironShots.length - 1); // Go to last iron shot
+        }
+      }
+    } else if (currentShotType === 'iron') {
+      // If we're on iron shots, check if we can go to previous iron shot
+      if (currentShotIndex > 0) {
+        setCurrentShotIndex(currentShotIndex - 1);
+        setTimeout(() => {
+          snapToCurrentShot();
+        }, 100);
+      }
     }
   };
 
@@ -2964,6 +3018,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
   }, [ironShots, putts, currentShotIndex, currentShotType]);
 
 
+
   const addIronShot = () => {
     const newShot: Shot = {
       id: `iron-${Date.now()}-${Math.random()}`,
@@ -2987,6 +3042,11 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       
       return newShots;
     });
+    
+    // Switch to iron mode and go to the new shot
+    setCurrentShotType('iron');
+    setCurrentShotIndex(ironShots.length); // Index of the new shot
+    
     HapticFeedback.light();
   };
 
@@ -2999,6 +3059,11 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       timestamp: Date.now(),
     };
     setPutts(prev => [...prev, newPutt]);
+    
+    // Switch to putt mode and go to the new putt
+    setCurrentShotType('putt');
+    setCurrentShotIndex(putts.length); // Index of the new putt
+    
     HapticFeedback.light();
   };
 
@@ -3273,8 +3338,9 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
     shotCard: {
       backgroundColor: colors.surface,
       borderRadius: 12,
-      padding: 16,
-      marginBottom: 12,
+      padding: 12, // Reduced padding to remove excess white space
+      paddingBottom: 17, // Add 5px extra padding at bottom (12 + 5)
+      marginBottom: 5, // Add 5px spacing between cards
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -3458,13 +3524,6 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       color: colors.text,
       fontWeight: '500',
     },
-    endRoundButton: {
-      backgroundColor: colors.error || '#ff4444',
-    },
-    endRoundButtonText: {
-      color: colors.background,
-      fontWeight: '600',
-    },
     actionButtonsCard: {
       backgroundColor: colors.surface,
       margin: 20,
@@ -3481,7 +3540,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
     permanentNavigation: {
       padding: 8,
       paddingBottom: 12,
-      backgroundColor: '#f5f5f5', // Light gray background
+      backgroundColor: colors.surface,
       borderTopWidth: 1,
       borderTopColor: colors.border,
       minHeight: 70,
@@ -3520,14 +3579,14 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       minWidth: 50,
     },
     arrowButtonText: {
-      color: '#fff',
+      color: colors.background,
       fontWeight: '600',
       fontSize: 18,
     },
     endRoundButton: {
-      backgroundColor: '#f44336', // Red for end round
+      backgroundColor: colors.error || '#f44336',
       borderWidth: 1,
-      borderColor: '#d32f2f',
+      borderColor: colors.error || '#d32f2f',
       borderRadius: 8,
       paddingVertical: 10,
       paddingHorizontal: 20,
@@ -3537,16 +3596,90 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       flex: 1,
     },
     endRoundButtonText: {
-      color: '#fff',
+      color: colors.background,
       fontWeight: '600',
       fontSize: 16,
     },
     disabledButton: {
-      backgroundColor: '#e0e0e0',
-      borderColor: '#bdbdbd',
+      backgroundColor: colors.border,
+      borderColor: colors.border,
     },
     disabledButtonText: {
-      color: '#9e9e9e',
+      color: colors.textSecondary,
+    },
+    viewButtonsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      paddingHorizontal: 20,
+      paddingVertical: 8,
+      gap: 12,
+    },
+    viewButton: {
+      backgroundColor: colors.surface,
+      paddingVertical: 12,
+      paddingHorizontal: 24,
+      borderRadius: 8,
+      borderWidth: 2,
+      borderColor: colors.border,
+      flex: 1,
+      maxWidth: 150,
+    },
+    viewButtonActive: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    viewButtonText: {
+      color: colors.text,
+      fontSize: 16,
+      fontWeight: '600',
+      textAlign: 'center',
+    },
+    viewButtonTextActive: {
+      color: colors.background,
+    },
+    addShotCard: {
+      backgroundColor: colors.primary,
+      borderRadius: 12,
+      padding: 12,
+      marginBottom: 0,
+      borderWidth: 2,
+      borderColor: colors.primary,
+      shadowColor: colors.primary,
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.25,
+      shadowRadius: 3.84,
+      elevation: 5,
+    },
+    addShotCardContent: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 8, // Reduced padding for smaller card
+    },
+    addShotCardText: {
+      fontSize: 18, // Reduced font size for smaller card
+      fontWeight: '600',
+      color: colors.background,
+      marginBottom: 4, // Reduced margin for smaller card
+    },
+    addShotCardSubtext: {
+      fontSize: 12, // Reduced font size for smaller card
+      color: colors.background,
+      textAlign: 'center',
+      opacity: 0.8,
+    },
+    todaysDistanceCard: {
+      backgroundColor: colors.surface,
+      margin: 20,
+      marginTop: 8,
+      marginBottom: 8,
+      borderRadius: 12,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
     },
   });
 
@@ -3618,134 +3751,222 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
         </View>
       </View>
 
-      <ScrollView 
-        ref={scrollViewRef} 
-        style={styles.content}
-        contentContainerStyle={{ paddingBottom: 20 }}
-        showsVerticalScrollIndicator={true}
-        snapToInterval={TOTAL_CARD_HEIGHT}
-        snapToAlignment="start"
-        decelerationRate="fast"
-        onScroll={(event) => {
-          const offsetY = event.nativeEvent.contentOffset.y;
-          const currentIndex = Math.round(offsetY / TOTAL_CARD_HEIGHT);
-          const allShots = getAllShots();
-          
-          if (currentIndex < allShots.length) {
-            const shot = allShots[currentIndex];
-            setCurrentShotType(shot.type);
-            setCurrentShotIndex(shot.index);
-          }
-        }}
-        scrollEventThrottle={16}
-      >
-
-        {/* All Shots - Iron Shots First */}
-        {ironShots.map((shot, index) => (
-          <View key={shot.id} style={[styles.shotCard, { height: SHOT_CARD_HEIGHT }]}>
-            <View style={styles.shotHeader}>
-              <Text style={styles.shotNumber}>Shot {index + 1}</Text>
-              <TouchableOpacity
-                style={styles.removeButton}
-                onPress={() => removeShot(shot.id, 'iron')}
-              >
-                <Text style={styles.removeButtonText}>×</Text>
-              </TouchableOpacity>
-            </View>
+      {/* Iron Shots ScrollView */}
+      {currentShotType === 'iron' && (
+        <ScrollView 
+          ref={scrollViewRef} 
+          style={[styles.content, { height: SHOT_CARD_HEIGHT }]}
+          contentContainerStyle={{ 
+            height: ironShots.length * SHOT_CARD_HEIGHT + ADD_SHOT_CARD_HEIGHT, // Different height for add card
+            paddingBottom: 0 
+          }}
+          showsVerticalScrollIndicator={false}
+          pagingEnabled={true}
+          decelerationRate="fast"
+          onScroll={(event) => {
+            const offsetY = event.nativeEvent.contentOffset.y;
+            const currentIndex = Math.round(offsetY / SHOT_CARD_HEIGHT);
             
-            <View style={styles.shotFields}>
-              <View style={[styles.shotFieldRow, { flexDirection: 'row', gap: 8 }]}>
-                <View style={{ flex: 1 }}>
-                  <Dropdown
-                    options={clubs || []}
-                    selectedValue={shot.club || ''}
-                    onSelect={(value) => updateShot(shot.id, 'iron', 'club', value)}
-                    style={styles.clubDropdown}
-                    textStyle={styles.dropdownText}
-                    placeholder="club (optional)"
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Dropdown
-                    options={LIE_OPTIONS}
-                    selectedValue={shot.lie || 'fairway'}
-                    onSelect={(value) => updateShot(shot.id, 'iron', 'lie', value)}
-                    style={styles.lieDropdown}
-                    textStyle={styles.dropdownText}
-                  />
+            console.log('Iron scroll position:', { 
+              offsetY: offsetY.toFixed(2), 
+              currentIndex,
+              totalIronShots: ironShots.length
+            });
+            
+            if (currentIndex < ironShots.length) {
+              setCurrentShotIndex(currentIndex);
+            }
+          }}
+          scrollEventThrottle={16}
+        >
+          {ironShots.map((shot, index) => (
+            <View key={shot.id} style={[styles.shotCard, { height: SHOT_CARD_HEIGHT }]}>
+              <View style={styles.shotHeader}>
+                <Text style={styles.shotNumber}>Shot {index + 1}</Text>
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => removeShot(shot.id, 'iron')}
+                >
+                  <Text style={styles.removeButtonText}>×</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.shotFields}>
+                <View style={[styles.shotFieldRow, { flexDirection: 'row', gap: 8 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Dropdown
+                      options={clubs || []}
+                      selectedValue={shot.club || ''}
+                      onSelect={(value) => updateShot(shot.id, 'iron', 'club', value)}
+                      style={styles.clubDropdown}
+                      textStyle={styles.dropdownText}
+                      placeholder="club (optional)"
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Dropdown
+                      options={LIE_OPTIONS}
+                      selectedValue={shot.lie || 'fairway'}
+                      onSelect={(value) => updateShot(shot.id, 'iron', 'lie', value)}
+                      style={styles.lieDropdown}
+                      textStyle={styles.dropdownText}
+                    />
+                  </View>
                 </View>
               </View>
+              {/* lets add some spacing here */}
+              <View style={{ height: 20 }} />
+              {/* Outcome Grid for this shot */}
+              <OutcomeGrid
+                shotType="iron"
+                shotNumber={index + 1}
+                historicalData={historicalData.iron}
+                selectedOutcome={shot.direction}
+                onSelect={(outcome) => {
+                  updateShot(shot.id, 'iron', 'direction', outcome);
+                }}
+                onFlameAnimation={onFlameAnimation}
+                showError={showValidationError && !shot.direction}
+                colors={colors}
+              />
+              
             </View>
-            {/* lets add some spacing here */}
-            <View style={{ height: 40 }} />
-            {/* Outcome Grid for this shot */}
-            <OutcomeGrid
-              shotType="iron"
-              shotNumber={index + 1}
-              historicalData={historicalData.iron}
-              selectedOutcome={shot.direction}
-              onSelect={(outcome) => {
-                updateShot(shot.id, 'iron', 'direction', outcome);
-              }}
-              onFlameAnimation={onFlameAnimation}
-              showError={showValidationError && !shot.direction}
-              colors={colors}
-            />
-            
-          </View>
-        ))}
+          ))}
 
-        {/* All Putts */}
-        {putts.map((putt, index) => (
-          <View key={putt.id} style={[styles.shotCard, { height: SHOT_CARD_HEIGHT }]}>
-            <View style={styles.shotHeader}>
-              <Text style={styles.shotNumber}>Putt {index + 1}</Text>
-              <TouchableOpacity
-                style={styles.removeButton}
-                onPress={() => removeShot(putt.id, 'putt')}
-              >
-                <Text style={styles.removeButtonText}>×</Text>
-              </TouchableOpacity>
+          {/* Add Iron Shot Card */}
+          <TouchableOpacity 
+            style={[styles.addShotCard, { height: ADD_SHOT_CARD_HEIGHT }]}
+            onPress={addIronShot}
+            activeOpacity={0.8}
+          >
+            <View style={styles.addShotCardContent}>
+              <Text style={styles.addShotCardText}>+ Add Iron Shot</Text>
+              <Text style={styles.addShotCardSubtext}>Tap to add another iron shot</Text>
             </View>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
+
+      {/* Putts ScrollView */}
+      {currentShotType === 'putt' && (
+        <ScrollView 
+          ref={scrollViewRef} 
+          style={[styles.content, { height: SHOT_CARD_HEIGHT }]}
+          contentContainerStyle={{ 
+            height: putts.length * SHOT_CARD_HEIGHT + ADD_SHOT_CARD_HEIGHT, // Different height for add card
+            paddingBottom: 0 
+          }}
+          showsVerticalScrollIndicator={false}
+          pagingEnabled={true}
+          decelerationRate="fast"
+          onScroll={(event) => {
+            const offsetY = event.nativeEvent.contentOffset.y;
+            const currentIndex = Math.round(offsetY / SHOT_CARD_HEIGHT);
             
-            <View style={styles.shotFields}>
-              <View style={[styles.shotFieldRow, { flexDirection: 'row', gap: 8 }]}>
-                <View style={{ flex: 1 }}>
-                  {/* TODO: Putt distance dropdown will be restored here */}
-                </View>
-                <View style={{ flex: 1 }}>
-                  {/* Empty space to match iron layout */}
+            console.log('Putt scroll position:', { 
+              offsetY: offsetY.toFixed(2), 
+              currentIndex,
+              totalPutts: putts.length
+            });
+            
+            if (currentIndex < putts.length) {
+              setCurrentShotIndex(currentIndex);
+            }
+          }}
+          scrollEventThrottle={16}
+        >
+          {putts.map((putt, index) => (
+            <View key={putt.id} style={[styles.shotCard, { height: SHOT_CARD_HEIGHT }]}>
+              <View style={styles.shotHeader}>
+                <Text style={styles.shotNumber}>Putt {index + 1}</Text>
+                <TouchableOpacity
+                  style={styles.removeButton}
+                  onPress={() => removeShot(putt.id, 'putt')}
+                >
+                  <Text style={styles.removeButtonText}>×</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.shotFields}>
+                <View style={[styles.shotFieldRow, { flexDirection: 'row', gap: 8 }]}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.puttDistanceLabel}>Putt Distance</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Dropdown
+                      options={PUTT_DISTANCE_OPTIONS}
+                      selectedValue={putt.puttDistance || '5-10ft'}
+                      onSelect={(value) => updateShot(putt.id, 'putt', 'puttDistance', value)}
+                      style={styles.puttDistanceDropdown}
+                      textStyle={styles.dropdownText}
+                    />
+                  </View>
                 </View>
               </View>
+              {/* lets add some spacing here */}
+              <View style={{ height: 20 }} />
+              {/* Outcome Grid for this putt */}
+              <OutcomeGrid
+                shotType="putt"
+                shotNumber={index + 1}
+                historicalData={historicalData.putts}
+                selectedOutcome={putt.direction}
+                onSelect={(outcome) => {
+                  updateShot(putt.id, 'putt', 'direction', outcome);
+                }}
+                onFlameAnimation={onFlameAnimation}
+                showError={showValidationError && !putt.direction}
+                colors={colors}
+              />
+              
             </View>
-            {/* lets add some spacing here */}
-            <View style={{ height: 40 }} />
-            {/* Outcome Grid for this putt */}
-            <OutcomeGrid
-              shotType="putt"
-              shotNumber={index + 1}
-              historicalData={historicalData.putts}
-              selectedOutcome={putt.direction}
-              onSelect={(outcome) => {
-                updateShot(putt.id, 'putt', 'direction', outcome);
-              }}
-              onFlameAnimation={onFlameAnimation}
-              showError={showValidationError && !putt.direction}
-              colors={colors}
-            />
-            
-          </View>
-        ))}
+          ))}
 
-      </ScrollView>
+          {/* Add Putt Card */}
+          <TouchableOpacity 
+            style={[styles.addShotCard, { height: ADD_SHOT_CARD_HEIGHT }]}
+            onPress={addPutt}
+            activeOpacity={0.8}
+          >
+            <View style={styles.addShotCardContent}>
+              <Text style={styles.addShotCardText}>+ Add Putt</Text>
+              <Text style={styles.addShotCardSubtext}>Tap to add another putt</Text>
+            </View>
+          </TouchableOpacity>
+        </ScrollView>
+      )}
 
-      {/* Add Buttons - Outside ScrollView */}
-      <View style={styles.addButtonsContainer}>
-        <TouchableOpacity style={styles.addButton} onPress={addIronShot}>
-          <Text style={styles.addButtonText}>+ Add Iron Shot</Text>
+      {/* View Buttons - Outside ScrollView */}
+      <View style={styles.viewButtonsContainer}>
+        <TouchableOpacity 
+          style={[
+            styles.viewButton, 
+            currentShotType === 'iron' && styles.viewButtonActive
+          ]} 
+          onPress={() => {
+            setCurrentShotType('iron');
+            setCurrentShotIndex(0); // Always go to first iron shot
+          }}
+        >
+          <Text style={[
+            styles.viewButtonText,
+            currentShotType === 'iron' && styles.viewButtonTextActive
+          ]}>View Irons</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.addButton} onPress={addPutt}>
-          <Text style={styles.addButtonText}>+ Add Putt</Text>
+        <TouchableOpacity 
+          style={[
+            styles.viewButton, 
+            currentShotType === 'putt' && styles.viewButtonActive
+          ]} 
+          onPress={() => {
+            setCurrentShotType('putt');
+            setCurrentShotIndex(0); // Always go to first putt
+          }}
+        >
+          <Text style={[
+            styles.viewButtonText,
+            currentShotType === 'putt' && styles.viewButtonTextActive
+          ]}>View Putts</Text>
         </TouchableOpacity>
       </View>
 
