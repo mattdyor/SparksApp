@@ -476,6 +476,15 @@ const HoleHistoryModal: React.FC<{
       marginTop: 20,
       alignItems: 'center',
     },
+    addButtonsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-around',
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      backgroundColor: colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
     todaysDistanceContainer: {
       flexDirection: 'row',
       alignItems: 'center',
@@ -2296,14 +2305,14 @@ const OutcomeGrid: React.FC<{
     },
     grid: {
       flexDirection: 'row',
-      gap: 4,
+      gap: 2,
     },
     row: {
       flex: 1,
-      gap: 4,
+      gap: 2,
     },
     cell: {
-      aspectRatio: 1.5, // 2:3 height:width ratio (width/height = 1.5)
+      aspectRatio: 2.0, // Slightly taller than current, less white space
       borderRadius: 8,
       justifyContent: 'center',
       alignItems: 'center',
@@ -2836,7 +2845,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
   // Get all shots in order (iron shots first, then putts)
   const getAllShots = () => {
     return [
-      ...ironShots.map((shot, index) => ({ shot, type: 'iron' as const, index, id: shot.id })),
+      ...ironShots.map((shot, index) =>  ({ shot, type: 'iron' as const, index, id: shot.id })),
       ...putts.map((shot, index) => ({ shot, type: 'putt' as const, index, id: shot.id }))
     ];
   };
@@ -2851,13 +2860,15 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
   };
 
   // Calculate shot card height for snap behavior
-  const SHOT_CARD_HEIGHT = 400; // Fixed height for consistent snapping
+  const SHOT_CARD_HEIGHT = 350; // Same height for both iron shots and putts
+  const CARD_SPACING = 12; // marginBottom between cards
+  const TOTAL_CARD_HEIGHT = SHOT_CARD_HEIGHT + CARD_SPACING; // Same for all cards
 
   // Snap to current shot
   const snapToCurrentShot = () => {
     const allShots = getAllShots();
     const currentGlobalIndex = currentShotType === 'iron' ? currentShotIndex : ironShots.length + currentShotIndex;
-    const scrollY = currentGlobalIndex * SHOT_CARD_HEIGHT;
+    const scrollY = currentGlobalIndex * TOTAL_CARD_HEIGHT;
     
     // For putts, add extra offset to account for navigation bar
     const isPutt = currentShotType === 'putt';
@@ -2883,7 +2894,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
     } else {
       // If this is the last shot, scroll to show the Add Putt button
       setTimeout(() => {
-        const addPuttButtonY = (allShots.length) * SHOT_CARD_HEIGHT;
+        const addPuttButtonY = (allShots.length) * TOTAL_CARD_HEIGHT;
         scrollViewRef.current?.scrollTo({ y: addPuttButtonY, animated: true });
       }, 100);
     }
@@ -2914,6 +2925,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
         id: `iron-${Date.now()}-${index}`,
         type: 'iron',
         lie: index === expectedIronShots - 1 ? 'green' : 'fairway', // Last iron shot defaults to green
+        direction: 'good', // Default to good outcome
         timestamp: Date.now(),
       }));
 
@@ -2921,6 +2933,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
         id: `putt-${Date.now()}-${index}`,
         type: 'putt',
         puttDistance: index === 1 ? '<4ft' : '5-10ft', // Second putt is typically a tap-in
+        direction: 'good', // Default to good outcome
         timestamp: Date.now(),
       }));
 
@@ -2956,6 +2969,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       id: `iron-${Date.now()}-${Math.random()}`,
       type: 'iron',
       lie: 'green',
+      direction: 'good', // Default to good outcome
       timestamp: Date.now(),
     };
     setIronShots(prev => {
@@ -2981,6 +2995,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       id: `putt-${Date.now()}-${Math.random()}`,
       type: 'putt',
       puttDistance: '5-10ft',
+      direction: 'good', // Default to good outcome
       timestamp: Date.now(),
     };
     setPutts(prev => [...prev, newPutt]);
@@ -3300,20 +3315,15 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       fontSize: 16,
       fontWeight: '600',
       color: colors.text,
-      marginBottom: 8,
-    },
-    puttDistanceRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginBottom: 16,
+      marginRight: 12,
     },
     puttDistanceDropdown: {
       flex: 1,
       backgroundColor: colors.background,
-      borderRadius: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 12,
-      minHeight: 44,
+      borderRadius: 6,
+      paddingHorizontal: 8,
+      paddingVertical: 8,
+      minHeight: 40,
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -3608,17 +3618,17 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
         </View>
       </View>
 
-
       <ScrollView 
         ref={scrollViewRef} 
-        style={styles.content} 
-        showsVerticalScrollIndicator={false}
-        snapToInterval={SHOT_CARD_HEIGHT}
+        style={styles.content}
+        contentContainerStyle={{ paddingBottom: 20 }}
+        showsVerticalScrollIndicator={true}
+        snapToInterval={TOTAL_CARD_HEIGHT}
         snapToAlignment="start"
         decelerationRate="fast"
         onScroll={(event) => {
           const offsetY = event.nativeEvent.contentOffset.y;
-          const currentIndex = Math.round(offsetY / SHOT_CARD_HEIGHT);
+          const currentIndex = Math.round(offsetY / TOTAL_CARD_HEIGHT);
           const allShots = getAllShots();
           
           if (currentIndex < allShots.length) {
@@ -3682,14 +3692,6 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
               colors={colors}
             />
             
-            {/* Add Iron Shot Button - Only in last iron shot card */}
-            {index === ironShots.length - 1 && (
-              <View style={styles.addButtonContainer}>
-                <TouchableOpacity style={styles.addButton} onPress={addIronShot}>
-                  <Text style={styles.addButtonText}>+ Add Iron Shot</Text>
-                </TouchableOpacity>
-              </View>
-            )}
           </View>
         ))}
 
@@ -3707,19 +3709,17 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
             </View>
             
             <View style={styles.shotFields}>
-              <Text style={styles.puttDistanceLabel}>Putt Distance</Text>
-              <View style={styles.puttDistanceRow}>
-                <Dropdown
-                  options={PUTT_DISTANCE_OPTIONS.map(option => option.value)}
-                  selectedValue={putt.puttDistance || ''}
-                  onSelect={(value) => updateShot(putt.id, 'putt', 'puttDistance', value)}
-                  style={styles.puttDistanceDropdown}
-                  textStyle={styles.dropdownText}
-                  placeholder="Select distance (optional)"
-                />
+              <View style={[styles.shotFieldRow, { flexDirection: 'row', gap: 8 }]}>
+                <View style={{ flex: 1 }}>
+                  {/* TODO: Putt distance dropdown will be restored here */}
+                </View>
+                <View style={{ flex: 1 }}>
+                  {/* Empty space to match iron layout */}
+                </View>
               </View>
             </View>
-            
+            {/* lets add some spacing here */}
+            <View style={{ height: 40 }} />
             {/* Outcome Grid for this putt */}
             <OutcomeGrid
               shotType="putt"
@@ -3734,19 +3734,20 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
               colors={colors}
             />
             
-            {/* Add Putt Button - Only in last putt card */}
-            {index === putts.length - 1 && (
-              <View style={styles.addButtonContainer}>
-                <TouchableOpacity style={styles.addButton} onPress={addPutt}>
-                  <Text style={styles.addButtonText}>+ Add Putt</Text>
-                </TouchableOpacity>
-              </View>
-            )}
           </View>
         ))}
 
-
       </ScrollView>
+
+      {/* Add Buttons - Outside ScrollView */}
+      <View style={styles.addButtonsContainer}>
+        <TouchableOpacity style={styles.addButton} onPress={addIronShot}>
+          <Text style={styles.addButtonText}>+ Add Iron Shot</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.addButton} onPress={addPutt}>
+          <Text style={styles.addButtonText}>+ Add Putt</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Permanent Navigation - Fixed above spark bottom navigation */}
       <View style={styles.permanentNavigation}>
