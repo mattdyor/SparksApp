@@ -42,7 +42,7 @@ export const useSparkStore = create<SparkState>()(
       // Initial state
       sparkProgress: {},
       sparkData: {},
-      userSparkIds: ['spinner', 'flashcards', 'business-sim'], // Default sparks
+      userSparkIds: ['spinner', 'flashcards', 'business-sim', 'quick-convert'], // Default sparks
       favoriteSparkIds: [],
       
       // Actions

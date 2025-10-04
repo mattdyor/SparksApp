@@ -42,11 +42,11 @@ interface Hole {
 
 interface Shot {
   id: string;
-  type: 'iron' | 'putt';
+  type: 'shot' | 'putt';
   direction?: 'good' | 'fire' | 'left' | 'right' | 'long' | 'short' | 'left and short' | 'left and long' | 'right and short' | 'right and long';
-  lie?: 'fairway' | 'rough' | 'sand' | 'green' | 'ob'; // For iron shots
+  lie?: 'fairway' | 'rough' | 'sand' | 'green' | 'ob'; // For shots
   puttDistance?: '<4ft' | '5-10ft' | '10+ft'; // For putts
-  club?: string; // For iron shots
+  club?: string; // For shots
   timestamp: number;
 }
 
@@ -94,7 +94,7 @@ interface HoleHistory {
   bestScore: number;
   worstScore: number;
   commonShots: {
-    iron: Shot[];
+    shot: Shot[];
     putts: Shot[];
   };
   recentRounds: HoleScore[];
@@ -115,7 +115,7 @@ const calculateHoleHistory = (holeNumber: number, courseId: string, rounds: Roun
       averageScore: 0,
       bestScore: 0,
       worstScore: 0,
-      commonShots: { iron: [], putts: [] },
+      commonShots: { shot: [], putts: [] },
       recentRounds: [],
     };
   }
@@ -127,7 +127,7 @@ const calculateHoleHistory = (holeNumber: number, courseId: string, rounds: Roun
 
   // Get all shots for this hole
   const allShots = holeScores.flatMap(hs => hs.shots);
-  const ironShots = allShots.filter(shot => shot.type === 'iron');
+  const shots = allShots.filter(shot => shot.type === 'shot');
   const puttShots = allShots.filter(shot => shot.type === 'putt');
 
   // Get recent rounds (last 5)
@@ -143,7 +143,7 @@ const calculateHoleHistory = (holeNumber: number, courseId: string, rounds: Roun
     bestScore,
     worstScore,
     commonShots: {
-      iron: ironShots,
+      shot: shots,
       putts: puttShots,
     },
     recentRounds,
@@ -279,12 +279,12 @@ const analyzeHistoricalDataByShotPosition = (holeHistory: HoleHistory) => {
     const shots = holeScore.shots || [];
     
     // Group shots by type and position
-    const ironShots = shots.filter(shot => shot.type === 'iron').sort((a, b) => a.timestamp - b.timestamp);
+    const shotShots = shots.filter(shot => shot.type === 'shot').sort((a, b) => a.timestamp - b.timestamp);
     const putts = shots.filter(shot => shot.type === 'putt').sort((a, b) => a.timestamp - b.timestamp);
     
-    // Process iron shots by position
-    ironShots.forEach((shot, index) => {
-      const positionKey = `iron-${index + 1}`;
+    // Process shots by position
+    shotShots.forEach((shot, index) => {
+      const positionKey = `shot-${index + 1}`;
       if (!shotPositionData[positionKey]) {
         shotPositionData[positionKey] = {};
       }
@@ -2850,8 +2850,8 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
   onPreviousHole: () => void;
   onCompleteHole: (holeScore: HoleScore) => void;
   onShowHistory: () => void;
-  onSaveHoleData: (holeNumber: number, ironShots: Shot[], putts: Shot[]) => void;
-  onLoadHoleData: (holeNumber: number) => { ironShots: Shot[]; putts: Shot[] } | null;
+  onSaveHoleData: (holeNumber: number, shots: Shot[], putts: Shot[]) => void;
+  onLoadHoleData: (holeNumber: number) => { shots: Shot[]; putts: Shot[] } | null;
   onUpdateTodaysDistance: (holeNumber: number, distance: number | undefined) => void;
   onEndRound: () => void;
   onViewSummary: () => void;
@@ -2863,29 +2863,29 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
   onFlameAnimation: () => void;
 }>(({ course, currentHole, currentRound, data, onNextHole, onPreviousHole, onCompleteHole, onShowHistory, onSaveHoleData, onLoadHoleData, onUpdateTodaysDistance, onEndRound, onViewSummary, onClose, clubs, handicap, getBumpsForHole, colors, onFlameAnimation }, ref) => {
   const hole = (course.holes || []).find(h => h.number === currentHole);
-  const [ironShots, setIronShots] = useState<Shot[]>([]);
+  const [shots, setShots] = useState<Shot[]>([]);
   const [putts, setPutts] = useState<Shot[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [showValidationError, setShowValidationError] = useState(false);
   const [todaysDistance, setTodaysDistance] = useState<string>(hole?.todaysDistance?.toString() || '');
   const [currentShotIndex, setCurrentShotIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
-  const expectedIronShots = hole ? Math.max(0, hole.par - 2) : 0; // par 3 = 1, par 4 = 2, par 5 = 3
+  const expectedShots = hole ? Math.max(0, hole.par - 2) : 0; // par 3 = 1, par 4 = 2, par 5 = 3
   const expectedPutts = 2;
 
   // Check if all default iron shots have outcomes
-  const allIronShotsHaveOutcomes = ironShots.length >= expectedIronShots && 
-    ironShots.slice(0, expectedIronShots).every(shot => shot.direction);
+  const allShotsHaveOutcomes = (shots?.length || 0) >= expectedShots && 
+    shots?.slice(0, expectedShots).every(shot => shot.direction);
 
   // Get all shots in order (iron shots first, then putts)
   const getAllShots = () => {
     const allShots = [
-      ...ironShots.map((shot, index) =>  ({ shot, type: 'iron' as const, index, id: shot.id })),
-      ...putts.map((shot, index) => ({ shot, type: 'putt' as const, index, id: shot.id }))
+      ...(shots || []).map((shot, index) =>  ({ shot, type: 'shot' as const, index, id: shot.id })),
+      ...(putts || []).map((shot, index) => ({ shot, type: 'putt' as const, index, id: shot.id }))
     ];
     console.log('getAllShots debug:', {
-      ironShotsCount: ironShots.length,
-      puttsCount: putts.length,
+      shotsCount: (shots || []).length,
+      puttsCount: (putts || []).length,
       totalShots: allShots.length,
       allShots: allShots.map(s => ({ type: s.type, index: s.index }))
     });
@@ -2904,16 +2904,16 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
     const currentShot = allShots[currentShotIndex];
     if (!currentShot) return null;
     
-    const isIron = currentShot.type === 'iron';
-    const shotNumber = isIron ? currentShot.index + 1 : currentShot.index + 1;
-    const shotLabel = isIron ? `Shot ${shotNumber}` : `Putt ${shotNumber}`;
+    const isShot = currentShot.type === 'shot';
+    const shotNumber = isShot ? currentShot.index + 1 : currentShot.index + 1;
+    const shotLabel = isShot ? `Shot ${shotNumber}` : `Putt ${shotNumber}`;
     
     return {
       shot: currentShot.shot,
       type: currentShot.type,
       shotNumber,
       shotLabel,
-      isIron
+      isShot
     };
   };
 
@@ -2921,7 +2921,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
   // Expose saveCurrentData method to parent
   useImperativeHandle(ref, () => ({
     saveCurrentData: () => {
-      onSaveHoleData(currentHole, ironShots, putts);
+      onSaveHoleData(currentHole, shots, putts);
       // Save today's distance
       const distanceValue = todaysDistance ? parseInt(todaysDistance) : undefined;
       onUpdateTodaysDistance(currentHole, distanceValue);
@@ -2935,14 +2935,14 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
     
     if (existingData) {
       // Load existing data
-      setIronShots(existingData.ironShots);
+      setShots(existingData.shots);
       setPutts(existingData.putts);
     } else {
       // Create default shots
-      const defaultIronShots: Shot[] = Array.from({ length: expectedIronShots }, (_, index) => ({
-        id: `iron-${Date.now()}-${index}`,
-        type: 'iron',
-        lie: index === expectedIronShots - 1 ? 'green' : 'fairway', // Last iron shot defaults to green
+      const defaultShots: Shot[] = Array.from({ length: expectedShots }, (_, index) => ({
+        id: `shot-${Date.now()}-${index}`,
+        type: 'shot',
+        lie: index === expectedShots - 1 ? 'green' : 'fairway', // Last shot defaults to green
         direction: 'good', // Default to good outcome
         timestamp: Date.now(),
       }));
@@ -2955,7 +2955,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
         timestamp: Date.now(),
       }));
 
-      setIronShots(defaultIronShots);
+      setShots(defaultShots);
       setPutts(defaultPutts);
     }
 
@@ -2969,20 +2969,20 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
     setTimeout(() => {
       scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     }, 100);
-  }, [currentHole, expectedIronShots, expectedPutts, hole]);
+  }, [currentHole, expectedShots, expectedPutts, hole]);
 
 
 
 
-  const addIronShot = () => {
+  const addShot = () => {
     const newShot: Shot = {
-      id: `iron-${Date.now()}-${Math.random()}`,
-      type: 'iron',
+      id: `shot-${Date.now()}-${Math.random()}`,
+      type: 'shot',
       lie: 'green',
       direction: 'good', // Default to good outcome
       timestamp: Date.now(),
     };
-    setIronShots(prev => {
+    setShots(prev => {
       const newShots = [...prev, newShot];
       
       // If the previous shot has lie 'green', change it to 'fairway'
@@ -2999,7 +2999,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
     });
     
     // Go to the new shot (it will be the last iron shot)
-    setCurrentShotIndex(ironShots.length); // Index of the new shot
+    setCurrentShotIndex((shots || []).length); // Index of the new shot
     
     HapticFeedback.light();
   };
@@ -3015,15 +3015,34 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
     setPutts(prev => [...prev, newPutt]);
     
     // Go to the new putt (it will be the last putt)
-    setCurrentShotIndex(ironShots.length + putts.length); // Index of the new putt
+    setCurrentShotIndex((shots || []).length + (putts || []).length); // Index of the new putt
     
     HapticFeedback.light();
   };
 
-  const removeShot = (shotId: string, type: 'iron' | 'putt') => {
-    if (type === 'iron') {
-      const shotIndex = ironShots.findIndex(shot => shot.id === shotId);
-      setIronShots(prev => prev.filter(shot => shot.id !== shotId));
+  // Shot navigation functions
+  const goToPreviousShot = () => {
+    if (currentShotIndex > 0) {
+      setCurrentShotIndex(currentShotIndex - 1);
+      HapticFeedback.light();
+    }
+  };
+
+  const goToNextShot = () => {
+    const allShots = getAllShots();
+    if (currentShotIndex < allShots.length - 1) {
+      setCurrentShotIndex(currentShotIndex + 1);
+      HapticFeedback.light();
+    }
+  };
+
+  const canGoPrevious = currentShotIndex > 0;
+  const canGoNext = currentShotIndex < getAllShots().length - 1;
+
+  const removeShot = (shotId: string, type: 'shot' | 'putt') => {
+    if (type === 'shot') {
+      const shotIndex = shots.findIndex(shot => shot.id === shotId);
+      setShots(prev => prev.filter(shot => shot.id !== shotId));
       
       // Adjust current shot index if needed
       if (currentShotIndex === shotIndex) {
@@ -3034,8 +3053,8 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
         setCurrentShotIndex(currentShotIndex - 1);
       }
     } else {
-      const puttIndex = putts.findIndex(putt => putt.id === shotId);
-      const globalIndex = ironShots.length + puttIndex;
+      const puttIndex = (putts || []).findIndex(putt => putt.id === shotId);
+      const globalIndex = (shots || []).length + puttIndex;
       setPutts(prev => prev.filter(putt => putt.id !== shotId));
       
       // Adjust current shot index if needed
@@ -3052,9 +3071,9 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
 
 
 
-  const updateShot = (shotId: string, type: 'iron' | 'putt', field: keyof Shot, value: any) => {
-    if (type === 'iron') {
-      setIronShots(prev => prev.map(shot => 
+  const updateShot = (shotId: string, type: 'shot' | 'putt', field: keyof Shot, value: any) => {
+    if (type === 'shot') {
+      setShots(prev => prev.map(shot => 
         shot.id === shotId ? { ...shot, [field]: value } : shot
       ));
     } else {
@@ -3068,20 +3087,20 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
     // No auto-advance - let user manually navigate
   };
 
-  const totalScore = ironShots.length + putts.length;
+  const totalScore = (shots || []).length + (putts || []).length;
   const netScore = totalScore - (hole?.par || 0);
 
   const handleCompleteHole = () => {
-    if (ironShots.length === 0 && putts.length === 0) {
+    if ((shots || []).length === 0 && (putts || []).length === 0) {
       Alert.alert('Error', 'Please add at least one shot to complete the hole');
       return;
     }
 
     // Check if all shots have been described
-    const allIronShotsDescribed = ironShots.every(shot => shot.direction);
-    const allPuttsDescribed = putts.every(putt => putt.direction); // puttDistance is optional
+    const allShotsDescribed = (shots || []).every(shot => shot.direction);
+    const allPuttsDescribed = (putts || []).every(putt => putt.direction); // puttDistance is optional
     
-    if (!allIronShotsDescribed || !allPuttsDescribed) {
+    if (!allShotsDescribed || !allPuttsDescribed) {
       setShowValidationError(true);
       Alert.alert('Error', 'Cannot go to next hole until all shots have a selected outcome or deleted');
       return;
@@ -3090,7 +3109,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
     const holeScore: HoleScore = {
       holeNumber: currentHole,
       courseId: course.id,
-      shots: [...ironShots, ...putts],
+      shots: [...shots, ...putts],
       totalScore,
       par: hole?.par || 0,
       netScore,
@@ -3116,14 +3135,14 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       (round.holeScores || []).filter(hs => hs.holeNumber === currentHole)
     );
     
-    const ironData: { [key: string]: number } = {};
+    const shotData: { [key: string]: number } = {};
     const puttData: { [key: string]: number } = {};
     
     holeScores.forEach(holeScore => {
       (holeScore.shots || []).forEach(shot => {
         if (shot.direction) {
-          if (shot.type === 'iron') {
-            ironData[shot.direction] = (ironData[shot.direction] || 0) + 1;
+          if (shot.type === 'shot') {
+            shotData[shot.direction] = (shotData[shot.direction] || 0) + 1;
           } else if (shot.type === 'putt') {
             puttData[shot.direction] = (puttData[shot.direction] || 0) + 1;
           }
@@ -3131,7 +3150,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       });
     });
     
-    return { iron: ironData, putts: puttData };
+    return { shot: shotData, putts: puttData };
   };
 
   const historicalData = getHistoricalShotData();
@@ -3147,7 +3166,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
           style: 'destructive',
           onPress: () => {
             // Save current data before ending round
-            onSaveHoleData(currentHole, ironShots, putts);
+            onSaveHoleData(currentHole, shots, putts);
             // Call parent's end round handler
             onEndRound();
           },
@@ -3679,8 +3698,6 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       borderRadius: 8,
       alignItems: 'center',
       minWidth: 120,
-    },
-    addIronButton: {
       backgroundColor: colors.primary,
     },
     addPuttButton: {
@@ -3691,8 +3708,6 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
     addShotButtonText: {
       fontSize: 16,
       fontWeight: '600',
-    },
-    addIronButtonText: {
       color: colors.background,
     },
     addPuttButtonText: {
@@ -3721,6 +3736,48 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       backgroundColor: colors.surface,
       borderTopWidth: 1,
       borderTopColor: colors.border,
+      position: 'relative',
+    },
+    shotNavigationArrows: {
+      position: 'absolute',
+      top: '50%',
+      left: 0,
+      right: 0,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      paddingHorizontal: 16,
+      transform: [{ translateY: -16 }], // Half of arrow button height to center perfectly
+    },
+    holeNavigationArrows: {
+      flexDirection: 'row',
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingVertical: 8,
+      gap: 16,
+      backgroundColor: colors.surface,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    shotArrowButton: {
+      height: 32,
+      width: 32,
+      borderRadius: 16,
+      backgroundColor: colors.primary,
+      alignItems: 'center',
+      justifyContent: 'center',
+      marginHorizontal: 4,
+    },
+    disabledShotArrow: {
+      backgroundColor: colors.border,
+    },
+    shotArrowText: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: '#fff',
+    },
+    disabledShotArrowText: {
+      color: colors.textSecondary,
     },
     shotRow: {
       marginBottom: 4,
@@ -3853,10 +3910,10 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
                 <Text style={styles.noShotsText}>No shots recorded yet</Text>
                 <View style={styles.addShotButtonsContainer}>
                   <TouchableOpacity 
-                    style={[styles.addShotButton, styles.addIronButton]}
-                    onPress={addIronShot}
+                    style={[styles.addShotButton, styles.addShotButton]}
+                    onPress={addShot}
                   >
-                    <Text style={[styles.addShotButtonText, styles.addIronButtonText]}>+ Add Iron Shot</Text>
+                    <Text style={[styles.addShotButtonText, styles.addShotButtonText]}>+ Add Shot</Text>
                   </TouchableOpacity>
                   <TouchableOpacity 
                     style={[styles.addShotButton, styles.addPuttButton]}
@@ -3875,7 +3932,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
                 <Text style={styles.shotNumber}>{shotInfo.shotLabel}</Text>
                 <TouchableOpacity
                   style={styles.removeButton}
-                  onPress={() => removeShot(shotInfo.shot.id, shotInfo.type)}
+                  onPress={() => removeShot(shotInfo.shot.id, shotInfo.type === 'shot' ? 'shot' : 'putt')}
                 >
                   <Text style={styles.removeButtonText}>×</Text>
                 </TouchableOpacity>
@@ -3883,13 +3940,13 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
               
               <View style={styles.shotFields}>
                 <View style={[styles.shotFieldRow, { flexDirection: 'row', gap: 8 }]}>
-                  {shotInfo.isIron ? (
+                  {shotInfo.isShot ? (
                     <>
                       <View style={{ flex: 1 }}>
                         <Dropdown
                           options={clubs || []}
                           selectedValue={shotInfo.shot.club || ''}
-                          onSelect={(value) => updateShot(shotInfo.shot.id, 'iron', 'club', value)}
+                          onSelect={(value) => updateShot(shotInfo.shot.id, 'shot', 'club', value)}
                           style={styles.clubDropdown}
                           textStyle={styles.dropdownText}
                           placeholder="club (optional)"
@@ -3899,7 +3956,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
                         <Dropdown
                           options={LIE_OPTIONS}
                           selectedValue={shotInfo.shot.lie || 'fairway'}
-                          onSelect={(value) => updateShot(shotInfo.shot.id, 'iron', 'lie', value)}
+                          onSelect={(value) => updateShot(shotInfo.shot.id, 'shot', 'lie', value)}
                           style={styles.lieDropdown}
                           textStyle={styles.dropdownText}
                         />
@@ -3924,12 +3981,12 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
               {/* Outcome Grid for this shot */}
               <View style={{ height: 20, marginTop: 12 }} />
               <OutcomeGrid
-                shotType={shotInfo.type}
+                shotType={shotInfo.type === 'shot' ? 'iron' : shotInfo.type}
                 shotNumber={shotInfo.shotNumber}
-                historicalData={shotInfo.isIron ? historicalData.iron : historicalData.putts}
+                historicalData={shotInfo.isShot ? (historicalData.shot || {}) : (historicalData.putts || {})}
                 selectedOutcome={shotInfo.shot.direction}
                 onSelect={(outcome) => {
-                  updateShot(shotInfo.shot.id, shotInfo.type, 'direction', outcome);
+                  updateShot(shotInfo.shot.id, shotInfo.type === 'shot' ? 'shot' : 'putt', 'direction', outcome);
                 }}
                 onFlameAnimation={onFlameAnimation}
                 showError={showValidationError && !shotInfo.shot.direction}
@@ -3942,14 +3999,14 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
 
       {/* Shot Grid Navigation */}
       <View style={styles.shotGridContainer}>
-        {/* Iron Shots Row */}
+        {/* Shots Row */}
         <ScrollView 
           horizontal 
           showsHorizontalScrollIndicator={false}
           style={styles.shotRow}
           contentContainerStyle={styles.shotRowContent}
         >
-          {ironShots.map((shot, index) => (
+          {(shots || []).map((shot, index) => (
             <TouchableOpacity
               key={shot.id}
               style={[
@@ -3958,19 +4015,19 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
               ]}
               onPress={() => setCurrentShotIndex(index)}
             >
-              <Text style={[
-                styles.shotButtonText,
-                currentShotIndex === index && styles.activeShotButtonText
-              ]}>i{index + 1}</Text>
+                <Text style={[
+                  styles.shotButtonText,
+                  currentShotIndex === index && styles.activeShotButtonText
+                ]}>s{index + 1}</Text>
             </TouchableOpacity>
           ))}
           
-          {/* Add Iron Shot Button */}
+          {/* Add Shot Button */}
           <TouchableOpacity
             style={styles.addShotGridButton}
-            onPress={addIronShot}
+            onPress={addShot}
           >
-            <Text style={styles.addShotGridButtonText}>+iron</Text>
+            <Text style={styles.addShotGridButtonText}>+shot</Text>
           </TouchableOpacity>
         </ScrollView>
         
@@ -3981,18 +4038,18 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
           style={styles.shotRow}
           contentContainerStyle={styles.shotRowContent}
         >
-          {putts.map((putt, index) => (
+          {(putts || []).map((putt, index) => (
             <TouchableOpacity
               key={putt.id}
               style={[
                 styles.shotButton,
-                currentShotIndex === ironShots.length + index && styles.activeShotButton
+                currentShotIndex === (shots || []).length + index && styles.activeShotButton
               ]}
-              onPress={() => setCurrentShotIndex(ironShots.length + index)}
+              onPress={() => setCurrentShotIndex((shots || []).length + index)}
             >
               <Text style={[
                 styles.shotButtonText,
-                currentShotIndex === ironShots.length + index && styles.activeShotButtonText
+                currentShotIndex === (shots || []).length + index && styles.activeShotButtonText
               ]}>p{index + 1}</Text>
             </TouchableOpacity>
           ))}
@@ -4005,46 +4062,80 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
             <Text style={styles.addShotGridButtonText}>+putt</Text>
           </TouchableOpacity>
         </ScrollView>
+        
+        {/* Shot Navigation Arrows - At Screen Edges */}
+        <View style={styles.shotNavigationArrows}>
+          <TouchableOpacity
+            style={[
+              styles.shotArrowButton,
+              !canGoPrevious && styles.disabledShotArrow
+            ]}
+            onPress={goToPreviousShot}
+            disabled={!canGoPrevious}
+          >
+            <Text style={[
+              styles.shotArrowText,
+              !canGoPrevious && styles.disabledShotArrowText
+            ]}>←</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity
+            style={[
+              styles.shotArrowButton,
+              !canGoNext && styles.disabledShotArrow
+            ]}
+            onPress={goToNextShot}
+            disabled={!canGoNext}
+          >
+            <Text style={[
+              styles.shotArrowText,
+              !canGoNext && styles.disabledShotArrowText
+            ]}>→</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Hole Navigation Arrows - Below Shot Navigation */}
+      <View style={styles.holeNavigationArrows}>
+        <TouchableOpacity 
+          style={[
+            styles.button, 
+            styles.arrowButton, 
+            currentHole <= 1 && styles.disabledButton
+          ]} 
+          onPress={currentHole > 1 ? onPreviousHole : undefined}
+          disabled={currentHole <= 1}
+        >
+          <Text style={[
+            styles.buttonText, 
+            styles.arrowButtonText,
+            currentHole <= 1 && styles.disabledButtonText
+          ]}>←</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity 
+          style={[
+            styles.button, 
+            styles.arrowButton,
+            currentHole >= 18 && styles.disabledButton
+          ]} 
+          onPress={currentHole < 18 ? handleCompleteHole : undefined}
+          disabled={currentHole >= 18}
+        >
+          <Text style={[
+            styles.buttonText, 
+            styles.arrowButtonText,
+            currentHole >= 18 && styles.disabledButtonText
+          ]}>→</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Permanent Navigation - Fixed above spark bottom navigation */}
       <View style={styles.permanentNavigation}>
         {/* Top Row */}
         <View style={styles.navRow}>
-          <TouchableOpacity 
-            style={[
-              styles.button, 
-              styles.arrowButton, 
-              currentHole <= 1 && styles.disabledButton
-            ]} 
-            onPress={currentHole > 1 ? onPreviousHole : undefined}
-            disabled={currentHole <= 1}
-          >
-            <Text style={[
-              styles.buttonText, 
-              styles.arrowButtonText,
-              currentHole <= 1 && styles.disabledButtonText
-            ]}>←</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity style={[styles.button, styles.endRoundButton]} onPress={handleEndRound}>
-            <Text style={[styles.buttonText, styles.endRoundButtonText]}>End Round</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
-            style={[
-              styles.button, 
-              styles.arrowButton,
-              currentHole >= 18 && styles.disabledButton
-            ]} 
-            onPress={currentHole < 18 ? handleCompleteHole : undefined}
-            disabled={currentHole >= 18}
-          >
-            <Text style={[
-              styles.buttonText, 
-              styles.arrowButtonText,
-              currentHole >= 18 && styles.disabledButtonText
-            ]}>→</Text>
+          <TouchableOpacity style={[styles.button, styles.navButton]} onPress={onShowHistory}>
+            <Text style={[styles.buttonText, styles.navButtonText]}>Hole History</Text>
           </TouchableOpacity>
         </View>
         
@@ -4054,8 +4145,8 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
             <Text style={[styles.buttonText, styles.navButtonText]}>Round Summary</Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={[styles.button, styles.navButton]} onPress={onShowHistory}>
-            <Text style={[styles.buttonText, styles.navButtonText]}>Hole History</Text>
+          <TouchableOpacity style={[styles.button, styles.endRoundButton]} onPress={handleEndRound}>
+            <Text style={[styles.buttonText, styles.endRoundButtonText]}>End Round</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -4484,14 +4575,14 @@ export const GolfTrackerSpark: React.FC<GolfTrackerSparkProps> = ({
   };
 
   // Store temporary hole data for navigation
-  const [tempHoleData, setTempHoleData] = useState<Record<number, { ironShots: Shot[]; putts: Shot[] }>>({});
+  const [tempHoleData, setTempHoleData] = useState<Record<number, { shots: Shot[]; putts: Shot[] }>>({});
   const holeDetailRef = useRef<{ saveCurrentData: () => void }>(null);
 
-  const handleSaveHoleData = (holeNumber: number, ironShots: Shot[], putts: Shot[]) => {
+  const handleSaveHoleData = (holeNumber: number, shots: Shot[], putts: Shot[]) => {
     // Save to temporary storage for navigation
     setTempHoleData(prev => ({
       ...prev,
-      [holeNumber]: { ironShots, putts }
+      [holeNumber]: { shots: shots, putts }
     }));
 
     // Also save to permanent database if we have a current round
@@ -4499,10 +4590,10 @@ export const GolfTrackerSpark: React.FC<GolfTrackerSparkProps> = ({
       const holeScore: HoleScore = {
         holeNumber,
         courseId: currentRound.courseId,
-        shots: [...ironShots, ...putts],
-        totalScore: ironShots.length + putts.length,
+        shots: [...(shots || []), ...(putts || [])],
+        totalScore: (shots || []).length + (putts || []).length,
         par: selectedCourse?.holes.find(h => h.number === holeNumber)?.par || 4,
-        netScore: (ironShots.length + putts.length) - (selectedCourse?.holes.find(h => h.number === holeNumber)?.par || 4),
+        netScore: ((shots || []).length + (putts || []).length) - (selectedCourse?.holes.find(h => h.number === holeNumber)?.par || 4),
         completedAt: Date.now(),
       };
 
@@ -4547,23 +4638,23 @@ export const GolfTrackerSpark: React.FC<GolfTrackerSparkProps> = ({
           (putt as any).feet <= 10 ? '5-10ft' : '10+ft' : 
           undefined
       }));
-      return { ...tempData, ironShots: tempData.ironShots || [], putts: migratedPutts };
+      return { ...tempData, shots: tempData.shots || [], putts: migratedPutts };
     }
 
     // Then check permanent database (for previously saved data)
     if (currentRound) {
       const existingHoleScore = (currentRound.holeScores || []).find(hs => hs.holeNumber === holeNumber);
       if (existingHoleScore) {
-        const ironShots = (existingHoleScore.shots || []).filter(shot => shot.type === 'iron');
+        const shots = (existingHoleScore.shots || []).filter(shot => shot.type === 'shot');
         const putts = (existingHoleScore.shots || []).filter(shot => shot.type === 'putt').map(putt => ({
           ...putt,
           // Migrate old 'feet' field to 'puttDistance' if needed
           puttDistance: putt.puttDistance || (putt as any).feet ? 
-            (putt as any).feet < 4 ? '<4ft' : 
-            (putt as any).feet <= 10 ? '5-10ft' : '10+ft' : 
+            (putt as any).feet < 4 ? '<4ft' as const : 
+            (putt as any).feet <= 10 ? '5-10ft' as const : '10+ft' as const : 
             undefined
-        }));
-        return { ironShots, putts };
+        })) as Shot[];
+        return { shots: shots, putts };
       }
     }
 
@@ -4733,7 +4824,7 @@ export const GolfTrackerSpark: React.FC<GolfTrackerSparkProps> = ({
         averageScore: 0,
         bestScore: 0,
         worstScore: 0,
-        commonShots: { iron: [], putts: [] },
+        commonShots: { shot: [], putts: [] },
         recentRounds: [],
       };
     }

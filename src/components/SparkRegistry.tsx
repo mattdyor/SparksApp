@@ -13,6 +13,7 @@ import { SpanishFriendSpark } from '../sparks/SpanishFriendSpark';
 import { TeeTimeTimerSpark } from '../sparks/TeeTimeTimerSpark';
 import { SoundboardSpark } from '../sparks/SoundboardSpark';
 import { GolfTrackerSpark } from '../sparks/GolfTrackerSpark';
+import QuickConvertSpark from '../sparks/QuickConvertSpark';
 import styled from 'styled-components/native';
 
 const PlaceholderContainer = styled.View`
@@ -166,6 +167,19 @@ export const sparkRegistry: Record<string, BaseSpark> = {
           available: true,
         },
         component: GolfTrackerSpark,
+      },
+      'quick-convert': {
+        metadata: {
+          id: 'quick-convert',
+          title: 'Quick Convert',
+          description: 'Currency conversion tool with configurable exchange rates and denominations',
+          icon: '💱',
+          category: 'utility',
+          difficulty: 'easy',
+          estimatedTime: 5,
+          available: true,
+        },
+        component: QuickConvertSpark,
       },
 };
 

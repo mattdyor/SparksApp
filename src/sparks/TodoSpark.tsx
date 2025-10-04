@@ -320,15 +320,30 @@ export const TodoSpark: React.FC<TodoSparkProps> = ({
     setSelectedDate(date.toISOString().split('T')[0]);
   };
 
-  // Get unique categories from todos
-  const getCategories = (): string[] => {
-    const categories = new Set<string>();
+  // Determine category status for chip styling and ordering
+  type CategoryStatus = 'active' | 'future' | 'completedOnly';
+  interface CategoryInfo { name: string; status: CategoryStatus }
+  const getCategoryInfos = (): CategoryInfo[] => {
+    const today = getTodayDateString();
+    const map: Record<string, CategoryInfo> = {};
     todos.forEach(todo => {
-      if (todo.category) {
-        categories.add(todo.category);
+      if (!todo.category) return;
+      const name = todo.category;
+      if (!map[name]) map[name] = { name, status: 'completedOnly' };
+      if (!todo.completed) {
+        if (todo.dueDate <= today) {
+          map[name].status = 'active';
+        } else if (map[name].status !== 'active') {
+          map[name].status = 'future';
+        }
+      } else {
+        // keep completedOnly unless we later see an incomplete
       }
     });
-    return Array.from(categories).sort();
+    const list = Object.values(map);
+    // Sort: active first, then future, then completedOnly; each alpha
+    const rank: Record<CategoryStatus, number> = { active: 0, future: 1, completedOnly: 2 };
+    return list.sort((a, b) => (rank[a.status] - rank[b.status]) || a.name.localeCompare(b.name));
   };
 
   // Handle category chip press
@@ -497,6 +512,14 @@ export const TodoSpark: React.FC<TodoSparkProps> = ({
       borderRadius: 20,
       borderWidth: 1,
       borderColor: colors.border,
+    },
+    categoryChipFuture: {
+      backgroundColor: '#F3E8FF', // light purple
+      borderColor: '#E9D5FF',
+    },
+    categoryChipCompleted: {
+      backgroundColor: '#FF8C00', // burnt orange
+      borderColor: '#FF8C00',
     },
     selectedCategoryChip: {
       backgroundColor: colors.primary,
@@ -782,23 +805,25 @@ export const TodoSpark: React.FC<TodoSparkProps> = ({
       </View>
 
       {/* Category Filter Chips */}
-      {getCategories().length > 0 && (
+      {getCategoryInfos().length > 0 && (
         <View style={styles.categoriesSection}>
           <View style={styles.categoryChips}>
-            {getCategories().map(category => (
+            {getCategoryInfos().map(({ name, status }) => (
               <TouchableOpacity
-                key={category}
+                key={name}
                 style={[
                   styles.categoryChip,
-                  selectedCategory === category && styles.selectedCategoryChip
+                  status === 'future' && styles.categoryChipFuture,
+                  status === 'completedOnly' && styles.categoryChipCompleted,
+                  selectedCategory === name && styles.selectedCategoryChip
                 ]}
-                onPress={() => handleCategoryPress(category)}
+                onPress={() => handleCategoryPress(name)}
               >
                 <Text style={[
                   styles.categoryChipText,
-                  selectedCategory === category && styles.selectedCategoryChipText
+                  selectedCategory === name && styles.selectedCategoryChipText
                 ]}>
-                  {category}
+                  {name}
                 </Text>
               </TouchableOpacity>
             ))}
