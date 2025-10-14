@@ -52,7 +52,7 @@ interface FoodCamSparkProps {
 }
 
 const { width } = Dimensions.get('window');
-const PHOTO_SIZE = (width - 60) / 3; // 3 columns with proper padding and gaps
+const PHOTO_SIZE = (width - 40) / 3; // 3 columns with minimal padding and gaps
 
 // Settings Component
 const FoodCamSettings: React.FC<{
@@ -208,7 +208,7 @@ export const FoodCamSpark: React.FC<FoodCamSparkProps> = ({
   };
 
   const formatDate = (dateString: string): string => {
-    const date = new Date(dateString);
+    const date = new Date(dateString + 'T00:00:00'); // Add time to avoid timezone issues
     const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
@@ -449,8 +449,8 @@ export const FoodCamSpark: React.FC<FoodCamSparkProps> = ({
       backgroundColor: colors.background,
     },
     header: {
-      padding: 20,
-      paddingBottom: 10,
+      padding: 16,
+      paddingBottom: 8,
     },
     title: {
       fontSize: 28,
@@ -464,8 +464,8 @@ export const FoodCamSpark: React.FC<FoodCamSparkProps> = ({
     },
     buttonContainer: {
       flexDirection: 'row',
-      paddingHorizontal: 20,
-      paddingBottom: 20,
+      paddingHorizontal: 16,
+      paddingBottom: 16,
       gap: 12,
     },
     button: {
@@ -490,32 +490,30 @@ export const FoodCamSpark: React.FC<FoodCamSparkProps> = ({
       color: colors.primary,
     },
     scrollContent: {
-      paddingHorizontal: 20,
+      paddingHorizontal: 10,
       paddingBottom: 40,
     },
     dateSection: {
-      marginBottom: 24,
+      marginBottom: 16,
     },
     dateHeader: {
       fontSize: 20,
       fontWeight: '600',
       color: colors.text,
-      marginBottom: 12,
+      marginBottom: 8,
     },
     photoGrid: {
       flexDirection: 'row',
       flexWrap: 'wrap',
       justifyContent: 'flex-start',
-      gap: 8,
+      gap: 4,
     },
     photoContainer: {
       width: PHOTO_SIZE,
       height: PHOTO_SIZE,
-      borderRadius: 8,
+      borderRadius: 4,
       overflow: 'hidden',
       backgroundColor: colors.surface,
-      alignItems: 'center',
-      justifyContent: 'center',
     },
     photoPlaceholder: {
       width: '100%',

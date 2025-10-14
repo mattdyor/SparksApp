@@ -20,6 +20,14 @@
           "photosPermission": "FoodCam accesses your photo library to save and select food photos for your diary.",
           "cameraPermission": "FoodCam uses the camera to take photos of your food for your visual food diary."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#2E86AB",
+          "defaultChannel": "default"
+        }
       ]
     ],
     "description": "A collection of interactive micro-experiences - spin the wheel, flashcards, business simulations, visual food diary, and more all in one app.",
@@ -51,8 +59,9 @@
       "requireFullScreen": false,
       "infoPlist": {
         "UIBackgroundModes": [
-          "audio",
-          "audio"
+          "background-processing",
+          "background-fetch",
+          "remote-notification"
         ],
         "NSCameraUsageDescription": "FoodCam uses the camera to take photos of your food for your visual food diary.",
         "NSPhotoLibraryUsageDescription": "FoodCam accesses your photo library to save and select food photos for your diary.",
@@ -80,7 +89,10 @@
         "MODIFY_AUDIO_SETTINGS",
         "WAKE_LOCK",
         "android.permission.RECORD_AUDIO",
-        "android.permission.MODIFY_AUDIO_SETTINGS"
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM"
       ],
       "edgeToEdgeEnabled": true
     },

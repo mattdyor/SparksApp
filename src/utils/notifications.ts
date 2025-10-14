@@ -3,11 +3,14 @@ import { Platform } from 'react-native';
 
 // Configure how notifications should be handled when the app is running
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notification) => {
+    // Always show notifications, even when app is in background
+    return {
+      shouldShowAlert: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    };
+  },
 });
 
 const DAILY_NOTIFICATION_IDENTIFIER = 'daily-sparks-reminder';
@@ -19,23 +22,44 @@ export class NotificationService {
     let finalStatus = existingStatus;
 
     if (existingStatus !== 'granted') {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+          allowAnnouncements: true,
+        },
+      });
       finalStatus = status;
     }
 
     if (finalStatus !== 'granted') {
+      console.warn('Notification permissions not granted:', finalStatus);
       return false;
     }
 
-    // For Android, ensure we can schedule exact alarms
+    // For Android, ensure we can schedule exact alarms and create notification channels
     if (Platform.OS === 'android') {
-      await Notifications.setNotificationChannelAsync('daily-reminders', {
-        name: 'Daily Reminders',
-        importance: Notifications.AndroidImportance.DEFAULT,
+      // Create default notification channel
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'Default',
+        importance: Notifications.AndroidImportance.HIGH,
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#2E86AB',
         sound: 'default',
         enableVibrate: true,
+        showBadge: true,
+      });
+
+      // Create daily reminders channel
+      await Notifications.setNotificationChannelAsync('daily-reminders', {
+        name: 'Daily Reminders',
+        importance: Notifications.AndroidImportance.HIGH,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#2E86AB',
+        sound: 'default',
+        enableVibrate: true,
+        showBadge: true,
       });
     }
 
@@ -65,6 +89,11 @@ export class NotificationService {
             screen: 'Marketplace',
             type: 'daily-reminder'
           },
+          sound: 'default',
+          badge: 1,
+          ...(Platform.OS === 'android' && {
+            channelId: 'daily-reminders',
+          }),
         },
         trigger: {
           hour: 8,
@@ -116,18 +145,33 @@ export class NotificationService {
         return;
       }
 
+      // Schedule multiple test notifications to verify background functionality
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: '🧪 Test Notification',
-          body: 'This is a test notification to verify everything works!',
-          data: { type: 'test' },
+          title: '🧪 Test Notification (Immediate)',
+          body: 'This should appear immediately!',
+          data: { type: 'test-immediate' },
+          sound: 'default',
         },
         trigger: {
           seconds: 1,
         },
       });
 
-      console.log('Test notification sent');
+      // Schedule a notification for 10 seconds later (to test background)
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🧪 Test Notification (Background)',
+          body: 'This should appear in 10 seconds even if app is closed!',
+          data: { type: 'test-background' },
+          sound: 'default',
+        },
+        trigger: {
+          seconds: 10,
+        },
+      });
+
+      console.log('Test notifications scheduled - close the app and wait!');
     } catch (error) {
       console.error('Error sending test notification:', error);
     }
