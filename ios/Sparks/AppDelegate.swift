@@ -1,12 +1,21 @@
 import Expo
 import React
+import UIKit
 
 @UIApplicationMain
 public class AppDelegate: ExpoAppDelegate {
+  var window: UIWindow?
   public override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
   ) -> Bool {
+    // Ensure a key window exists before Expo subscribers (e.g., DevLauncher) run
+    if window == nil {
+      let win = UIWindow(frame: UIScreen.main.bounds)
+      win.rootViewController = UIViewController()
+      win.makeKeyAndVisible()
+      window = win
+    }
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 
