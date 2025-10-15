@@ -59,8 +59,6 @@
       "requireFullScreen": false,
       "infoPlist": {
         "UIBackgroundModes": [
-          "background-processing",
-          "background-fetch",
           "remote-notification"
         ],
         "NSCameraUsageDescription": "FoodCam uses the camera to take photos of your food for your visual food diary.",
