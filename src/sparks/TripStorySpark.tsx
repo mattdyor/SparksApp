@@ -12,11 +12,15 @@ import {
   Dimensions,
   FlatList,
   Linking,
+  Share,
 } from 'react-native';
+
+const { width: screenWidth } = Dimensions.get('window');
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
@@ -456,6 +460,135 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
   const selectActivityForPhoto = (activityId: string | null) => {
     setPhotoActivityId(activityId);
     setShowActivitySelector(false);
+  };
+
+  const generateTripStoryImage = async () => {
+    if (!currentTrip) return;
+
+    try {
+      // Create a simple HTML template for the trip story
+      const tripDates = getTripDates();
+      const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <style>
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+              margin: 0;
+              padding: 20px;
+              background: white;
+              color: #333;
+            }
+            .header { text-align: center; margin-bottom: 30px; }
+            .title { font-size: 28px; font-weight: bold; margin-bottom: 10px; }
+            .dates { font-size: 16px; color: #666; }
+            .day { margin-bottom: 30px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 15px; }
+            .day-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; }
+            .activity { margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 6px; }
+            .activity-name { font-weight: bold; margin-bottom: 5px; }
+            .activity-time { color: #666; font-size: 14px; }
+            .photos { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+            .photo { width: 100px; height: 100px; object-fit: cover; border-radius: 4px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <div class="title">${currentTrip.title || 'Untitled Trip'}</div>
+            <div class="dates">${formatDate(currentTrip.startDate || '')} - ${formatDate(currentTrip.endDate || '')}</div>
+          </div>
+          ${tripDates.map((date, index) => {
+            const dayActivities = currentTrip.activities.filter(activity => activity.startDate === date);
+            const dayPhotos = currentTrip.photos.filter(photo => {
+              const photoDate = new Date(photo.timestamp).toISOString().split('T')[0];
+              return photoDate === date;
+            });
+            
+            return `
+              <div class="day">
+                <div class="day-title">Day ${index + 1} - ${formatDate(date)}</div>
+                ${dayActivities.map(activity => `
+                  <div class="activity">
+                    <div class="activity-name">${activity.name || 'Untitled Activity'}</div>
+                    <div class="activity-time">${activity.time || 'No time specified'}</div>
+                    ${activity.description ? `<div>${activity.description}</div>` : ''}
+                    <div class="photos">
+                      ${dayPhotos.filter(photo => photo.activityId === activity.id).map(photo => 
+                        `<img src="${photo.uri || ''}" class="photo" alt="Trip photo" />`
+                      ).join('')}
+                    </div>
+                  </div>
+                `).join('')}
+                ${dayPhotos.filter(photo => !photo.activityId).length > 0 ? `
+                  <div class="activity">
+                    <div class="activity-name">Day Photos</div>
+                    <div class="photos">
+                      ${dayPhotos.filter(photo => !photo.activityId).map(photo => 
+                        `<img src="${photo.uri || ''}" class="photo" alt="Trip photo" />`
+                      ).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('')}
+        </body>
+        </html>
+      `;
+
+      // Generate PDF
+      const { uri } = await Print.printToFileAsync({ html });
+      
+      // Share the PDF
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: `Share ${currentTrip.title} Trip Story`,
+      });
+
+      HapticFeedback.success();
+    } catch (error) {
+      console.error('Error generating trip story:', error);
+      Alert.alert('Error', 'Failed to generate trip story. Please try again.');
+    }
+  };
+
+  const shareTripAsImage = async () => {
+    if (!currentTrip) return;
+
+    try {
+      // For now, we'll create a simple text-based share
+      const tripDates = getTripDates();
+      const tripSummary = `
+🏖️ ${currentTrip.title || 'Untitled Trip'}
+📅 ${formatDate(currentTrip.startDate || '')} - ${formatDate(currentTrip.endDate || '')}
+📍 ${currentTrip.origin || 'Unknown'} → ${currentTrip.destination || 'Unknown'}
+
+${tripDates.map((date, index) => {
+  const dayActivities = currentTrip.activities.filter(activity => activity.startDate === date);
+  const dayPhotos = currentTrip.photos.filter(photo => {
+    const photoDate = new Date(photo.timestamp).toISOString().split('T')[0];
+    return photoDate === date;
+  });
+  
+  return `Day ${index + 1} - ${formatDate(date)}
+${dayActivities.map(activity => `• ${activity.name} at ${activity.time}`).join('\n')}
+📸 ${dayPhotos.length} photos`;
+}).join('\n\n')}
+
+Created with TripStory ✈️
+      `;
+
+      await Share.share({
+        message: tripSummary,
+        title: `Share ${currentTrip.title} Trip Story`,
+      });
+
+      HapticFeedback.success();
+    } catch (error) {
+      console.error('Error sharing trip:', error);
+      Alert.alert('Error', 'Failed to share trip story. Please try again.');
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -997,6 +1130,8 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
           >
             <Text style={[styles.backButtonText, { color: colors.primary }]}>← Back</Text>
           </TouchableOpacity>
+        </View>
+        <View style={styles.tripTitleContainer}>
           <Text style={[styles.tripDetailTitle, { color: colors.text }]}>{currentTrip.title}</Text>
         </View>
 
@@ -1017,25 +1152,51 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
                 </View>
 
                 {/* Day-level buttons */}
-                <View style={styles.dayButtons}>
+                <View style={[styles.dayButtons, { flexDirection: 'row', gap: 8 }]}>
                   <TouchableOpacity
-                    style={[styles.dayButton, { backgroundColor: colors.primary }]}
+                    style={[
+                      styles.dayButton,
+                      {
+                        backgroundColor: 'white',
+                        borderColor: colors.primary,
+                        borderWidth: 1,
+                        borderRadius: 9999, // pill shaped
+                        height: 32, // make skinny
+                        paddingVertical: 0, // reduce height
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }
+                    ]}
                     onPress={() => {
                       setSelectedDate(date);
                       setShowAddActivity(true);
                     }}
                   >
-                    <Text style={[styles.dayButtonText, { color: colors.background }]}>+ Activity</Text>
+                    <Text style={[styles.dayButtonText, { color: colors.primary, fontSize: 14 }]}>+ Activity</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.addPictureButton, { borderColor: colors.primary }]}
+                    style={[
+                      styles.dayButton,
+                      {
+                        borderColor: colors.primary,
+                        borderWidth: 1,
+                        backgroundColor: 'transparent',
+     
+                        borderRadius: 9999, // pill shaped
+                        
+                        height: 32, // make skinny
+                        paddingVertical: 0, // reduce height
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }
+                    ]}
                     onPress={() => {
                       setSelectedDate(date);
                       setSelectedActivity(null);
                       setShowPhotoCapture(true);
                     }}
                   >
-                    <Text style={[styles.addPictureButtonText, { color: colors.primary }]}>+ Add Picture</Text>
+                    <Text style={[styles.dayButtonText, { color: colors.primary, fontSize: 14 }]}>+ Add Picture</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -1071,17 +1232,17 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
                     {/* Activity-level photo buttons */}
                     <View style={styles.activityPhotoButtons}>
                       <TouchableOpacity
-                        style={[styles.snapButton, { backgroundColor: colors.primary }]}
+                        style={[styles.snapButton, { backgroundColor: '#f5f5f5', borderColor: colors.primary }]}
                         onPress={() => {
                           setSelectedActivity(activity);
                           setSelectedDate(activity.startDate);
                           capturePhoto();
                         }}
                       >
-                        <Text style={[styles.snapButtonText, { color: colors.background }]}>📸 Snap</Text>
+                        <Text style={[styles.snapButtonText, { color: colors.primary }]}>📸 Snap</Text>
                       </TouchableOpacity>
                       <TouchableOpacity
-                        style={[styles.addButton, { borderColor: colors.primary }]}
+                        style={[styles.addButton, { backgroundColor: '#f5f5f5', borderColor: colors.primary }]}
                         onPress={() => {
                           setSelectedActivity(activity);
                           setSelectedDate(activity.startDate);
@@ -1095,25 +1256,47 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
                 ))}
 
                 {/* Day photos (not associated with activities) */}
-                {dayPhotos.filter(photo => !photo.activityId).length > 0 && (
-                  <View style={styles.dayPhotos}>
-                    <Text style={[styles.dayPhotosTitle, { color: colors.text }]}>Day Photos</Text>
-                    <View style={styles.dayPhotosGrid}>
-                      {dayPhotos
-                        .filter(photo => !photo.activityId)
-                        .map((photo) => (
-                          <TouchableOpacity key={photo.id} onPress={() => handlePhotoPress(photo)}>
-                            <Image source={{ uri: photo.uri }} style={styles.dayPhoto} />
-                          </TouchableOpacity>
-                        ))
-                      }
-                    </View>
+                <View style={styles.dayPhotos}>
+                  <Text style={[styles.dayPhotosTitle, { color: colors.text }]}>
+                    Day Photos ({dayPhotos.filter(photo => !photo.activityId).length})
+                  </Text>
+                  <View style={styles.dayPhotosGrid}>
+                    {dayPhotos
+                      .filter(photo => !photo.activityId)
+                      .map((photo) => (
+                        <TouchableOpacity key={photo.id} onPress={() => handlePhotoPress(photo)}>
+                          <Image source={{ uri: photo.uri }} style={styles.dayPhoto} />
+                        </TouchableOpacity>
+                      ))
+                    }
                   </View>
-                )}
+                </View>
               </View>
             );
           })}
         </ScrollView>
+
+        {/* Share Button */}
+        <View style={styles.shareContainer}>
+          <TouchableOpacity
+            style={[styles.shareButton, { backgroundColor: colors.primary }]}
+            onPress={() => {
+              Alert.alert(
+                'Share Trip Story',
+                'Choose how you\'d like to share your trip:',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: '📄 PDF', onPress: generateTripStoryImage },
+                  { text: '📱 Text Summary', onPress: shareTripAsImage },
+                ]
+              );
+            }}
+          >
+            <Text style={[styles.shareButtonText, { color: colors.background }]}>
+              📤 Share Trip Story
+            </Text>
+          </TouchableOpacity>
+        </View>
 
         {renderCreateTripModal()}
         {renderAddActivityModal()}
@@ -1270,14 +1453,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   backButtonContainer: {
-    marginBottom: 8,
+    alignSelf: 'flex-start',
   },
   backButton: {
     fontSize: 16,
     fontWeight: '600',
   },
   tripTitleContainer: {
-    marginBottom: 16,
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
   },
   addButtonContainer: {
     position: 'absolute',
@@ -1435,11 +1620,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tripDetailHeader: {
-    padding: 20,
-    paddingTop: 60,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    padding: 0,
+    paddingLeft: 32,
+    paddingTop: 0,
+    paddingBottom: 0,
   },
   backButtonText: {
     fontSize: 16,
@@ -1448,9 +1632,7 @@ const styles = StyleSheet.create({
   tripDetailTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    flex: 1,
     textAlign: 'center',
-    marginHorizontal: 16,
   },
   addActivityButton: {
     padding: 8,
@@ -1461,16 +1643,16 @@ const styles = StyleSheet.create({
   },
   tripDetailContent: {
     flex: 1,
-    padding: 16,
+    padding: 4,
   },
   dayContainer: {
-    marginBottom: 20,
-    borderRadius: 12,
+    marginBottom: 8,
+    borderRadius: 8,
     borderWidth: 1,
-    padding: 16,
+    padding: 4,
   },
   dayHeader: {
-    marginBottom: 12,
+    marginBottom: 6,
   },
   dayTitle: {
     fontSize: 18,
@@ -1478,7 +1660,7 @@ const styles = StyleSheet.create({
   },
   dayButtons: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
     marginBottom: 16,
   },
   dayButton: {
@@ -1497,9 +1679,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   activityContainer: {
-    marginBottom: 6,
-    padding: 6,
-    borderRadius: 6,
+    marginBottom: 4,
+    padding: 2,
+    borderRadius: 4,
     borderWidth: 1,
   },
   activityHeader: {
@@ -1523,13 +1705,13 @@ const styles = StyleSheet.create({
   activityPhotos: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 1,
+    gap: 2,
     marginBottom: 2,
   },
   activityPhoto: {
-    width: '32.5%',
+    width: (screenWidth - 40) / 3, // Account for padding and gaps
     aspectRatio: 1,
-    borderRadius: 4,
+    borderRadius: 2,
   },
   activityPhotoButtons: {
     flexDirection: 'row',
@@ -1540,7 +1722,8 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 6,
+    borderRadius: 9999, // pill shaped
+    borderWidth: 1,
     alignItems: 'center',
   },
   snapButtonText: {
@@ -1551,7 +1734,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 6,
+    borderRadius: 9999, // pill shaped
     borderWidth: 1,
     alignItems: 'center',
   },
@@ -1582,12 +1765,12 @@ const styles = StyleSheet.create({
   dayPhotosGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 1,
+    gap: 2,
   },
   dayPhoto: {
-    width: '32.5%',
+    width: (screenWidth - 40) / 3, // Account for padding and gaps
     aspectRatio: 1,
-    borderRadius: 4,
+    borderRadius: 2,
   },
   // Photo Detail Modal Styles
   photoPreviewContainer: {
@@ -1640,6 +1823,22 @@ const styles = StyleSheet.create({
   activityOptionSubtext: {
     fontSize: 14,
     marginTop: 2,
+  },
+  shareContainer: {
+    padding: 20,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  shareButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  shareButtonText: {
+    fontSize: 18,
+    fontWeight: '600',
   },
 });
 
