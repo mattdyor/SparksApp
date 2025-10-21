@@ -3241,10 +3241,11 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
   clubs: string[];
   handicap?: number;
   getBumpsForHole: (hole: Hole) => number;
+  getCumulativeOverPar: (holeNumber: number) => number;
   colors: any;
   onFlameAnimation: () => void;
   onPoopAnimation: () => void;
-}>(({ course, currentHole, currentRound, data, onNextHole, onPreviousHole, onCompleteHole, onShowHistory, onSaveHoleData, onLoadHoleData, onUpdateTodaysDistance, onEndRound, onViewSummary, onClose, clubs, handicap, getBumpsForHole, colors, onFlameAnimation, onPoopAnimation }, ref) => {
+}>(({ course, currentHole, currentRound, data, onNextHole, onPreviousHole, onCompleteHole, onShowHistory, onSaveHoleData, onLoadHoleData, onUpdateTodaysDistance, onEndRound, onViewSummary, onClose, clubs, handicap, getBumpsForHole, getCumulativeOverPar, colors, onFlameAnimation, onPoopAnimation }, ref) => {
   const hole = (course.holes || []).find(h => h.number === currentHole);
   const [shots, setShots] = useState<Shot[]>([]);
   const [putts, setPutts] = useState<Shot[]>([]);
@@ -3855,12 +3856,13 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
     },
     deleteShotButton: {
       backgroundColor: colors.error || '#ff4444',
-      borderRadius: 16,
-      paddingHorizontal: 12,
+      borderRadius: 12,
+      paddingHorizontal: 10,
       paddingVertical: 6,
-      height: 32,
+      height: 28,
       alignItems: 'center',
       justifyContent: 'center',
+      minWidth: 80,
     },
     deleteShotButtonText: {
       color: colors.background,
@@ -4187,6 +4189,18 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       paddingHorizontal: 20,
       paddingVertical: 8,
       marginTop: 8,
+      position: 'relative',
+    },
+    navigationSide: {
+      flex: 1,
+      alignItems: 'center',
+    },
+    navigationCenter: {
+      position: 'absolute',
+      left: '50%',
+      top: '50%',
+      transform: [{ translateX: -40 }, { translateY: -14 }], // Half button width and height
+      alignItems: 'center',
     },
     navigationPill: {
       backgroundColor: colors.surface,
@@ -4202,6 +4216,23 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       fontSize: 14,
       fontWeight: '600',
       color: colors.text,
+    },
+    smallNavigationPill: {
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      borderRadius: 12,
+      paddingHorizontal: 8,
+      paddingVertical: 4,
+      alignItems: 'center',
+      minWidth: 70,
+      maxWidth: 80,
+    },
+    smallNavigationPillText: {
+      fontSize: 11,
+      fontWeight: '600',
+      color: colors.text,
+      textAlign: 'center',
     },
     shotNavigationArrows: {
       position: 'absolute',
@@ -4301,7 +4332,13 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.holeInfo}>
-          <Text style={styles.holeNumber}>Hole {currentHole}</Text>
+          <Text style={styles.holeNumber}>
+            Hole {currentHole}
+            {(() => {
+              const cumulativeOverPar = getCumulativeOverPar(currentHole);
+              return cumulativeOverPar !== 0 ? ` (${cumulativeOverPar > 0 ? `+${cumulativeOverPar}` : cumulativeOverPar} over)` : '';
+            })()}
+          </Text>
           <Text style={styles.holeDetails}>
             Par {hole.par} • Stroke Index {hole.strokeIndex}
             {hole.distanceYards && ` • ${hole.distanceYards} yards`}
@@ -4474,50 +4511,71 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
                 colors={colors}
               />
               
-              {/* Dynamic Navigation Pills - Show next/prev shot abbreviations */}
-              <View style={styles.outcomeGridNavigation}>
-                {/* Previous shot pill */}
-                {canGoPrevious && (
+              {/* Dynamic Navigation Pills - Show full shot names with arrows and delete */}
+              <View style={[styles.outcomeGridNavigation, { flexDirection: 'row', alignItems: 'center' }]}>
+                {/* Previous shot */}
+                <View style={{ flex: 1, alignItems: 'flex-start', justifyContent: 'center' }}>
+                  {canGoPrevious && (
+                    <TouchableOpacity
+                      style={styles.smallNavigationPill}
+                      onPress={goToPreviousShot}
+                    >
+                      <Text style={styles.smallNavigationPillText}>
+                        {(() => {
+                          const prevShotIndex = currentShotIndex - 1;
+                          if (prevShotIndex < (shots || []).length) {
+                            return `← Shot ${prevShotIndex + 1}`;
+                          } else {
+                            const puttIndex = prevShotIndex - (shots || []).length;
+                            return `← Putt ${puttIndex + 1}`;
+                          }
+                        })()}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Delete current shot */}
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
                   <TouchableOpacity
-                    style={styles.navigationPill}
-                    onPress={goToPreviousShot}
+                    style={styles.deleteShotButton}
+                    onPress={() => {
+                      const currentShotInfo = getCurrentShotInfo();
+                      if (currentShotInfo) {
+                        removeShot(currentShotInfo.shot.id, currentShotInfo.type === 'shot' ? 'shot' : 'putt');
+                      }
+                    }}
                   >
-                    <Text style={styles.navigationPillText}>
+                    <Text style={styles.deleteShotButtonText}>
                       {(() => {
-                        const prevShotIndex = currentShotIndex - 1;
-                        if (prevShotIndex < (shots || []).length) {
-                          return `s${prevShotIndex + 1}`;
-                        } else {
-                          const puttIndex = prevShotIndex - (shots || []).length;
-                          return `p${puttIndex + 1}`;
-                        }
+                        const currentShotInfo = getCurrentShotInfo();
+                        return currentShotInfo ? (currentShotInfo.type === 'shot' ? 'Delete Shot' : 'Delete Putt') : 'Delete';
                       })()}
                     </Text>
                   </TouchableOpacity>
-                )}
-                
-                {/* Spacer to push next pill to the right */}
-                <View style={{ flex: 1 }} />
-                
-                {/* Next shot pill */}
-                {canGoNext && (
-                  <TouchableOpacity
-                    style={styles.navigationPill}
-                    onPress={goToNextShot}
-                  >
-                    <Text style={styles.navigationPillText}>
-                      {(() => {
-                        const nextShotIndex = currentShotIndex + 1;
-                        if (nextShotIndex < (shots || []).length) {
-                          return `s${nextShotIndex + 1}`;
-                        } else {
-                          const puttIndex = nextShotIndex - (shots || []).length;
-                          return `p${puttIndex + 1}`;
-                        }
-                      })()}
-                    </Text>
-                  </TouchableOpacity>
-                )}
+                </View>
+
+                {/* Next shot */}
+                <View style={{ flex: 1, alignItems: 'flex-end', justifyContent: 'center' }}>
+                  {canGoNext && (
+                    <TouchableOpacity
+                      style={styles.smallNavigationPill}
+                      onPress={goToNextShot}
+                    >
+                      <Text style={styles.smallNavigationPillText}>
+                        {(() => {
+                          const nextShotIndex = currentShotIndex + 1;
+                          if (nextShotIndex < (shots || []).length) {
+                            return `Shot ${nextShotIndex + 1} →`;
+                          } else {
+                            const puttIndex = nextShotIndex - (shots || []).length;
+                            return `Putt ${puttIndex + 1} →`;
+                          }
+                        })()} 
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
               
               {/* Shot Header - Just the shot number now */}
@@ -4534,53 +4592,6 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
 
       {/* Shot Grid Navigation */}
       <View style={styles.shotGridContainer}>
-        {/* Shot Navigation Buttons - Moved here to avoid accessibility issues with large fonts */}
-        <View style={styles.shotNavigationButtons}>
-          <TouchableOpacity
-            style={[
-              styles.shotNavButton,
-              !canGoPrevious && styles.disabledShotNavButton
-            ]}
-            onPress={goToPreviousShot}
-            disabled={!canGoPrevious}
-          >
-            <Text style={[
-              styles.shotNavButtonText,
-              !canGoPrevious && styles.disabledShotNavButtonText
-            ]}>← Prev</Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={styles.deleteShotButton}
-            onPress={() => {
-              const currentShotInfo = getCurrentShotInfo();
-              if (currentShotInfo) {
-                removeShot(currentShotInfo.shot.id, currentShotInfo.type === 'shot' ? 'shot' : 'putt');
-              }
-            }}
-          >
-            <Text style={styles.deleteShotButtonText}>
-              {(() => {
-                const currentShotInfo = getCurrentShotInfo();
-                return currentShotInfo ? (currentShotInfo.type === 'shot' ? 'Delete Shot' : 'Delete Putt') : 'Delete';
-              })()}
-            </Text>
-          </TouchableOpacity>
-          
-          <TouchableOpacity
-            style={[
-              styles.shotNavButton,
-              !canGoNext && styles.disabledShotNavButton
-            ]}
-            onPress={goToNextShot}
-            disabled={!canGoNext}
-          >
-            <Text style={[
-              styles.shotNavButtonText,
-              !canGoNext && styles.disabledShotNavButtonText
-            ]}>Next →</Text>
-          </TouchableOpacity>
-        </View>
         
         {/* Shots Row */}
         <ScrollView 
@@ -4601,7 +4612,9 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
                 <Text style={[
                   styles.shotButtonText,
                   currentShotIndex === index && styles.activeShotButtonText
-                ]}>s{index + 1}</Text>
+                ]}>
+                  {`s${index + 1}`}
+                </Text>
             </TouchableOpacity>
           ))}
           
@@ -4612,6 +4625,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
           >
             <Text style={styles.addShotGridButtonText}>+shot</Text>
           </TouchableOpacity>
+          
         </ScrollView>
         
         {/* Putts Row */}
@@ -5586,6 +5600,24 @@ export const GolfTrackerSpark: React.FC<GolfTrackerSparkProps> = ({
     return calculateHoleHistory(currentHole, selectedCourse.id, data.rounds);
   };
 
+  // Calculate cumulative over par for current hole
+  const getCumulativeOverPar = (holeNumber: number): number => {
+    if (!currentRound || !selectedCourse) return 0;
+    
+    let cumulativeOverPar = 0;
+    for (let i = 1; i <= holeNumber; i++) {
+      const hole = selectedCourse.holes.find(h => h.number === i);
+      const holeScore = currentRound.holeScores.find(hs => hs.holeNumber === i);
+      
+      if (hole && holeScore) {
+        const overPar = holeScore.totalScore - hole.par;
+        cumulativeOverPar += overPar;
+      }
+    }
+    
+    return cumulativeOverPar;
+  };
+
   const handleResumeRound = (round: Round) => {
     const course = data.courses.find(c => c.id === round.courseId);
     if (course) {
@@ -5703,6 +5735,7 @@ export const GolfTrackerSpark: React.FC<GolfTrackerSparkProps> = ({
           clubs={data.settings.clubs || DEFAULT_CLUBS}
           handicap={data.settings.handicap}
           getBumpsForHole={getBumpsForHole}
+          getCumulativeOverPar={getCumulativeOverPar}
           colors={colors}
           onFlameAnimation={triggerFlameAnimation}
           onPoopAnimation={triggerPoopAnimation}

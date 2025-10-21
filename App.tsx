@@ -27,6 +27,9 @@ function AppContent() {
       // Set up notification handler
       await NotificationService.requestPermissions();
       
+      // Register background task for notifications
+      await NotificationService.registerBackgroundTask();
+      
       // If daily notifications are enabled, ensure they're scheduled
       if (preferences.dailyNotificationsEnabled) {
         const isScheduled = await NotificationService.isDailyNotificationScheduled();

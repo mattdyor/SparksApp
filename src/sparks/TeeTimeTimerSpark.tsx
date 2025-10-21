@@ -4,6 +4,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
 import { useTheme } from '../contexts/ThemeContext';
+import { NotificationService } from '../utils/notifications';
 import Svg, { Circle } from 'react-native-svg';
 import {
   SettingsContainer,
@@ -127,8 +128,12 @@ const ActivityCard: React.FC<{
       const activityEndTime = new Date(activityStartTime.getTime() + activity.duration * 60 * 1000);
       const wasAutoCompleted = currentTime.getTime() < activityEndTime.getTime();
       return wasAutoCompleted ? '⏭ Skipped' : '✓ Complete';
+    } else if (status === 'future') {
+      // Show start time and duration for future activities
+      const startTimeStr = activityStartTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      return `${startTimeStr} (${activity.duration}m)`;
     } else {
-      // Always show countdown until the activity ENDS (not starts)
+      // Current activity - show countdown until the activity ENDS
       const activityEndTime = new Date(activityStartTime.getTime() + activity.duration * 60 * 1000);
       const secondsUntilEnd = Math.floor((activityEndTime.getTime() - currentTime.getTime()) / 1000);
 
@@ -736,6 +741,13 @@ export const TeeTimeTimerSpark: React.FC<TeeTimeTimerSparkProps> = ({
     }
   }, [getSparkData]);
 
+  // Set default time when activities change
+  useEffect(() => {
+    const now = new Date();
+    const defaultTime = new Date(now.getTime() + (totalDuration + 5) * 60 * 1000);
+    setSelectedTime(defaultTime);
+  }, [totalDuration]);
+
   // Save data whenever activities or timer state change
   useEffect(() => {
     if (activities.length > 0) {
@@ -877,6 +889,24 @@ export const TeeTimeTimerSpark: React.FC<TeeTimeTimerSparkProps> = ({
     return skipped;
   };
 
+  // Check if we're before the last activity starts (bottom of the list)
+  const isBeforeLastActivity = (): boolean => {
+    if (!timerState.isActive || !timerState.startTime) return false;
+    
+    const lastActivityIndex = activities.length - 1;
+    const lastActivityStartTime = getActivityStartTime(lastActivityIndex);
+    return currentTime.getTime() < lastActivityStartTime.getTime();
+  };
+
+  // Get time until last activity starts (bottom of the list)
+  const getTimeUntilLastActivity = (): number => {
+    if (!timerState.isActive || !timerState.startTime) return 0;
+    
+    const lastActivityIndex = activities.length - 1;
+    const lastActivityStartTime = getActivityStartTime(lastActivityIndex);
+    return Math.max(0, Math.floor((lastActivityStartTime.getTime() - currentTime.getTime()) / 1000));
+  };
+
   const handleTimePickerChange = (event: any, time?: Date) => {
     if (time) {
       setSelectedTime(time);
@@ -940,14 +970,8 @@ export const TeeTimeTimerSpark: React.FC<TeeTimeTimerSparkProps> = ({
         ]
       );
     } else {
-      Alert.alert(
-        'Confirm Tee Time',
-        `Tee time: ${teeTime.toLocaleTimeString()}\nStart preparation: ${startTime.toLocaleTimeString()}`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { text: 'Start Timer', onPress: () => startTimer(teeTime, startTime) }
-        ]
-      );
+      // Start timer directly without confirmation
+      startTimer(teeTime, startTime);
     }
   };
 
@@ -955,7 +979,7 @@ export const TeeTimeTimerSpark: React.FC<TeeTimeTimerSparkProps> = ({
     setShowTimePicker(false);
   };
 
-  const startTimer = (teeTime: Date, startTime: Date) => {
+  const startTimer = async (teeTime: Date, startTime: Date) => {
     setTimerState({
       teeTime,
       startTime,
@@ -963,10 +987,43 @@ export const TeeTimeTimerSpark: React.FC<TeeTimeTimerSparkProps> = ({
       currentActivityIndex: 0,
       completedActivities: new Set(),
     });
+    
+    // Schedule notifications for all activities
+    await scheduleActivityNotifications(teeTime, startTime);
+    
     HapticFeedback.success();
   };
 
-  const stopTimer = () => {
+  const scheduleActivityNotifications = async (teeTime: Date, startTime: Date) => {
+    // Cancel any existing activity notifications first
+    await NotificationService.cancelAllActivityNotifications();
+    
+    // Schedule notifications for each activity
+    for (let i = 0; i < activities.length; i++) {
+      const activity = activities[i];
+      
+      // Calculate activity start time (activities are in reverse order)
+      const minutesFromStart = activities
+        .slice(i + 1)
+        .reduce((sum, activity) => sum + activity.duration, 0);
+      const activityStartTime = new Date(startTime.getTime() + minutesFromStart * 60 * 1000);
+      
+      // Only schedule if the activity is in the future
+      const now = new Date();
+      if (activityStartTime.getTime() > now.getTime()) {
+        await NotificationService.scheduleActivityNotification(
+          activity.name,
+          activityStartTime,
+          activity.id
+        );
+      }
+    }
+  };
+
+  const stopTimer = async () => {
+    // Cancel all activity notifications
+    await NotificationService.cancelAllActivityNotifications();
+    
     setTimerState({
       teeTime: null,
       startTime: null,
@@ -1160,6 +1217,32 @@ export const TeeTimeTimerSpark: React.FC<TeeTimeTimerSparkProps> = ({
       fontWeight: '500',
       textAlign: 'center',
     },
+    startsInActivityCard: {
+      backgroundColor: colors.surface,
+      padding: 16,
+      marginVertical: 4,
+      borderRadius: 12,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderWidth: 2,
+      borderColor: colors.primary,
+    },
+    startsInActivityInfo: {
+      flex: 1,
+    },
+    startsInActivityName: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.primary,
+    },
+    startsInActivityTime: {
+      fontSize: 16,
+      fontWeight: '600',
+      color: colors.primary,
+      minWidth: 80,
+      textAlign: 'right',
+    },
   });
 
   if (showSettings) {
@@ -1188,12 +1271,14 @@ export const TeeTimeTimerSpark: React.FC<TeeTimeTimerSparkProps> = ({
             </Text>
           </View>
 
-          <TouchableOpacity
-            style={styles.setTeeTimeButton}
-            onPress={() => setShowTimePicker(true)}
-          >
-            <Text style={styles.primaryButtonText}>Set Tee Time</Text>
-          </TouchableOpacity>
+          {!showTimePicker && (
+            <TouchableOpacity
+              style={styles.setTeeTimeButton}
+              onPress={() => setShowTimePicker(true)}
+            >
+              <Text style={styles.primaryButtonText}>Set Tee Time</Text>
+            </TouchableOpacity>
+          )}
 
           {showTimePicker && (
             <View style={styles.timePickerContainer}>
@@ -1231,6 +1316,7 @@ export const TeeTimeTimerSpark: React.FC<TeeTimeTimerSparkProps> = ({
             </View>
           )}
 
+
           <View style={styles.timerSection}>
             <View style={styles.progressContainer}>
               <TeeTimeCircularProgress
@@ -1265,6 +1351,23 @@ export const TeeTimeTimerSpark: React.FC<TeeTimeTimerSparkProps> = ({
                 activityStartTime={getActivityStartTime(index)}
               />
             ))}
+            
+            {/* Starts In card - shown at bottom when before last activity */}
+            {isBeforeLastActivity() && (
+              <View style={styles.startsInActivityCard}>
+                <View style={styles.startsInActivityInfo}>
+                  <Text style={styles.startsInActivityName}>🚥 Starts In</Text>
+                </View>
+                <Text style={styles.startsInActivityTime}>
+                  {(() => {
+                    const seconds = getTimeUntilLastActivity();
+                    const minutes = Math.floor(seconds / 60);
+                    const remainingSeconds = seconds % 60;
+                    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+                  })()}
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.buttonContainer}>

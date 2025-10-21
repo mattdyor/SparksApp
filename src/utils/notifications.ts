@@ -1,12 +1,28 @@
 import * as Notifications from 'expo-notifications';
+import * as TaskManager from 'expo-task-manager';
 import { Platform } from 'react-native';
 
 // Configure how notifications should be handled when the app is running
 Notifications.setNotificationHandler({
   handleNotification: async (notification) => {
-    // Always show notifications, even when app is in background
+    const now = new Date();
+    console.log('=== NOTIFICATION HANDLER CALLED ===');
+    console.log('Time:', now.toLocaleTimeString());
+    console.log('Title:', notification.request.content.title);
+    console.log('Data:', notification.request.content.data);
+    console.log('Trigger:', notification.request.trigger);
+    
+    // Check if this is a scheduled notification that fired immediately (Expo Go limitation)
+    if (notification.request.trigger === null && notification.request.content.data?.type === 'test-scheduled') {
+      console.log('⚠️  SCHEDULED NOTIFICATION FIRED IMMEDIATELY');
+      console.log('This is a known Expo Go limitation - scheduled notifications may fire immediately.');
+      console.log('For proper testing, use a development build or standalone app.');
+    }
+    
+    // Show all notifications normally
     return {
-      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
       shouldPlaySound: true,
       shouldSetBadge: true,
     };
@@ -14,8 +30,34 @@ Notifications.setNotificationHandler({
 });
 
 const DAILY_NOTIFICATION_IDENTIFIER = 'daily-sparks-reminder';
+const BACKGROUND_NOTIFICATION_TASK = 'background-notification-task';
+
+// Define background task for handling notifications
+TaskManager.defineTask(BACKGROUND_NOTIFICATION_TASK, ({ data, error, executionInfo }) => {
+  console.log('Background notification task executed:', { data, error, executionInfo });
+  
+  if (error) {
+    console.error('Background notification task error:', error);
+    return;
+  }
+  
+  if (data) {
+    console.log('Background notification data:', data);
+    // Handle the notification data here if needed
+  }
+});
 
 export class NotificationService {
+  // Register background task for notifications
+  static async registerBackgroundTask(): Promise<void> {
+    try {
+      await Notifications.registerTaskAsync(BACKGROUND_NOTIFICATION_TASK);
+      console.log('Background notification task registered');
+    } catch (error) {
+      console.error('Error registering background task:', error);
+    }
+  }
+
   // Request permissions for notifications
   static async requestPermissions(): Promise<boolean> {
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
@@ -136,8 +178,8 @@ export class NotificationService {
     return Notifications.addNotificationResponseReceivedListener(callback);
   }
 
-  // Test notification (for debugging)
-  static async sendTestNotification(): Promise<void> {
+  // Schedule activity start notification
+  static async scheduleActivityNotification(activityName: string, startTime: Date, activityId: string): Promise<void> {
     try {
       const hasPermissions = await this.requestPermissions();
       if (!hasPermissions) {
@@ -145,10 +187,119 @@ export class NotificationService {
         return;
       }
 
-      // Schedule multiple test notifications to verify background functionality
+      // Calculate seconds until the activity starts
+      const now = new Date();
+      const secondsUntilStart = Math.floor((startTime.getTime() - now.getTime()) / 1000);
+
+      // Only schedule if the activity is in the future
+      if (secondsUntilStart > 0) {
+        await Notifications.scheduleNotificationAsync({
+          identifier: `activity-${activityId}`,
+          content: {
+            title: '⛳ Tee Time Timer',
+            body: `Time to start: ${activityName}`,
+            data: { 
+              type: 'activity-start',
+              activityId,
+              activityName,
+              taskName: BACKGROUND_NOTIFICATION_TASK
+            },
+            sound: 'default',
+            badge: 1,
+            ...(Platform.OS === 'android' && {
+              channelId: 'default',
+            }),
+          },
+          trigger: {
+            seconds: secondsUntilStart,
+          },
+        });
+
+        console.log(`Activity notification scheduled for ${activityName} in ${secondsUntilStart} seconds`);
+      }
+    } catch (error) {
+      console.error('Error scheduling activity notification:', error);
+    }
+  }
+
+  // Cancel all activity notifications
+  static async cancelAllActivityNotifications(): Promise<void> {
+    try {
+      const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
+      const activityNotifications = scheduledNotifications.filter(
+        notification => notification.content.data?.type === 'activity-start'
+      );
+      
+      for (const notification of activityNotifications) {
+        await Notifications.cancelScheduledNotificationAsync(notification.identifier);
+      }
+      
+      console.log(`Cancelled ${activityNotifications.length} activity notifications`);
+    } catch (error) {
+      console.error('Error cancelling activity notifications:', error);
+    }
+  }
+
+  // Send silent notification for better background handling
+  static async sendSilentNotification(title: string, body: string, data: any, trigger: any): Promise<string | null> {
+    try {
+      const hasPermissions = await this.requestPermissions();
+      if (!hasPermissions) {
+        console.log('Notification permissions not granted');
+        return null;
+      }
+
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          // No title or body for silent notification
+          data: {
+            ...data,
+            taskName: BACKGROUND_NOTIFICATION_TASK,
+            silentTitle: title,
+            silentBody: body
+          },
+          sound: false, // No sound for silent notification
+          badge: 1,
+        },
+        trigger,
+      });
+
+      console.log(`Silent notification scheduled with ID: ${notificationId}`);
+      return notificationId;
+    } catch (error) {
+      console.error('Error sending silent notification:', error);
+      return null;
+    }
+  }
+
+  // Test notification (for debugging) - with Expo Go limitation explanation
+  static async sendTestNotification(): Promise<void> {
+    try {
+      console.log('Starting test notification process...');
+      
+      const hasPermissions = await this.requestPermissions();
+      if (!hasPermissions) {
+        console.log('Notification permissions not granted');
+        return;
+      }
+      console.log('Notification permissions granted');
+
+      // Check if we're running in Expo Go (which has limitations with scheduled notifications)
+      const isExpoGo = __DEV__ && !global.nativeCallSyncHook;
+      
+      if (isExpoGo) {
+        console.log('⚠️  EXPO GO LIMITATION DETECTED');
+        console.log('Expo Go has known limitations with scheduled notifications.');
+        console.log('Scheduled notifications may fire immediately instead of at the scheduled time.');
+        console.log('For proper notification testing, use a development build or standalone app.');
+        console.log('See: https://docs.expo.dev/push-notifications/faq/');
+      }
+
+      // Test with immediate notification to verify basic functionality
+      console.log('Testing immediate notification...');
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: '🧪 Test Notification (Immediate)',
+          title: '🧪 Immediate Test',
           body: 'This should appear immediately!',
           data: { type: 'test-immediate' },
           sound: 'default',
@@ -158,20 +309,38 @@ export class NotificationService {
         },
       });
 
-      // Schedule a notification for 10 seconds later (to test background)
-      await Notifications.scheduleNotificationAsync({
+      // Test scheduled notification (may not work properly in Expo Go)
+      console.log('Testing scheduled notification...');
+      const futureTime = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes from now
+      
+      const scheduledId = await Notifications.scheduleNotificationAsync({
         content: {
-          title: '🧪 Test Notification (Background)',
-          body: 'This should appear in 10 seconds even if app is closed!',
-          data: { type: 'test-background' },
+          title: '🧪 Scheduled Test',
+          body: `This should appear at ${futureTime.toLocaleTimeString()}!`,
+          data: { type: 'test-scheduled' },
           sound: 'default',
         },
         trigger: {
-          seconds: 10,
+          date: futureTime,
         },
       });
 
-      console.log('Test notifications scheduled - close the app and wait!');
+      console.log(`Scheduled notification ID: ${scheduledId}`);
+      console.log(`Expected time: ${futureTime.toLocaleTimeString()}`);
+      
+      if (isExpoGo) {
+        console.log('⚠️  Note: In Expo Go, scheduled notifications may fire immediately.');
+        console.log('This is a known limitation and not a bug in your code.');
+      }
+
+      // Check scheduled notifications
+      const scheduledNotifications = await Notifications.getAllScheduledNotificationsAsync();
+      console.log(`Found ${scheduledNotifications.length} scheduled notifications`);
+      
+      if (scheduledNotifications.length === 0 && !isExpoGo) {
+        console.log('WARNING: No notifications were scheduled! This might be a configuration issue.');
+      }
+      
     } catch (error) {
       console.error('Error sending test notification:', error);
     }
