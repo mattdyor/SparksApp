@@ -13,7 +13,8 @@ import {
   SaveCancelButtons,
   SettingsItem,
   SettingsText,
-  SettingsRemoveButton
+  SettingsRemoveButton,
+  SettingsFeedbackSection,
 } from '../components/SettingsComponents';
 
 interface PackingItem {
@@ -145,6 +146,8 @@ const PackingListSettings: React.FC<{
           subtitle="Manage your packing items"
           icon="⚙️"
         />
+
+        <SettingsFeedbackSection sparkName="Packing List" sparkId="packing-list" />
 
         <SettingsSection title="Add New Item">
           <View style={styles.addRow}>

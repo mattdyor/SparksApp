@@ -24,6 +24,12 @@ import * as Print from 'expo-print';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
+import {
+  SettingsContainer,
+  SettingsScrollView,
+  SettingsHeader,
+  SettingsFeedbackSection,
+} from '../components/SettingsComponents';
 
 const { width } = Dimensions.get('window');
 
@@ -1874,21 +1880,24 @@ Created with TripStory ✈️
 
   if (showSettings) {
     return (
-      <View style={[styles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.header}>
-          <Text style={[styles.title, { color: colors.text }]}>📸✈️ TripStory Settings</Text>
-          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-            Manage your trip documentation preferences
-          </Text>
-        </View>
-        
-        <TouchableOpacity
-          style={[styles.closeButton, { backgroundColor: colors.primary }]}
-          onPress={onCloseSettings}
-        >
-          <Text style={[styles.closeButtonText, { color: colors.background }]}>Done</Text>
-        </TouchableOpacity>
-      </View>
+      <SettingsContainer>
+        <SettingsScrollView>
+          <SettingsHeader
+            title="TripStory Settings"
+            subtitle="Manage your trip documentation preferences"
+            icon="📸✈️"
+          />
+          
+          <SettingsFeedbackSection sparkName="TripStory" sparkId="trip-story" />
+          
+          <TouchableOpacity
+            style={[styles.closeButton, { backgroundColor: colors.primary }]}
+            onPress={onCloseSettings}
+          >
+            <Text style={[styles.closeButtonText, { color: colors.background }]}>Done</Text>
+          </TouchableOpacity>
+        </SettingsScrollView>
+      </SettingsContainer>
     );
   }
 

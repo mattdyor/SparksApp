@@ -270,7 +270,7 @@ const SoundboardSettings: React.FC<{
           </View>
         </SettingsSection>
 
-        <SettingsFeedbackSection sparkName="Soundboard" />
+        <SettingsFeedbackSection sparkName="Soundboard" sparkId="soundboard" />
 
         <SaveCancelButtons onSave={handleSave} onCancel={onClose} />
       </SettingsScrollView>

@@ -197,7 +197,7 @@ const QuickConvertSettings: React.FC<{
           </View>
         </SettingsSection>
 
-        <SettingsFeedbackSection sparkName="Quick Convert" />
+        <SettingsFeedbackSection sparkName="Quick Convert" sparkId="quick-convert" />
 
         <SaveCancelButtons onSave={handleSave} onCancel={onClose} />
       </SettingsScrollView>

@@ -11,7 +11,8 @@ import {
   SettingsHeader,
   SettingsSection,
   SettingsInput,
-  SaveCancelButtons
+  SaveCancelButtons,
+  SettingsFeedbackSection,
 } from '../components/SettingsComponents';
 
 const STORAGE_KEY = 'spanish_friend_user_name';
@@ -81,6 +82,8 @@ const SpanishFriendSettings: React.FC<SpanishFriendSettingsProps> = ({
           title="Spanish Friend Settings"
           subtitle="Customize your conversation experience"
         />
+
+        <SettingsFeedbackSection sparkName="Spanish Friend" sparkId="spanish-friend" />
 
         <SettingsSection title="Conversation Mode">
           <TouchableOpacity

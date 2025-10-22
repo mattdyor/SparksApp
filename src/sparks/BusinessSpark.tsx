@@ -100,7 +100,7 @@ const BusinessSimulatorSettings: React.FC<{
           icon="💼"
         />
 
-        <SettingsFeedbackSection sparkName="Business Simulator" />
+        <SettingsFeedbackSection sparkName="Business Simulator" sparkId="business" />
 
         <SettingsSection title="About">
           <View style={{ padding: 16, backgroundColor: 'transparent' }}>

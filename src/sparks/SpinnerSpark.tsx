@@ -13,7 +13,8 @@ import {
   SettingsInput,
   SettingsItem,
   SettingsText,
-  SettingsRemoveButton
+  SettingsRemoveButton,
+  SettingsFeedbackSection,
 } from '../components/SettingsComponents';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -154,6 +155,8 @@ const SpinnerSettings: React.FC<SpinnerSettingsProps> = ({ options, onSave, onCl
           title="Spinner Settings"
           subtitle="Customize your wheel options and weights"
         />
+
+        <SettingsFeedbackSection sparkName="Spinner" sparkId="spinner" />
 
         <SettingsSection title="Options">
           {editingOptions.map((option, index) => (

@@ -12,6 +12,13 @@ import * as Speech from 'expo-speech';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
+import {
+  SettingsContainer,
+  SettingsScrollView,
+  SettingsHeader,
+  SettingsSection,
+  SettingsFeedbackSection,
+} from '../components/SettingsComponents';
 
 const { width } = Dimensions.get('window');
 
@@ -305,80 +312,82 @@ const SpanishReaderSpark: React.FC<SpanishReaderSparkProps> = ({
   };
 
   const renderSettings = () => (
-    <View style={styles.settingsContainer}>
-      <View style={styles.header}>
-        <Text style={[styles.title, { color: colors.text }]}>📖 Spanish Reader Settings</Text>
-        <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-          Customize your reading experience
-        </Text>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Reading Order</Text>
-        <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
-          Choose the order of English and Spanish sentences
-        </Text>
+    <SettingsContainer>
+      <SettingsScrollView>
+        <SettingsHeader
+          title="Spanish Reader Settings"
+          subtitle="Customize your reading experience"
+          icon="📖"
+        />
         
-        <View style={styles.radioGroup}>
-          <TouchableOpacity
-            style={[
-              styles.radioOption,
-              { borderColor: colors.border },
-              settings.readingOrder === 'english-first' && { borderColor: colors.primary }
-            ]}
-            onPress={() => saveSettings({ ...settings, readingOrder: 'english-first' })}
-          >
-            <View style={[
-              styles.radioButton,
-              { borderColor: colors.border },
-              settings.readingOrder === 'english-first' && { borderColor: colors.primary }
-            ]}>
-              {settings.readingOrder === 'english-first' && (
-                <View style={[styles.radioButtonInner, { backgroundColor: colors.primary }]} />
-              )}
-            </View>
-            <View style={styles.radioTextContainer}>
-              <Text style={[styles.radioLabel, { color: colors.text }]}>English First</Text>
-              <Text style={[styles.radioDescription, { color: colors.textSecondary }]}>
-                English sentence, then Spanish translation
-              </Text>
-            </View>
-          </TouchableOpacity>
+        <SettingsFeedbackSection sparkName="Spanish Reader" sparkId="spanish-reader" />
+        
+        <SettingsSection title="Reading Order">
+          <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
+            Choose the order of English and Spanish sentences
+          </Text>
+          
+          <View style={styles.radioGroup}>
+            <TouchableOpacity
+              style={[
+                styles.radioOption,
+                { borderColor: colors.border },
+                settings.readingOrder === 'english-first' && { borderColor: colors.primary }
+              ]}
+              onPress={() => saveSettings({ ...settings, readingOrder: 'english-first' })}
+            >
+              <View style={[
+                styles.radioButton,
+                { borderColor: colors.border },
+                settings.readingOrder === 'english-first' && { borderColor: colors.primary }
+              ]}>
+                {settings.readingOrder === 'english-first' && (
+                  <View style={[styles.radioButtonInner, { backgroundColor: colors.primary }]} />
+                )}
+              </View>
+              <View style={styles.radioTextContainer}>
+                <Text style={[styles.radioLabel, { color: colors.text }]}>English First</Text>
+                <Text style={[styles.radioDescription, { color: colors.textSecondary }]}>
+                  English sentence, then Spanish translation
+                </Text>
+              </View>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.radioOption,
-              { borderColor: colors.border },
-              settings.readingOrder === 'spanish-first' && { borderColor: colors.primary }
-            ]}
-            onPress={() => saveSettings({ ...settings, readingOrder: 'spanish-first' })}
-          >
-            <View style={[
-              styles.radioButton,
-              { borderColor: colors.border },
-              settings.readingOrder === 'spanish-first' && { borderColor: colors.primary }
-            ]}>
-              {settings.readingOrder === 'spanish-first' && (
-                <View style={[styles.radioButtonInner, { backgroundColor: colors.primary }]} />
-              )}
-            </View>
-            <View style={styles.radioTextContainer}>
-              <Text style={[styles.radioLabel, { color: colors.text }]}>Spanish First</Text>
-              <Text style={[styles.radioDescription, { color: colors.textSecondary }]}>
-                Spanish sentence, then English translation
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <TouchableOpacity
-        style={[styles.closeButton, { backgroundColor: colors.primary }]}
-        onPress={onCloseSettings}
-      >
-        <Text style={[styles.closeButtonText, { color: colors.background }]}>Done</Text>
-      </TouchableOpacity>
-    </View>
+            <TouchableOpacity
+              style={[
+                styles.radioOption,
+                { borderColor: colors.border },
+                settings.readingOrder === 'spanish-first' && { borderColor: colors.primary }
+              ]}
+              onPress={() => saveSettings({ ...settings, readingOrder: 'spanish-first' })}
+            >
+              <View style={[
+                styles.radioButton,
+                { borderColor: colors.border },
+                settings.readingOrder === 'spanish-first' && { borderColor: colors.primary }
+              ]}>
+                {settings.readingOrder === 'spanish-first' && (
+                  <View style={[styles.radioButtonInner, { backgroundColor: colors.primary }]} />
+                )}
+              </View>
+              <View style={styles.radioTextContainer}>
+                <Text style={[styles.radioLabel, { color: colors.text }]}>Spanish First</Text>
+                <Text style={[styles.radioDescription, { color: colors.textSecondary }]}>
+                  Spanish sentence, then English translation
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        </SettingsSection>
+        
+        <TouchableOpacity
+          style={[styles.closeButton, { backgroundColor: colors.primary }]}
+          onPress={onCloseSettings}
+        >
+          <Text style={[styles.closeButtonText, { color: colors.background }]}>Done</Text>
+        </TouchableOpacity>
+      </SettingsScrollView>
+    </SettingsContainer>
   );
 
   if (showSettings) {

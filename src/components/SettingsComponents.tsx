@@ -545,12 +545,12 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ visible, onClose, sparkNa
 // Feedback Item Component
 interface FeedbackItemProps {
   rating: number;
-  feedback: string;
+  comment?: string;
   response?: string;
   createdAt: string;
 }
 
-const FeedbackItem: React.FC<FeedbackItemProps> = ({ rating, feedback, response, createdAt }) => {
+const FeedbackItem: React.FC<FeedbackItemProps> = ({ rating, comment, response, createdAt }) => {
   const { colors } = useTheme();
 
   const styles = StyleSheet.create({
@@ -571,6 +571,8 @@ const FeedbackItem: React.FC<FeedbackItemProps> = ({ rating, feedback, response,
     rating: {
       flexDirection: 'row',
       alignItems: 'center',
+      paddingVertical: 4,
+      paddingHorizontal: 4,
     },
     ratingText: {
       fontSize: 14,
@@ -619,7 +621,7 @@ const FeedbackItem: React.FC<FeedbackItemProps> = ({ rating, feedback, response,
         <Text style={styles.date}>{new Date(createdAt).toLocaleDateString()}</Text>
       </View>
       
-      {feedback ? <Text style={styles.feedback}>{feedback}</Text> : null}
+      {comment ? <Text style={styles.feedback}>{comment}</Text> : null}
       
       {response && (
         <View style={styles.response}>
@@ -664,8 +666,24 @@ export const SettingsFeedbackSection: React.FC<SettingsFeedbackSectionProps> = (
 
   const handleSubmitFeedback = async (rating: number, feedback: string) => {
     try {
+      console.log('🚀 SettingsFeedbackSection: Starting feedback submission...');
+      
+      // Ensure analytics is initialized
       const sessionInfo = AnalyticsService.getSessionInfo();
+      if (!sessionInfo.isInitialized || !sessionInfo.userId) {
+        console.log('⚠️ Analytics not initialized, attempting to initialize...');
+        try {
+          await AnalyticsService.initialize();
+          console.log('✅ Analytics initialized for feedback submission');
+        } catch (error) {
+          console.error('❌ Failed to initialize analytics:', error);
+          Alert.alert('Error', 'Failed to initialize analytics. Please try again.');
+          return;
+        }
+      }
+      
       const deviceId = sessionInfo.userId || 'anonymous';
+      console.log('📝 Submitting feedback for user:', deviceId);
       
       // Submit feedback only (rating is handled separately)
       const feedbackData: any = {
@@ -683,12 +701,14 @@ export const SettingsFeedbackSection: React.FC<SettingsFeedbackSectionProps> = (
       }
       
       await FeedbackService.submitFeedback(feedbackData);
+      console.log('✅ Feedback submitted successfully');
 
       // Track analytics
       await AnalyticsService.trackFeatureUsage('feedback_submitted', sparkId, sparkName, {
         rating: 0,
         hasFeedback: !!feedback.trim(),
       });
+      console.log('✅ Analytics tracked');
 
       // Reload feedback list
       await loadUserFeedback();
@@ -702,8 +722,24 @@ export const SettingsFeedbackSection: React.FC<SettingsFeedbackSectionProps> = (
 
   const handleRatingSubmit = async (rating: number) => {
     try {
+      console.log('🚀 SettingsFeedbackSection: Starting rating submission...');
+      
+      // Ensure analytics is initialized
       const sessionInfo = AnalyticsService.getSessionInfo();
+      if (!sessionInfo.isInitialized || !sessionInfo.userId) {
+        console.log('⚠️ Analytics not initialized, attempting to initialize...');
+        try {
+          await AnalyticsService.initialize();
+          console.log('✅ Analytics initialized for rating submission');
+        } catch (error) {
+          console.error('❌ Failed to initialize analytics:', error);
+          Alert.alert('Error', 'Failed to initialize analytics. Please try again.');
+          return;
+        }
+      }
+      
       const deviceId = sessionInfo.userId || 'anonymous';
+      console.log('⭐ Submitting rating for user:', deviceId);
       
       // Submit rating only
       await FeedbackService.submitFeedback({
@@ -714,12 +750,14 @@ export const SettingsFeedbackSection: React.FC<SettingsFeedbackSectionProps> = (
         sessionId: sessionInfo.sessionId,
         platform: 'ios' as 'ios' | 'android' | 'web',
       });
+      console.log('✅ Rating submitted successfully');
 
       // Track analytics
       await AnalyticsService.trackFeatureUsage('rating_submitted', sparkId, sparkName, {
         rating,
         hasFeedback: false,
       });
+      console.log('✅ Analytics tracked');
 
       // Reload feedback list
       await loadUserFeedback();
@@ -811,7 +849,7 @@ export const SettingsFeedbackSection: React.FC<SettingsFeedbackSectionProps> = (
             <FeedbackItem
               key={index}
               rating={item.rating}
-              feedback={item.feedback || ''}
+              comment={item.comment || ''}
               response={item.response}
               createdAt={item.createdAt}
             />

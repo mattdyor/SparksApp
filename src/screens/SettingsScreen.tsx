@@ -32,10 +32,13 @@ export const SettingsScreen: React.FC = () => {
   useEffect(() => {
     const initializeAnalytics = async () => {
       try {
+        console.log('🚀 SettingsScreen: Starting analytics initialization...');
         await AnalyticsService.initialize();
         setIsInitialized(true);
+        console.log('✅ SettingsScreen: Analytics initialized successfully');
       } catch (error) {
-        console.error('Error initializing analytics:', error);
+        console.error('❌ SettingsScreen: Error initializing analytics:', error);
+        setIsInitialized(false);
       }
     };
 

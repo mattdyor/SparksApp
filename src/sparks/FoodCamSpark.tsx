@@ -67,7 +67,7 @@ const FoodCamSettings: React.FC<{
           icon="📸"
         />
 
-        <SettingsFeedbackSection sparkName="FoodCam" />
+        <SettingsFeedbackSection sparkName="FoodCam" sparkId="foodcam" />
 
         <SettingsSection title="About">
           <View style={{ padding: 16, backgroundColor: 'transparent' }}>

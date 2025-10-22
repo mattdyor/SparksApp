@@ -168,8 +168,14 @@ export class AnalyticsService {
     });
 
     if (!this.isInitialized || !this.userId) {
-      console.log('❌ Analytics not initialized or no userId');
-      return;
+      console.log('❌ Analytics not initialized or no userId - attempting to initialize...');
+      try {
+        await this.initialize();
+        console.log('✅ Analytics initialized on-demand');
+      } catch (error) {
+        console.error('❌ Failed to initialize analytics:', error);
+        return;
+      }
     }
 
     const event: Omit<AnalyticsEvent, 'id' | 'timestamp'> = {

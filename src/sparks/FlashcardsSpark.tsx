@@ -15,7 +15,8 @@ import {
   SaveCancelButtons,
   SettingsItem,
   SettingsText,
-  SettingsRemoveButton
+  SettingsRemoveButton,
+  SettingsFeedbackSection,
 } from '../components/SettingsComponents';
 import AddPhraseModal, { Phrase } from '../components/AddPhraseModal';
 
@@ -134,6 +135,8 @@ const FlashcardSettings: React.FC<{
           subtitle="Manage your English-Spanish phrases"
           icon="⚙️"
         />
+
+        <SettingsFeedbackSection sparkName="Flashcards" sparkId="flashcards" />
 
         <SettingsSection title="Add New Phrase">
           <SettingsButton title="+ Add New Phrase" onPress={() => setShowAddModal(true)} />

@@ -50,7 +50,7 @@ const TodoSettings: React.FC<{
           icon="📝"
         />
 
-        <SettingsFeedbackSection sparkName="Todo List" />
+        <SettingsFeedbackSection sparkName="Todo List" sparkId="todo" />
 
         <SettingsSection title="About">
           <View style={{ padding: 16, backgroundColor: 'transparent' }}>

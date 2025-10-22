@@ -2489,7 +2489,7 @@ const GolfTrackerSettings: React.FC<{
           </View>
         </SettingsSection>
 
-        <SettingsFeedbackSection sparkName="Golf Brain" />
+        <SettingsFeedbackSection sparkName="Golf Brain" sparkId="golf-tracker" />
 
         <SettingsSection title="About">
           <View style={{ padding: 16, backgroundColor: 'transparent' }}>

@@ -308,7 +308,7 @@ const ToviewSettings: React.FC<{
           </View>
         </SettingsSection>
 
-        <SettingsFeedbackSection sparkName="Toview" />
+        <SettingsFeedbackSection sparkName="Toview" sparkId="toview" />
       </SettingsScrollView>
       
       <SaveCancelButtons

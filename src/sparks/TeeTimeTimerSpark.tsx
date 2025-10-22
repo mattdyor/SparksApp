@@ -13,6 +13,7 @@ import {
   SettingsSection,
   SettingsButton,
   SaveCancelButtons,
+  SettingsFeedbackSection,
 } from '../components/SettingsComponents';
 
 interface Activity {
@@ -653,6 +654,8 @@ const TeeTimeTimerSettings: React.FC<{
               subtitle="Customize your golf preparation activities"
               icon="⚙️"
             />
+
+            <SettingsFeedbackSection sparkName="Tee Time Timer" sparkId="tee-time-timer" />
 
             <SettingsSection title={`Activities (${editingActivities.length})`}>
               <Text style={settingsSubStyles.dragInstruction}>
