@@ -18,6 +18,7 @@ import QuickConvertSpark from '../sparks/QuickConvertSpark';
 import SpanishReaderSpark from '../sparks/SpanishReaderSpark';
 import TripStorySpark from '../sparks/TripStorySpark';
 import ShortSaverSpark from '../sparks/ShortSaverSpark';
+import SparkSpark from '../sparks/SparkSpark';
 import styled from 'styled-components/native';
 
 const PlaceholderContainer = styled.View`
@@ -258,7 +259,7 @@ export const sparkRegistry: Record<string, BaseSpark> = {
           title: 'Short Saver',
           description: 'Save and organize your favorite YouTubes',
           icon: '🎬',
-          category: 'media',
+          category: 'utility',
           difficulty: 'easy',
           estimatedTime: 3,
           available: true,
@@ -266,6 +267,21 @@ export const sparkRegistry: Record<string, BaseSpark> = {
           rating: 4.3,
         },
         component: ShortSaverSpark,
+      },
+      'spark-spark': {
+        metadata: {
+          id: 'spark-spark',
+          title: 'Spark Spark',
+          description: 'Submit your own Spark idea and become a product manager',
+          icon: '✨',
+          category: 'utility',
+          difficulty: 'easy',
+          estimatedTime: 5,
+          available: true,
+          createdAt: '2024-01-16T00:00:00.000Z',
+          rating: 4.5,
+        },
+        component: SparkSpark,
       },
 };
 

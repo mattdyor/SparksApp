@@ -619,4 +619,40 @@ export class WebFirebaseService {
     // This is a placeholder - user updates are handled by Firebase Auth
     console.log(`👤 Update user (placeholder):`, userId, userData);
   }
+
+  async saveSparkSubmission(submission: any): Promise<void> {
+    try {
+      if (!this.db) {
+        console.error('Firestore not initialized');
+        throw new Error('Firestore not initialized');
+      }
+
+      await this.db.collection('sparkSubmissions').doc(submission.id).set(submission);
+      console.log('✅ Spark submission saved:', submission.id);
+    } catch (error) {
+      console.error('❌ Error saving spark submission:', error);
+      throw error;
+    }
+  }
+
+  async getSparkSubmissions(userId?: string): Promise<any[]> {
+    try {
+      if (!this.db) {
+        console.error('Firestore not initialized');
+        return [];
+      }
+
+      let query = this.db.collection('sparkSubmissions');
+      
+      if (userId) {
+        query = query.where('userId', '==', userId);
+      }
+
+      const snapshot = await query.get();
+      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+      console.error('❌ Error getting spark submissions:', error);
+      return [];
+    }
+  }
 }

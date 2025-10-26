@@ -620,11 +620,6 @@ const HoleHistoryModal: React.FC<{
     viewButtonTextActive: {
       color: colors.background,
     },
-    todaysDistanceContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 12,
-    },
     sectionHeader: {
       backgroundColor: colors.surface,
       margin: 20,
@@ -3665,6 +3660,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
   const [showHistory, setShowHistory] = useState(false);
   const [showValidationError, setShowValidationError] = useState(false);
   const [todaysDistance, setTodaysDistance] = useState<string>(hole?.todaysDistance?.toString() || '');
+  const [showDistanceModal, setShowDistanceModal] = useState(false);
   const [currentShotIndex, setCurrentShotIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const expectedShots = hole ? Math.max(0, hole.par - 2) : 0; // par 3 = 1, par 4 = 2, par 5 = 3
@@ -4168,28 +4164,88 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       color: colors.textSecondary,
       marginTop: 4,
     },
-    todaysDistanceContainer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      marginTop: 4,
-      gap: 8,
-    },
     todaysDistanceLabel: {
       fontSize: 14,
       color: colors.text,
       fontWeight: '600',
     },
-    todaysDistanceInput: {
-      width: 80,
+    todaysDistanceContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      width: '100%',
+    },
+    editIcon: {
+      fontSize: 16,
+      marginLeft: 8,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    distanceModalContainer: {
       backgroundColor: colors.surface,
+      borderRadius: 12,
+      padding: 20,
+      width: '80%',
+      maxWidth: 400,
+    },
+    distanceModalHeader: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: 20,
+    },
+    distanceModalTitle: {
+      fontSize: 18,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    modalCloseButton: {
+      fontSize: 24,
+      color: colors.textSecondary,
+    },
+    distanceModalContent: {
+      marginBottom: 20,
+    },
+    distanceModalLabel: {
+      fontSize: 14,
+      color: colors.text,
+      marginBottom: 8,
+    },
+    distanceModalInput: {
+      backgroundColor: colors.background,
       borderWidth: 1,
       borderColor: colors.border,
       borderRadius: 8,
-      paddingHorizontal: 8,
-      paddingVertical: 8,
-      fontSize: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      fontSize: 16,
       color: colors.text,
-      textAlign: 'center',
+    },
+    distanceModalActions: {
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: 12,
+    },
+    distanceModalButton: {
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 8,
+      backgroundColor: colors.border,
+    },
+    distanceModalButtonPrimary: {
+      backgroundColor: colors.primary,
+    },
+    distanceModalButtonText: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.text,
+    },
+    distanceModalButtonTextPrimary: {
+      color: '#FFFFFF',
     },
     bumpInfo: {
       fontSize: 12,
@@ -4944,32 +5000,72 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
 
       {/* Today's Distance Card - Outside ScrollView */}
       <View style={[styles.todaysDistanceCard, { paddingHorizontal: 20 }]}>
-        <View style={styles.todaysDistanceContainer}>
-          <Text style={styles.todaysDistanceLabel}>Today's Distance (optional):</Text>
-          <TextInput
-            style={styles.todaysDistanceInput}
-            placeholder="yards"
-            placeholderTextColor={colors.textSecondary}
-            value={todaysDistance}
-            onChangeText={setTodaysDistance}
-            keyboardType="numeric"
-            maxLength={4}
-            returnKeyType="done"
-            onSubmitEditing={() => {
-              // Save the distance when user presses done
-              const distanceValue = todaysDistance.trim() ? parseInt(todaysDistance.trim()) : undefined;
-              onUpdateTodaysDistance(currentHole, distanceValue);
-              // Dismiss keyboard
-              Keyboard.dismiss();
-            }}
-            onBlur={() => {
-              // Save the distance when user taps away
-              const distanceValue = todaysDistance.trim() ? parseInt(todaysDistance.trim()) : undefined;
-              onUpdateTodaysDistance(currentHole, distanceValue);
-            }}
-          />
-        </View>
+        <TouchableOpacity 
+          style={styles.todaysDistanceContainer}
+          onPress={() => setShowDistanceModal(true)}
+        >
+          <Text style={styles.todaysDistanceLabel}>
+            Today's Distance: {todaysDistance || hole?.todaysDistance || 'Not set'}
+          </Text>
+          <Text style={styles.editIcon}>✏️</Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Distance Modal */}
+      <Modal
+        visible={showDistanceModal}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowDistanceModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.distanceModalContainer}>
+            <View style={styles.distanceModalHeader}>
+              <Text style={styles.distanceModalTitle}>Update Distance</Text>
+              <TouchableOpacity onPress={() => setShowDistanceModal(false)}>
+                <Text style={styles.modalCloseButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.distanceModalContent}>
+              <Text style={styles.distanceModalLabel}>Today's Distance (yards):</Text>
+              <TextInput
+                style={styles.distanceModalInput}
+                placeholder="Enter distance"
+                placeholderTextColor={colors.textSecondary}
+                value={todaysDistance}
+                onChangeText={setTodaysDistance}
+                keyboardType="numeric"
+                maxLength={4}
+                returnKeyType="done"
+                onSubmitEditing={() => {
+                  const distanceValue = todaysDistance.trim() ? parseInt(todaysDistance.trim()) : undefined;
+                  onUpdateTodaysDistance(currentHole, distanceValue);
+                  setShowDistanceModal(false);
+                }}
+                autoFocus={true}
+              />
+            </View>
+            <View style={styles.distanceModalActions}>
+              <TouchableOpacity
+                style={styles.distanceModalButton}
+                onPress={() => setShowDistanceModal(false)}
+              >
+                <Text style={styles.distanceModalButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.distanceModalButton, styles.distanceModalButtonPrimary]}
+                onPress={() => {
+                  const distanceValue = todaysDistance.trim() ? parseInt(todaysDistance.trim()) : undefined;
+                  onUpdateTodaysDistance(currentHole, distanceValue);
+                  setShowDistanceModal(false);
+                }}
+              >
+                <Text style={[styles.distanceModalButtonText, styles.distanceModalButtonTextPrimary]}>Save</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Single Shot Display */}
       <PanGestureHandler
