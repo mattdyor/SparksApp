@@ -29,6 +29,14 @@
           "defaultChannel": "default"
         }
       ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ]
     ],
     "description": "A collection of interactive micro-experiences - spin the wheel, flashcards, business simulations, visual food diary, and more all in one app.",
     "keywords": [

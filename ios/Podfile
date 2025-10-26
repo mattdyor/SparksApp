@@ -22,7 +22,9 @@ prepare_react_native_project!
 
 target 'Sparks' do
   use_expo_modules!
-  use_modular_headers!
+  
+  # Firebase configuration for static frameworks
+  $RNFirebaseAsStaticFramework = true
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
     config_command = ['node', '-e', "process.argv=['', '', 'config'];require('@react-native-community/cli').run()"];
@@ -58,17 +60,11 @@ target 'Sparks' do
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
     
-    # Fix gRPC module map issues
+    # Fix Firebase modular header issues
     installer.pods_project.targets.each do |target|
-      if target.name == 'gRPC-Core' || target.name == 'gRPC-C++'
+      if target.name.start_with?('RNFB')
         target.build_configurations.each do |config|
-          config.build_settings['DEFINES_MODULE'] = 'NO'
-          config.build_settings['MODULEMAP_FILE'] = ''
-          config.build_settings['CLANG_ENABLE_MODULES'] = 'NO'
-          config.build_settings['CLANG_CXX_LANGUAGE_STANDARD'] = 'c++17'
-          config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
-          config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << '_DARWIN_C_SOURCE=1'
-          config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << '_DARWIN_UNLIMITED_STREAMS=1'
+          config.build_settings['CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
         end
       end
     end

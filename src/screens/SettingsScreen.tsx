@@ -43,10 +43,16 @@ export const SettingsScreen: React.FC = () => {
     const initializeAnalytics = async () => {
       try {
         console.log('🚀 SettingsScreen: Starting analytics initialization...');
-        const AnalyticsService = ServiceFactory.getAnalyticsService();
-        await AnalyticsService.initialize();
+        await ServiceFactory.ensureAnalyticsInitialized();
+        await ServiceFactory.ensureFirebaseInitialized();
         setIsInitialized(true);
         console.log('✅ SettingsScreen: Analytics initialized successfully');
+        
+        // Track settings access
+        const AnalyticsService = ServiceFactory.getAnalyticsService();
+        if (AnalyticsService.trackSettingsAccess) {
+          AnalyticsService.trackSettingsAccess();
+        }
         
         // Check if current device is admin
         const adminStatus = await AdminResponseService.isAdmin();
@@ -93,6 +99,9 @@ export const SettingsScreen: React.FC = () => {
   const handleTestAnalytics = async () => {
     try {
       console.log('🧪 Starting analytics test...');
+      await ServiceFactory.ensureAnalyticsInitialized();
+      await ServiceFactory.ensureFirebaseInitialized();
+      
       const AnalyticsService = ServiceFactory.getAnalyticsService();
       console.log('🧪 AnalyticsService available:', !!AnalyticsService);
       console.log('🧪 AnalyticsService.trackFeatureUsage available:', !!AnalyticsService.trackFeatureUsage);

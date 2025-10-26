@@ -84,15 +84,39 @@ export const useSparkStore = create<SparkState>()(
       getSparkData: (sparkId) => get().sparkData[sparkId] || {},
       
       // User spark collection methods
-      addSparkToUser: (sparkId) =>
+      addSparkToUser: (sparkId) => {
         set((state) => ({
           userSparkIds: [...new Set([...state.userSparkIds, sparkId])],
-        })),
+        }));
+        
+        // Track analytics
+        import('../services/ServiceFactory').then(({ ServiceFactory }) => {
+          ServiceFactory.ensureAnalyticsInitialized().then(() => {
+            const AnalyticsService = ServiceFactory.getAnalyticsService();
+            if (AnalyticsService.trackSparkAdded) {
+              const sparkName = get().sparkData[sparkId]?.name || sparkId;
+              AnalyticsService.trackSparkAdded(sparkId, sparkName);
+            }
+          });
+        });
+      },
       
-      removeSparkFromUser: (sparkId) =>
+      removeSparkFromUser: (sparkId) => {
         set((state) => ({
           userSparkIds: state.userSparkIds.filter(id => id !== sparkId),
-        })),
+        }));
+        
+        // Track analytics
+        import('../services/ServiceFactory').then(({ ServiceFactory }) => {
+          ServiceFactory.ensureAnalyticsInitialized().then(() => {
+            const AnalyticsService = ServiceFactory.getAnalyticsService();
+            if (AnalyticsService.trackSparkRemoved) {
+              const sparkName = get().sparkData[sparkId]?.name || sparkId;
+              AnalyticsService.trackSparkRemoved(sparkId, sparkName);
+            }
+          });
+        });
+      },
       
       getUserSparks: () => get().userSparkIds,
       

@@ -136,6 +136,16 @@ export const SparkScreen: React.FC<Props> = ({ navigation, route }) => {
       updateSparkProgress(sparkId, {});
       // Add to recent sparks for quick switching
       addRecentSpark(sparkId);
+      
+      // Track analytics
+      import('../services/ServiceFactory').then(({ ServiceFactory }) => {
+        ServiceFactory.ensureAnalyticsInitialized().then(() => {
+          const AnalyticsService = ServiceFactory.getAnalyticsService();
+          if (AnalyticsService.trackSparkOpen) {
+            AnalyticsService.trackSparkOpen(sparkId, spark.name);
+          }
+        });
+      });
     }
 
     return () => {

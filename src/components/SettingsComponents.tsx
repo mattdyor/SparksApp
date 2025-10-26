@@ -554,6 +554,10 @@ interface FeedbackItemProps {
 
 const FeedbackItem: React.FC<FeedbackItemProps> = ({ rating, comment, response, createdAt }) => {
   const { colors } = useTheme();
+  
+  // Debug logging
+  console.log('🔍 FeedbackItem received:', { rating, comment, response, createdAt });
+  console.log('🔍 Response value:', response, 'Type:', typeof response, 'Length:', response?.length);
 
   const styles = StyleSheet.create({
     item: {
@@ -614,7 +618,7 @@ const FeedbackItem: React.FC<FeedbackItemProps> = ({ rating, comment, response, 
       <View style={styles.header}>
         {rating > 0 ? (
           <View style={styles.rating}>
-            <StarRating rating={rating} onRatingChange={() => {}} disabled size={16} />
+            <StarRating key={rating} rating={rating} onRatingChange={() => {}} disabled size={16} />
             <Text style={styles.ratingText}>{rating}/5</Text>
           </View>
         ) : (
@@ -623,7 +627,11 @@ const FeedbackItem: React.FC<FeedbackItemProps> = ({ rating, comment, response, 
         <Text style={styles.date}>{new Date(createdAt).toLocaleDateString()}</Text>
       </View>
       
-      {comment ? <Text style={styles.feedback}>{comment}</Text> : null}
+      {comment && comment.trim() ? (
+        <Text style={styles.feedback}>{comment}</Text>
+      ) : (
+        <></>
+      )}
       
       {response && (
         <View style={styles.response}>
@@ -678,10 +686,18 @@ export const SettingsFeedbackSection: React.FC<SettingsFeedbackSectionProps> = (
       const AnalyticsService = ServiceFactory.getAnalyticsService();
       const sessionInfo = AnalyticsService.getSessionInfo();
       const deviceId = sessionInfo.userId || 'anonymous';
+      console.log('🔍 Loading feedback for deviceId:', deviceId, 'sparkId:', sparkId);
+      
+      // Ensure Firebase is initialized before trying to get feedback
+      await ServiceFactory.ensureFirebaseInitialized();
+      
       const feedbacks = await FeedbackService.getUserFeedback(deviceId, sparkId);
+      console.log('🔍 Raw feedbacks from service:', feedbacks);
+      
       setUserFeedbacks(feedbacks || []);
     } catch (error) {
       console.error('Error loading feedback:', error);
+      setUserFeedbacks([]); // Set empty array on error
     } finally {
       setIsLoading(false);
     }
@@ -691,8 +707,12 @@ export const SettingsFeedbackSection: React.FC<SettingsFeedbackSectionProps> = (
     try {
       console.log('🚀 SettingsFeedbackSection: Starting feedback submission...');
       
-      // Ensure analytics is initialized
+      // Ensure services are initialized
+      await ServiceFactory.ensureAnalyticsInitialized();
+      await ServiceFactory.ensureFirebaseInitialized();
+      
       const AnalyticsService = ServiceFactory.getAnalyticsService();
+      const FirebaseService = ServiceFactory.getFirebaseService();
       const sessionInfo = AnalyticsService.getSessionInfo();
       if (!sessionInfo.isInitialized || !sessionInfo.userId) {
         console.log('⚠️ Analytics not initialized, attempting to initialize...');
@@ -732,6 +752,12 @@ export const SettingsFeedbackSection: React.FC<SettingsFeedbackSectionProps> = (
         rating: 0,
         hasFeedback: !!feedback.trim(),
       });
+      
+      // Track with simple analytics
+      const SimpleAnalytics = ServiceFactory.getAnalyticsService();
+      if (SimpleAnalytics.trackFeedbackSubmitted) {
+        SimpleAnalytics.trackFeedbackSubmitted(sparkId, sparkName, false, true);
+      }
       console.log('✅ Analytics tracked');
 
       // Reload feedback list
@@ -748,8 +774,12 @@ export const SettingsFeedbackSection: React.FC<SettingsFeedbackSectionProps> = (
     try {
       console.log('🚀 SettingsFeedbackSection: Starting rating submission...');
       
-      // Ensure analytics is initialized
+      // Ensure services are initialized
+      await ServiceFactory.ensureAnalyticsInitialized();
+      await ServiceFactory.ensureFirebaseInitialized();
+      
       const AnalyticsService = ServiceFactory.getAnalyticsService();
+      const FirebaseService = ServiceFactory.getFirebaseService();
       const sessionInfo = AnalyticsService.getSessionInfo();
       if (!sessionInfo.isInitialized || !sessionInfo.userId) {
         console.log('⚠️ Analytics not initialized, attempting to initialize...');
@@ -775,6 +805,12 @@ export const SettingsFeedbackSection: React.FC<SettingsFeedbackSectionProps> = (
         sessionId: sessionInfo.sessionId,
         platform: 'ios' as 'ios' | 'android' | 'web',
       });
+      
+      // Track with simple analytics
+      const SimpleAnalytics = ServiceFactory.getAnalyticsService();
+      if (SimpleAnalytics.trackFeedbackSubmitted) {
+        SimpleAnalytics.trackFeedbackSubmitted(sparkId, sparkName, true, false);
+      }
       console.log('✅ Rating submitted successfully');
 
       // Track analytics
@@ -875,15 +911,24 @@ export const SettingsFeedbackSection: React.FC<SettingsFeedbackSectionProps> = (
       {userFeedbacks.length > 0 && (
         <View style={styles.feedbackList}>
           <Text style={styles.sectionTitle}>Your Feedback</Text>
-          {userFeedbacks.map((item, index) => (
-            <FeedbackItem
-              key={index}
-              rating={item.rating}
-              comment={item.comment || ''}
-              response={item.response}
-              createdAt={item.createdAt}
-            />
-          ))}
+          {userFeedbacks.map((item, index) => {
+            console.log('🔍 Mapping feedback item:', item);
+            console.log('🔍 Available fields:', Object.keys(item));
+            console.log('🔍 Response fields:', {
+              response: item.response,
+              adminResponse: item.adminResponse,
+              reply: item.reply
+            });
+            return (
+              <FeedbackItem
+                key={index}
+                rating={item.rating}
+                comment={item.comment || item.text || ''}
+                response={item.response || ''}
+                createdAt={item.createdAt}
+              />
+            );
+          })}
         </View>
       )}
 

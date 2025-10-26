@@ -38,6 +38,7 @@ export class FeedbackNotificationService {
   private static readonly ADMIN_DEVICE_IDS = [
     'device_1761188124738_43laovhht', // Replace with your actual device ID
     'device_1761108969148_hwegb6ecb', // Add more if needed
+    'device_1761438183470_ss39iv0t6'
   ];
 
   /**
