@@ -7,8 +7,10 @@ let isNotificationsAvailable = false;
 let isTaskManagerAvailable = false;
 
 try {
+  // Use the same import pattern as App.tsx: import * as Notifications
+  // When using require, the module namespace is the Notifications object
   const notificationsModule = require('expo-notifications');
-  Notifications = notificationsModule.default;
+  Notifications = notificationsModule.default || notificationsModule;
   isNotificationsAvailable = true;
   console.log('✅ Expo Notifications available');
 } catch (error) {
@@ -34,8 +36,10 @@ if (isNotificationsAvailable && Notifications) {
       console.log('=== NOTIFICATION HANDLER CALLED ===');
       console.log('Time:', now.toLocaleTimeString());
       console.log('Title:', notification.request.content.title);
+      console.log('Body:', notification.request.content.body);
       console.log('Data:', notification.request.content.data);
       console.log('Trigger:', notification.request.trigger);
+      console.log('App State:', 'foreground'); // Notification handler only called when app is in foreground
       
       // Check if this is a scheduled notification that fired immediately (Expo Go limitation)
       if (notification.request.trigger === null && notification.request.content.data?.type === 'test-scheduled') {
@@ -44,7 +48,7 @@ if (isNotificationsAvailable && Notifications) {
         console.log('For proper testing, use a development build or standalone app.');
       }
       
-      // Show all notifications normally
+      // Show all notifications normally (even when app is in foreground)
       return {
         shouldShowBanner: true,
         shouldShowList: true,
@@ -52,6 +56,15 @@ if (isNotificationsAvailable && Notifications) {
         shouldSetBadge: true,
       };
     },
+  });
+  
+  // Also listen for notifications when app is in background/killed
+  Notifications.addNotificationReceivedListener((notification) => {
+    console.log('📬 Notification received (background/killed state):', {
+      title: notification.request.content.title,
+      body: notification.request.content.body,
+      data: notification.request.content.data,
+    });
   });
 } else {
   console.log('⚠️ Notifications not available, skipping notification handler setup');

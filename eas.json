@@ -9,11 +9,16 @@
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
-        "resourceClass": "m-medium", 
+        "resourceClass": "m-medium",
+        "bundleIdentifier": "com.mattdyor.sparks.dev",
         "simulator": true
       },
       "android": {
-        "resourceClass": "medium"
+        "resourceClass": "medium",
+        "package": "com.mattdyor.sparks.dev"
+      },
+      "env": {
+        "EXPO_PUBLIC_BUILD_TYPE": "development"
       }
     },
     "preview": {

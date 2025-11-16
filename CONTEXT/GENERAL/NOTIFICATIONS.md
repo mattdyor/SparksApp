@@ -121,16 +121,71 @@ npx expo run:android
 - App is installed on your device/simulator
 - Scheduled notifications will work correctly
 
-#### Step 3: Start Development Server
+**⚠️ CRITICAL: Rebuild Required After Configuration Changes**
 
-After building, start the development server:
+**Root Cause of Notification Issues:**
+If scheduled notifications are not working (returning ID but not firing), the most common cause is that **native configuration changes require a rebuild**, not just hot reload.
 
+**When to Rebuild:**
+- ✅ After modifying `app.json` (plugins, infoPlist, background modes, permissions)
+- ✅ After updating `expo-notifications` or other native modules
+- ✅ After changing entitlements or capabilities
+- ✅ After modifying `ios/` or `android/` native code
+- ❌ NOT needed for JavaScript-only changes (hot reload is sufficient)
+
+**Why Rebuild is Required:**
+- Hot reload only updates JavaScript code
+- Native configuration (Info.plist, entitlements, background modes) is compiled into the native app binary
+- The native iOS app must be rebuilt to include:
+  - `UIBackgroundModes` in Info.plist
+  - Notification capabilities in Xcode project
+  - Proper linking of `expo-notifications` native module
+  - Entitlements (`aps-environment`)
+
+**Symptoms of Missing Rebuild:**
+- `scheduleNotificationAsync()` returns an ID successfully
+- `getAllScheduledNotificationsAsync()` returns empty array (0 notifications)
+- Notification never fires after scheduled time
+- Permissions are granted correctly
+- `allowsAlert` is `true`
+
+**Solution:**
 ```bash
-# Start with development client
+# Rebuild the native app (not just hot reload)
+npx expo run:ios --device
+
+# Then start Metro bundler separately
 npx expo start --dev-client
 ```
 
-This connects your development build to the Metro bundler for hot reloading.
+**This is why the rebuild fixed the issue** - the native iOS app needed to be recompiled with the correct notification configuration.
+
+#### Step 3: Start Development Server (IMPORTANT!)
+
+**⚠️ CRITICAL:** After building, you MUST start the Metro bundler separately:
+
+```bash
+# In a separate terminal, start the development server
+npx expo start --dev-client
+```
+
+**Why this is needed:**
+- `npx expo run:ios --device` only builds and installs the app
+- It does NOT start the Metro bundler
+- You need Metro running to see logs and connect the app
+
+**Connecting the app:**
+1. Start Metro: `npx expo start --dev-client`
+2. Open the app on your device
+3. If auto-connection fails, shake device → "Enter URL manually"
+4. Enter: `exp://YOUR_COMPUTER_IP:8081` (e.g., `exp://192.168.1.100:8081`)
+
+**Verify connection:**
+- ✅ Logs appear in the terminal running Metro
+- ✅ Hot reload works
+- ✅ Console.log statements show up
+
+See `DEV_SERVER_CONNECTION.md` for detailed connection instructions.
 
 #### Step 4: Test Notifications
 

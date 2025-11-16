@@ -67,12 +67,14 @@
       "requireFullScreen": false,
       "infoPlist": {
         "UIBackgroundModes": [
-          "remote-notification"
+          "remote-notification",
+          "fetch"
         ],
-        "NSCameraUsageDescription": "FoodCam uses the camera to take photos of your food for your visual food diary.",
-        "NSPhotoLibraryUsageDescription": "FoodCam accesses your photo library to save and select food photos for your diary.",
-        "NSMicrophoneUsageDescription": "Use the microphone to record sounds for the sound board spark.",
-        "NSSpeechRecognitionUsageDescription": "This app uses speech synthesis for language learning in flashcards.",
+        "NSUserNotificationsUsageDescription": "Sparks uses notifications to send you daily reminders and updates about your activities.",
+        "NSCameraUsageDescription": "FoodCam uses the camera to take photos of your food for your visual food diary and TripStory allows users to capture photos of their trips.",
+        "NSPhotoLibraryUsageDescription": "FoodCam accesses your photo library to save and select food photos for your diary. TripStory allows photos to add photos of their trip to their TripStory.",
+        "NSMicrophoneUsageDescription": "Use the microphone to record sounds for the Sound Board spark.",
+        "NSSpeechRecognitionUsageDescription": "Spanish Flashcards and Amigo sparks uses speech synthesis for language Spanish.",
         "AVAudioSessionCategoryPlayback": true,
         "AVAudioSessionCategoryPlayAndRecord": false,
         "ITSAppUsesNonExemptEncryption": false
@@ -92,13 +94,12 @@
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
         "WRITE_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
         "MODIFY_AUDIO_SETTINGS",
         "WAKE_LOCK",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.POST_NOTIFICATIONS",
-        "android.permission.SCHEDULE_EXACT_ALARM",
-        "android.permission.USE_EXACT_ALARM",
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION"
       ],

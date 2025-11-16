@@ -95,27 +95,57 @@ export class AdminResponseService {
   }
 
   /**
-   * Get unread feedback count for admin
+   * Get unread feedback count for admin (feedback with comments, no responses)
    */
   static async getUnreadFeedbackCount(): Promise<number> {
     try {
       const allFeedback = await this.getAllFeedback();
-      console.log('🔍 getUnreadFeedbackCount - Total feedback:', allFeedback.length);
       
+      // Filter for unread feedback with comments that need responses
       const unreadFeedback = allFeedback.filter(
-        item => item.viewedByAdmin === undefined || item.viewedByAdmin === false
+        item => (item.viewedByAdmin === undefined || item.viewedByAdmin === false) &&
+                (item.comment && item.comment.trim() !== '') &&
+                (!item.response || item.response.trim() === '')
       );
-      
-      console.log('🔍 getUnreadFeedbackCount - Unread feedback:', unreadFeedback.length);
-      console.log('🔍 Sample unread items:', unreadFeedback.slice(0, 3).map(item => ({
-        id: item.id,
-        viewedByAdmin: item.viewedByAdmin,
-        sparkName: item.sparkName
-      })));
       
       return unreadFeedback.length;
     } catch (error) {
       console.error('Error getting unread feedback count:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Get unread reviews count for admin (ratings only, no comments)
+   */
+  static async getUnreadReviewsCount(): Promise<number> {
+    try {
+      const allFeedback = await this.getAllFeedback();
+      
+      // Filter for unread reviews (ratings only, no comments)
+      const unreadReviews = allFeedback.filter(
+        item => (item.viewedByAdmin === undefined || item.viewedByAdmin === false) &&
+                (!item.comment || item.comment.trim() === '') &&
+                item.rating
+      );
+      
+      return unreadReviews.length;
+    } catch (error) {
+      console.error('Error getting unread reviews count:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Get total unread count (feedback + reviews) for admin
+   */
+  static async getTotalUnreadCount(): Promise<number> {
+    try {
+      const feedbackCount = await this.getUnreadFeedbackCount();
+      const reviewsCount = await this.getUnreadReviewsCount();
+      return feedbackCount + reviewsCount;
+    } catch (error) {
+      console.error('Error getting total unread count:', error);
       return 0;
     }
   }
@@ -129,9 +159,6 @@ export class AdminResponseService {
       const AnalyticsService = ServiceFactory.getAnalyticsService();
       const sessionInfo = AnalyticsService.getSessionInfo();
       const deviceId = sessionInfo.userId || sessionInfo.sessionId || '';
-      console.log('🔍 AdminResponseService.isAdmin - deviceId:', deviceId);
-      console.log('🔍 AdminResponseService.isAdmin - userId:', sessionInfo.userId);
-      console.log('🔍 AdminResponseService.isAdmin - sessionId:', sessionInfo.sessionId);
       return FeedbackNotificationService.isAdminDevice(deviceId);
     } catch (error) {
       console.error('Error checking admin status:', error);

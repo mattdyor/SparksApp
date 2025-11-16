@@ -8,7 +8,7 @@ let isNotificationsAvailable = false;
 
 try {
   const notificationsModule = require('expo-notifications');
-  Notifications = notificationsModule.Notifications;
+  Notifications = notificationsModule.default || notificationsModule;
   isNotificationsAvailable = true;
   console.log('✅ Expo Notifications available');
 } catch (error) {
@@ -331,7 +331,8 @@ export class FeedbackNotificationService {
         const { AdminResponseService } = await import('./AdminResponseService');
         const isAdmin = await AdminResponseService.isAdmin();
         if (isAdmin) {
-          totalUnreadFeedback = await AdminResponseService.getUnreadFeedbackCount();
+          // For admins, count both feedback (with comments) and reviews (ratings only)
+          totalUnreadFeedback = await AdminResponseService.getTotalUnreadCount();
         }
       } catch (error) {
         // If admin check fails, assume not admin
@@ -343,8 +344,6 @@ export class FeedbackNotificationService {
       
       // Update app icon badge
       await Notifications.setBadgeCountAsync(totalUnread);
-      
-      console.log(`📱 App icon badge updated: ${totalUnread} (${totalUnreadReplies} replies + ${totalUnreadFeedback} feedback)`);
     } catch (error) {
       console.error('Error updating app icon badge:', error);
     }
@@ -361,7 +360,6 @@ export class FeedbackNotificationService {
       
       // Use Firebase to get unread count directly
       const count = await (FirebaseService as any).getUnreadFeedbackCount(deviceId, sparkId);
-      console.log('🔍 getUnreadCount (Firebase) - deviceId:', deviceId, 'sparkId:', sparkId, 'count:', count);
       
       return count;
     } catch (error) {
