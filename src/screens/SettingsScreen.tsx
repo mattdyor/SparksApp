@@ -373,6 +373,58 @@ export const SettingsScreen: React.FC = () => {
           <Text style={styles.debugButtonText}>Check Scheduled Notifications</Text>
         </TouchableOpacity>
         
+        <TouchableOpacity
+          style={[styles.debugButton, { marginTop: 4, marginBottom: 4 }]}
+          onPress={async () => {
+            try {
+              const NotificationsModule = await import('expo-notifications');
+              const Notifications = NotificationsModule.default || NotificationsModule;
+              
+              // Get current count
+              const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+              const count = scheduled.length;
+              
+              if (count === 0) {
+                Alert.alert('No Notifications', 'There are no scheduled notifications to clear.');
+                return;
+              }
+              
+              // Confirm before clearing
+              Alert.alert(
+                'Clear All Notifications',
+                `This will cancel all ${count} scheduled notification${count !== 1 ? 's' : ''}. This action cannot be undone.\n\nAre you sure?`,
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  {
+                    text: 'Clear All',
+                    style: 'destructive',
+                    onPress: async () => {
+                      try {
+                        await Notifications.cancelAllScheduledNotificationsAsync();
+                        Alert.alert(
+                          'Success',
+                          `Cleared ${count} scheduled notification${count !== 1 ? 's' : ''}.`,
+                          [{ text: 'OK' }]
+                        );
+                      } catch (error) {
+                        Alert.alert(
+                          'Error',
+                          `Failed to clear notifications: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                          [{ text: 'OK' }]
+                        );
+                      }
+                    }
+                  }
+                ]
+              );
+            } catch (error) {
+              Alert.alert('Error', error instanceof Error ? error.message : 'Unknown error');
+            }
+          }}
+        >
+          <Text style={styles.debugButtonText}>🗑️ Clear All Scheduled Notifications</Text>
+        </TouchableOpacity>
+        
         {currentDeviceId && !isAdmin && (
           <TouchableOpacity
             style={styles.debugButton}
