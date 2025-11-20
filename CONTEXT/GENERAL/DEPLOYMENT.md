@@ -1,6 +1,14 @@
 # Sparks App - Deployment Guide
 
+## Quick Deployment Workflow
+
+**IMPORTANT: Always increment version before building!**
+
+```bash
+# 1. Update version in app.json (e.g., 1.0.1 → 1.0.2)
+# 2. Build and submit in one command:
 npx eas build --platform all --profile production --auto-submit
+```
 
 ## Pre-Deployment Checklist
 
