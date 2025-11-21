@@ -62,7 +62,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ navigation }) => {
       const partialPercentage = (rating % 1) * 100;
       stars.push(
         <View key="partial" style={styles.partialStarContainer}>
-          <View style={[styles.partialStarBackground, { width: `${100 - partialPercentage}%` }>
+          <View style={[styles.partialStarBackground, { width: `${100 - partialPercentage}%` }]}>
             <Text style={styles.starGray}>⭐</Text>
           </View>
           <View style={styles.partialStarForeground}>
@@ -240,14 +240,15 @@ export const MarketplaceScreen: React.FC<Props> = ({ navigation }) => {
       paddingHorizontal: 24,
       paddingVertical: 16,
       backgroundColor: colors.background,
-    },
-    categoryPillsScrollView: {
       flexDirection: 'row',
+      flexWrap: 'wrap',
+      justifyContent: 'center',
     },
     categoryPill: {
       paddingHorizontal: 16,
       paddingVertical: 8,
       marginRight: 8,
+      marginBottom: 8,
       borderRadius: 20,
       backgroundColor: colors.surface,
       borderWidth: 1,
@@ -309,7 +310,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ navigation }) => {
             return (
               <TouchableOpacity
                 key={spark.metadata.id}
-                style={[
+                style={styles.sparkCard}
                 onPress={() => handleSparkPress(spark.metadata.id)}
               >
                 <View style={styles.sparkCardContentWithRating}>
@@ -332,27 +333,23 @@ export const MarketplaceScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Category Filter Pills */}
         <View style={styles.categoryPillsContainer}>
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.categoryPillsScrollView}
-          >
-            {categories.sort().map((category) => (
-              <TouchableOpacity
-                key={category}
-                style={[
-                  styles.categoryPill,
-                  selectedCategory === category && styles.categoryPillActive
-                onPress={() => handleCategoryPress(category)}
-              >
-                <Text style={[
-                  styles.categoryPillText,
-                  selectedCategory === category && styles.categoryPillTextActive>
-                  {category}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          {categories.sort().map((category) => (
+            <TouchableOpacity
+              key={category}
+              style={[
+                styles.categoryPill,
+                selectedCategory === category && styles.categoryPillActive
+              ]}
+              onPress={() => handleCategoryPress(category)}
+            >
+              <Text style={[
+                styles.categoryPillText,
+                selectedCategory === category && styles.categoryPillTextActive
+              ]}>
+                {category}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* All Sparks Section */}
@@ -364,8 +361,7 @@ export const MarketplaceScreen: React.FC<Props> = ({ navigation }) => {
             return (
               <TouchableOpacity
                 key={spark.metadata.id}
-                style={[
-                  styles.sparkCard
+                style={styles.sparkCard}
                 onPress={() => handleSparkPress(spark.metadata.id)}
               >
                 <View style={styles.sparkCardContent}>
