@@ -60,14 +60,6 @@ A collection of potential new Sparks to build for the app. Each spark should be 
 
 ## Additional Spark Ideas
 
-### 🎵 Song Saver
-**Category:** Media  
-**Description:** Quick-play favorite Spotify songs
-- Save favorite Spotify songs with categories
-- One-click play functionality (like @ShortSaverSpark)
-- Same category and naming logic as @ScreenSaverSpark
-- Category overlays for organization
-- Quick access to your top tracks
 
 ### 🌱 Plant Parent
 **Category:** Utility  

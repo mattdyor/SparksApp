@@ -18,6 +18,7 @@ import QuickConvertSpark from '../sparks/QuickConvertSpark';
 import SpanishReaderSpark from '../sparks/SpanishReaderSpark';
 import TripStorySpark from '../sparks/TripStorySpark';
 import ShortSaverSpark from '../sparks/ShortSaverSpark';
+import SongSaverSpark from '../sparks/SongSaverSpark';
 import SparkSpark from '../sparks/SparkSpark';
 import { MinuteMinderSpark } from '../sparks/MinuteMinderSpark';
 import { BuzzyBingoSpark } from '../sparks/BuzzyBingoSpark';
@@ -227,6 +228,18 @@ export const sparkRegistry: Record<string, BaseSpark> = {
     },
     component: ShortSaverSpark,
   },
+  'song-saver': {
+    metadata: {
+      id: 'song-saver',
+      title: 'Song Saver',
+      description: 'Save and organize your favorite Spotify tracks',
+      icon: '🎵',
+      category: 'media',
+      createdAt: '2024-11-21T00:00:00.000Z',
+      rating: 4.5,
+    },
+    component: SongSaverSpark,
+  },
   'spark-wizard': {
     metadata: {
       id: 'spark-wizard',
@@ -282,7 +295,7 @@ export const sparkRegistry: Record<string, BaseSpark> = {
       description: 'Inspirational golf wisdom from Jerry',
       icon: '📖',
       category: 'golf',
-      createdAt: new Date().toISOString(),
+      createdAt: '2024-01-20T00:00:00.000Z',
       rating: 4.3,
     },
     component: GolfWisdomSpark,

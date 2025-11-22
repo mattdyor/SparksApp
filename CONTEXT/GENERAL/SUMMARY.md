@@ -61,6 +61,9 @@ Track movies, books, and shows you want to watch. Keep a running list with view 
 ### 🎬 Short Saver
 Save and organize your favorite YouTube videos. Build your personal collection of must-watch content.
 
+### 🎵 Song Saver
+Save and organize your favorite Spotify tracks. Support for both simple URLs (colored cards) and rich embed players.
+
 ### 🎛️ Sound Board
 Record and play custom sound clips with categories. Create your own audio library for any occasion.
 
@@ -82,6 +85,6 @@ Submit your own Spark idea and become a product manager. Help shape the future o
 
 ---
 
-**Total Sparks:** 19 unique mini-apps  
+**Total Sparks:** 20 unique mini-apps  
 **Categories:** Productivity, Travel, Food, Education, Golf, Games, Media, Utilities, Community  
 **All Sparks:** Available now and ready to make your life...just a little bit better⚡️
