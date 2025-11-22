@@ -41,13 +41,56 @@ fi
 
 echo ""
 
-# Step 2: Get current version for confirmation
+# Step 2: Bump version
+echo "📈 Step 2: Bumping version..."
 CURRENT_VERSION=$(node -e "console.log(require('./app.json').expo.version)")
-echo -e "${BLUE}Current version: ${CURRENT_VERSION}${NC}"
+echo "Current version: ${CURRENT_VERSION}"
+
+# Increment patch version (e.g., 1.0.2 -> 1.0.3)
+NEW_VERSION=$(node -e "
+  const version = require('./app.json').expo.version;
+  const parts = version.split('.');
+  parts[2] = parseInt(parts[2]) + 1;
+  console.log(parts.join('.'));
+")
+
+echo "New version: ${NEW_VERSION}"
+echo ""
+
+# Update app.json
+node -e "
+  const fs = require('fs');
+  const appJson = require('./app.json');
+  appJson.expo.version = '${NEW_VERSION}';
+  appJson.expo.ios.buildNumber = '${NEW_VERSION}';
+  appJson.expo.android.versionName = '${NEW_VERSION}';
+  fs.writeFileSync('./app.json', JSON.stringify(appJson, null, 2) + '\n');
+"
+
+echo "✓ Updated app.json"
+
+# Update package.json
+node -e "
+  const fs = require('fs');
+  const packageJson = require('./package.json');
+  packageJson.version = '${NEW_VERSION}';
+  fs.writeFileSync('./package.json', JSON.stringify(packageJson, null, 2) + '\n');
+"
+
+echo "✓ Updated package.json"
+
+# Run prebuild to sync native configs
+echo "Running: npx expo prebuild --clean"
+npx expo prebuild --clean
+
+echo ""
+echo -e "${GREEN}✓ Version bumped to ${NEW_VERSION}${NC}"
 echo ""
 
 # Step 3: Confirm deployment
-read -p "Deploy version ${CURRENT_VERSION} to production? (y/N) " -n 1 -r
+echo -e "${BLUE}Ready to deploy version ${NEW_VERSION}${NC}"
+echo ""
+read -p "Deploy version ${NEW_VERSION} to production? (y/N) " -n 1 -r
 echo ""
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
   echo "Deployment cancelled."
