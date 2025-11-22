@@ -22,6 +22,7 @@ import SparkSpark from '../sparks/SparkSpark';
 import { MinuteMinderSpark } from '../sparks/MinuteMinderSpark';
 import { BuzzyBingoSpark } from '../sparks/BuzzyBingoSpark';
 import { CardScoreSpark } from '../sparks/CardScoreSpark';
+import { GolfWisdomSpark } from '../sparks/GolfWisdomSpark';
 import styled from 'styled-components/native';
 
 const PlaceholderContainer = styled.View`
@@ -273,6 +274,18 @@ export const sparkRegistry: Record<string, BaseSpark> = {
       rating: 4.0,
     },
     component: CardScoreSpark,
+  },
+  golfWisdom: {
+    metadata: {
+      id: 'golfWisdom',
+      title: 'Golf Wisdom',
+      description: 'Inspirational golf wisdom from Jerry',
+      icon: '📖',
+      category: 'golf',
+      createdAt: new Date().toISOString(),
+      rating: 4.3,
+    },
+    component: GolfWisdomSpark,
   },
 };
 

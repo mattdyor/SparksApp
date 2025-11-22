@@ -42,6 +42,9 @@ Track golf rounds with detailed shot analysis and course management. Improve you
 ### ⛳ Tee Time Timer
 Nail your golf prep routine. Never rush to the first tee again with perfectly timed warm-up reminders.
 
+### 📖 Golf Wisdom
+Inspirational golf wisdom from Jerry. Beautiful book-style interface with swipeable chapters of timeless golf insights.
+
 ## 🎮 Games
 
 ### 💼 Business Simulator

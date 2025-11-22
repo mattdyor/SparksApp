@@ -1,0 +1,1 @@
+export { GolfWisdomSpark } from './GolfWisdomSpark';

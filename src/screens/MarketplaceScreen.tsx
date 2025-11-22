@@ -277,59 +277,64 @@ export const MarketplaceScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       <ScrollView>
-        {/* New Sparks Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>New Sparks</Text>
-        </View>
-        <View style={styles.grid}>
-          {newSparks.map((spark) => {
-            return (
-              <TouchableOpacity
-                key={spark.metadata.id}
-                style={styles.sparkCard}
-                onPress={() => handleSparkPress(spark.metadata.id)}
-              >
-                <View style={styles.sparkCardContent}>
-                  <View style={styles.sparkIconContainer}>
-                    <Text style={styles.sparkIcon}>{spark.metadata.icon}</Text>
-                    <NotificationBadge sparkId={spark.metadata.id} size="small" />
-                  </View>
-                  <Text style={styles.sparkTitle} numberOfLines={2}>{spark.metadata.title}</Text>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Top Rated Section */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Top Rated</Text>
-        </View>
-        <View style={styles.grid}>
-          {topRatedSparks.map((spark) => {
-            return (
-              <TouchableOpacity
-                key={spark.metadata.id}
-                style={styles.sparkCard}
-                onPress={() => handleSparkPress(spark.metadata.id)}
-              >
-                <View style={styles.sparkCardContentWithRating}>
-                  <View style={styles.sparkIconContainer}>
-                    <Text style={styles.sparkIcon}>{spark.metadata.icon}</Text>
-                    <NotificationBadge sparkId={spark.metadata.id} size="small" />
-                  </View>
-                  <Text style={styles.sparkTitle} numberOfLines={2}>{spark.metadata.title}</Text>
-                  <View style={styles.ratingContainer}>
-                    <View style={styles.starsContainer}>
-                      {renderStars(spark.metadata.rating)}
+        {/* Only show New Sparks and Top Rated when no category filter is active */}
+        {!selectedCategory && (
+          <>
+            {/* New Sparks Section */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>New Sparks</Text>
+            </View>
+            <View style={styles.grid}>
+              {newSparks.map((spark) => {
+                return (
+                  <TouchableOpacity
+                    key={spark.metadata.id}
+                    style={styles.sparkCard}
+                    onPress={() => handleSparkPress(spark.metadata.id)}
+                  >
+                    <View style={styles.sparkCardContent}>
+                      <View style={styles.sparkIconContainer}>
+                        <Text style={styles.sparkIcon}>{spark.metadata.icon}</Text>
+                        <NotificationBadge sparkId={spark.metadata.id} size="small" />
+                      </View>
+                      <Text style={styles.sparkTitle} numberOfLines={2}>{spark.metadata.title}</Text>
                     </View>
-                    <Text style={styles.ratingNumber}>{spark.metadata.rating.toFixed(1)}</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Top Rated Section */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Top Rated</Text>
+            </View>
+            <View style={styles.grid}>
+              {topRatedSparks.map((spark) => {
+                return (
+                  <TouchableOpacity
+                    key={spark.metadata.id}
+                    style={styles.sparkCard}
+                    onPress={() => handleSparkPress(spark.metadata.id)}
+                  >
+                    <View style={styles.sparkCardContentWithRating}>
+                      <View style={styles.sparkIconContainer}>
+                        <Text style={styles.sparkIcon}>{spark.metadata.icon}</Text>
+                        <NotificationBadge sparkId={spark.metadata.id} size="small" />
+                      </View>
+                      <Text style={styles.sparkTitle} numberOfLines={2}>{spark.metadata.title}</Text>
+                      <View style={styles.ratingContainer}>
+                        <View style={styles.starsContainer}>
+                          {renderStars(spark.metadata.rating)}
+                        </View>
+                        <Text style={styles.ratingNumber}>{spark.metadata.rating.toFixed(1)}</Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        )}
 
         {/* Category Filter Pills */}
         <View style={styles.categoryPillsContainer}>
