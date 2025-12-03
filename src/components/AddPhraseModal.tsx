@@ -203,11 +203,41 @@ const AddPhraseModal: React.FC<AddPhraseModalProps> = ({
     },
   });
 
+  const footer = (
+    <View style={styles.buttonContainer}>
+      <TouchableOpacity
+        style={[styles.button, styles.cancelButton]}
+        onPress={handleCancel}
+      >
+        <Text style={[styles.buttonText, styles.cancelButtonText]}>Cancel</Text>
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.button, styles.lookUpButton, !canLookUp && styles.disabledButton]}
+        onPress={handleLookUp}
+        disabled={!canLookUp || isTranslating}
+      >
+        {isTranslating ? (
+          <ActivityIndicator size="small" color={colors.background} />
+        ) : (
+          <Text style={[styles.buttonText, styles.lookUpButtonText]}>Look Up</Text>
+        )}
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[styles.button, styles.addButton, !canAddPhrase && styles.disabledButton]}
+        onPress={handleAddPhrase}
+        disabled={!canAddPhrase}
+      >
+        <Text style={[styles.buttonText, styles.addButtonText]}>Add</Text>
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <CommonModal
       visible={visible}
       title="Add New Phrase"
       onClose={handleCancel}
+      footer={footer}
     >
       <Text style={styles.fieldLabel}>Spanish phrase</Text>
       <TextInput
@@ -265,33 +295,6 @@ const AddPhraseModal: React.FC<AddPhraseModalProps> = ({
           </View>
         </>
       )}
-
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={[styles.button, styles.cancelButton]}
-          onPress={handleCancel}
-        >
-          <Text style={[styles.buttonText, styles.cancelButtonText]}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, styles.lookUpButton, !canLookUp && styles.disabledButton]}
-          onPress={handleLookUp}
-          disabled={!canLookUp || isTranslating}
-        >
-          {isTranslating ? (
-            <ActivityIndicator size="small" color={colors.background} />
-          ) : (
-            <Text style={[styles.buttonText, styles.lookUpButtonText]}>Look Up</Text>
-          )}
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.button, styles.addButton, !canAddPhrase && styles.disabledButton]}
-          onPress={handleAddPhrase}
-          disabled={!canAddPhrase}
-        >
-          <Text style={[styles.buttonText, styles.addButtonText]}>Add Phrase</Text>
-        </TouchableOpacity>
-      </View>
     </CommonModal>
   );
 };

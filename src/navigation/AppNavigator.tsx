@@ -209,6 +209,17 @@ const CustomTabBar: React.FC<BottomTabBarProps & { tabBarVisible: boolean }> = (
 
             if (!isFocused && !event.defaultPrevented) {
               navigation.navigate(route.name as any);
+            } else if (isFocused && !event.defaultPrevented) {
+              // Tab is already focused - check if we're in a nested stack
+              const routeState = state.routes[index]?.state;
+              if (routeState && routeState.index > 0) {
+                // We're in a nested stack, pop to root
+                const rootScreenName = routeState.routes[0].name;
+                navigation.navigate(route.name as any, {
+                  screen: rootScreenName,
+                });
+              }
+              // If already at root, do nothing - this prevents the visual re-navigation
             }
           };
 

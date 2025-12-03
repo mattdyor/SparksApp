@@ -173,6 +173,7 @@ export const SettingsInput: React.FC<SettingsInputProps> = ({
       color: colors.text,
       marginBottom: 12,
       minHeight: multiline ? numberOfLines * 24 + 24 : 44,
+      minWidth: 150,
     },
   });
 
