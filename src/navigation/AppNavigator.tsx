@@ -134,6 +134,22 @@ const CustomTabBar: React.FC<BottomTabBarProps & { tabBarVisible: boolean }> = (
   const { colors } = useTheme();
   const { recentSparks } = useAppStore();
   const [showQuickSwitch, setShowQuickSwitch] = React.useState(false);
+  const isNavigatingRef = React.useRef(false);
+  
+  // Log navigation state changes
+  React.useEffect(() => {
+    const mySparksRoute = state.routes.find(r => r.name === 'MySparks');
+    if (mySparksRoute) {
+      const routeState = mySparksRoute.state;
+      if (routeState && routeState.routes && routeState.routes.length > 0 && typeof routeState.index === 'number') {
+        console.log('📊 Navigation State Changed - MySparks Stack:', {
+          index: routeState.index,
+          routes: routeState.routes.map((r, i) => `${i}:${r.name}${i === routeState.index ? ' (current)' : ''}`).join(', '),
+          currentRoute: routeState.routes[routeState.index]?.name,
+        });
+      }
+    }
+  }, [state]);
 
   if (!tabBarVisible) {
     return null;
@@ -270,32 +286,129 @@ const CustomTabBar: React.FC<BottomTabBarProps & { tabBarVisible: boolean }> = (
               return;
             }
 
-            // Special handling for Home tab when on a spark screen - always go to root
-            if (route.name === 'MySparks' && isOnSparkScreenInTab('MySparks')) {
+            // Check if we're already at root FIRST - this prevents double transitions
+            if (route.name === 'MySparks') {
               const routeState = state.routes[index]?.state;
-              if (routeState && routeState.routes && routeState.routes.length > 0) {
+              console.log('🏠 Home Tab Click - Route State:', {
+                routeName: route.name,
+                routeIndex: index,
+                hasRouteState: !!routeState,
+                routeStateIndex: routeState?.index,
+                routeStateType: typeof routeState?.index,
+                routesCount: routeState?.routes?.length,
+                routeNames: routeState?.routes?.map(r => r.name),
+                isOnSparkScreen: isOnSparkScreenInTab('MySparks'),
+                isNavigating: isNavigatingRef.current,
+              });
+              
+              if (routeState && routeState.routes && routeState.routes.length > 0 && typeof routeState.index === 'number') {
+                console.log('🏠 Home Tab - Current Index:', routeState.index, '| Routes:', routeState.routes.map((r, i) => `${i}:${r.name}`).join(', '));
+                
+                // Get root screen name first
                 const rootScreenName = routeState.routes[0].name;
-                // Check if we're already at root
-                if (typeof routeState.index === 'number' && routeState.index === 0) {
-                  // Already at root - do nothing
+                
+                // If already at root, do nothing
+                if (routeState.index === 0) {
+                  console.log('🏠 Home Tab - Already at root (index=0), returning early');
                   return;
                 }
-                // Prevent default tab press behavior and navigate to root
-                navigation.emit({
-                  type: 'tabPress',
-                  target: route.key,
-                  canPreventDefault: true,
-                });
-                // Use CommonActions to navigate to root, which properly handles stack navigation
-                navigation.dispatch(
-                  CommonActions.navigate({
-                    name: route.name,
-                    params: {
+                
+                // Check if root route exists at index 0 (we need to pop to it)
+                const rootRouteExists = routeState.routes.some(r => r.name === rootScreenName);
+                const rootRouteIndex = routeState.routes.findIndex(r => r.name === rootScreenName);
+                const currentIndex = routeState.index;
+                
+                // If root exists at index 0 and we're not at it, pop to it
+                // This handles both: being on Spark (index 1) and being on duplicate MySparksList (index 2)
+                if (rootRouteExists && rootRouteIndex === 0 && currentIndex > 0) {
+                  console.log('🏠 Home Tab - Root exists at index 0, current index:', currentIndex, '| Popping to root');
+                  
+                  // Prevent double navigation
+                  if (isNavigatingRef.current) {
+                    console.log('🏠 Home Tab - Navigation already in progress, returning early');
+                    return;
+                  }
+                  isNavigatingRef.current = true;
+                  
+                  // Prevent default tab press behavior
+                  navigation.emit({
+                    type: 'tabPress',
+                    target: route.key,
+                    canPreventDefault: true,
+                  });
+                  
+                  // Navigate to root screen - this will reset the stack
+                  // Don't use goBack() here because we're in the tab navigator, not the stack navigator
+                  console.log('🏠 Home Tab - Navigating to root screen:', rootScreenName);
+                  navigation.navigate(route.name, {
+                    screen: rootScreenName,
+                  });
+                  
+                  // Reset navigation flag
+                  setTimeout(() => {
+                    console.log('🏠 Home Tab - Resetting navigation flag');
+                    isNavigatingRef.current = false;
+                  }, 300);
+                  return;
+                }
+                
+                // If on a spark screen (but root doesn't exist at index 0), navigate to root
+                if (isOnSparkScreenInTab('MySparks')) {
+                  console.log('🏠 Home Tab - On Spark screen, navigating to root');
+                  
+                  // Prevent double navigation
+                  if (isNavigatingRef.current) {
+                    console.log('🏠 Home Tab - Navigation already in progress, returning early');
+                    return;
+                  }
+                  isNavigatingRef.current = true;
+                  
+                  const rootScreenName = routeState.routes[0].name;
+                  console.log('🏠 Home Tab - Root screen name:', rootScreenName);
+                  
+                  // Prevent default tab press behavior
+                  navigation.emit({
+                    type: 'tabPress',
+                    target: route.key,
+                    canPreventDefault: true,
+                  });
+                  
+                  // Check if root route already exists in the stack
+                  // If it does, we need to pop to it instead of navigating (which pushes)
+                  const rootRouteExists = routeState.routes.some(r => r.name === rootScreenName);
+                  const rootRouteIndex = routeState.routes.findIndex(r => r.name === rootScreenName);
+                  const currentIndex = routeState.index;
+                  console.log('🏠 Home Tab - Root route exists:', rootRouteExists, 'at index:', rootRouteIndex, '| Current index:', currentIndex);
+                  
+                  if (rootRouteExists && rootRouteIndex === 0 && currentIndex > 0) {
+                    // Root exists at index 0 and we're not at it - pop back to it
+                    // Use goBack() the correct number of times, but batch it
+                    const screensToPop = currentIndex;
+                    console.log('🏠 Home Tab - Popping', screensToPop, 'screens to reach root at index 0');
+                    
+                    // Navigate to root screen - this will reset the stack
+                    // Don't use goBack() here because we're in the tab navigator, not the stack navigator
+                    console.log('🏠 Home Tab - Navigating to root screen:', rootScreenName);
+                    navigation.navigate(route.name, {
                       screen: rootScreenName,
-                    },
-                  })
-                );
-                return;
+                    });
+                  } else {
+                    // Root doesn't exist or we're already there - navigate normally
+                    console.log('🏠 Home Tab - Navigating to root (will push if route exists)');
+                    navigation.navigate(route.name, {
+                      screen: rootScreenName,
+                    });
+                  }
+                  
+                  // Reset navigation flag after navigation completes
+                  setTimeout(() => {
+                    console.log('🏠 Home Tab - Resetting navigation flag');
+                    isNavigatingRef.current = false;
+                  }, 300);
+                  return;
+                }
+              } else {
+                console.log('🏠 Home Tab - No route state or invalid state');
               }
             }
 
@@ -307,21 +420,33 @@ const CustomTabBar: React.FC<BottomTabBarProps & { tabBarVisible: boolean }> = (
 
             if (!isFocused && !event.defaultPrevented) {
               // Not focused - navigate to this tab
+              console.log('🏠 Home Tab - Not focused, navigating to tab:', route.name);
               navigation.navigate(route.name as any);
             } else if (isFocused && !event.defaultPrevented) {
               // Tab is already focused - check if we're in a nested stack
               const routeState = state.routes[index]?.state;
+              console.log('🏠 Home Tab - Focused, checking nested stack:', {
+                routeName: route.name,
+                routeStateIndex: routeState?.index,
+                routesCount: routeState?.routes?.length,
+                routeNames: routeState?.routes?.map(r => r.name),
+              });
+              
               if (routeState && routeState.routes && routeState.routes.length > 0 && typeof routeState.index === 'number') {
                 // Check if we're already at the root screen
                 if (routeState.index === 0) {
                   // Already at root - do nothing to prevent unnecessary transitions
+                  console.log('🏠 Home Tab - Focused and at root (index=0), returning early');
                   return;
                 }
                 // We're in a nested stack, navigate to root
                 const rootScreenName = routeState.routes[0].name;
+                console.log('🏠 Home Tab - Focused but not at root, navigating to:', rootScreenName, 'Current index:', routeState.index);
                 navigation.navigate(route.name as any, {
                   screen: rootScreenName,
                 });
+              } else {
+                console.log('🏠 Home Tab - Focused but no route state or invalid index');
               }
               // If no route state or index is undefined, we're already at root - do nothing
             }
@@ -355,21 +480,34 @@ const CustomTabBar: React.FC<BottomTabBarProps & { tabBarVisible: boolean }> = (
                 </TouchableOpacity>
               )}
 
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityState={isFocused ? { selected: true } : {}}
-                accessibilityLabel={options.tabBarAccessibilityLabel}
-                // testID={options.tabBarTestID} // tabBarTestID doesn't exist in type
-                onPress={onPress}
-                style={styles.tab}
-              >
-                <Text style={[styles.tabIcon, { color: isFocused ? colors.primary : colors.textSecondary }]}>
-                  {icon}
-                </Text>
-                <Text style={[styles.tabLabel, { color: isFocused ? colors.primary : colors.textSecondary }]}>
-                  {label}
-                </Text>
-              </TouchableOpacity>
+              {route.name === 'MySparks' && isFocused ? (
+                // Home tab - non-interactive when already on Home screen
+                <View style={styles.tab}>
+                  <Text style={[styles.tabIcon, { color: isFocused ? colors.primary : colors.textSecondary }]}>
+                    {icon}
+                  </Text>
+                  <Text style={[styles.tabLabel, { color: isFocused ? colors.primary : colors.textSecondary }]}>
+                    {label}
+                  </Text>
+                </View>
+              ) : (
+                // Home tab when NOT focused, or other tabs - interactive
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityState={isFocused ? { selected: true } : {}}
+                  accessibilityLabel={options.tabBarAccessibilityLabel}
+                  // testID={options.tabBarTestID} // tabBarTestID doesn't exist in type
+                  onPress={onPress}
+                  style={styles.tab}
+                >
+                  <Text style={[styles.tabIcon, { color: isFocused ? colors.primary : colors.textSecondary }]}>
+                    {icon}
+                  </Text>
+                  <Text style={[styles.tabLabel, { color: isFocused ? colors.primary : colors.textSecondary }]}>
+                    {label}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </React.Fragment>
           );
         })}
