@@ -379,11 +379,17 @@ const SpanishReaderSpark: React.FC<SpanishReaderSparkProps> = ({
         let speechStarted = false;
         let speechResolved = false;
 
+        // Use slower rate for Spanish (0.6) since sentences are longer and harder to process
+        // Use normal rate (0.7) for English to match Spanish Flashcards
+        const speechRate = language === 'es-ES' ? 0.6 : 0.7;
+
         // If words are provided, highlight them word by word
-        // Calculate timing based on text length and speech rate (0.7 rate = slower)
+        // Calculate timing based on text length and speech rate
         if (words && words.length > 0) {
           const totalChars = text.length;
-          const estimatedDuration = (totalChars / 10) * 1000; // Rough estimate: ~10 chars per second at rate 0.7
+          // Adjust estimate based on rate: slower rate = fewer chars per second
+          const charsPerSecond = speechRate === 0.6 ? 8 : 10; // 0.6 rate ≈ 8 chars/sec, 0.7 rate ≈ 10 chars/sec
+          const estimatedDuration = (totalChars / charsPerSecond) * 1000;
           const wordDuration = Math.max(estimatedDuration / words.length, 200); // Minimum 200ms per word
           let currentWordIndex = 0;
 
@@ -400,10 +406,10 @@ const SpanishReaderSpark: React.FC<SpanishReaderSparkProps> = ({
             }
           }, wordDuration);
         }
-
+        
         Speech.speak(text, {
           language: language,
-          rate: 0.7,
+          rate: speechRate,
           pitch: 1.1,
           volume: 1.0,
           onStart: () => {
@@ -416,7 +422,7 @@ const SpanishReaderSpark: React.FC<SpanishReaderSparkProps> = ({
             speechResolved = true;
             setIsSpeaking(false);
             setHighlightedWordIndex({ spanish: null, english: null });
-            // Wait an additional 800ms after speech completes
+            // Wait an additional 800ms after speech completes to ensure it's fully finished
             setTimeout(() => {
               resolve();
             }, 800);

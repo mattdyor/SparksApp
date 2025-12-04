@@ -118,8 +118,53 @@ echo ""
 echo -e "${GREEN}✓ Version bumped to ${NEW_VERSION}${NC}"
 echo ""
 
-# Step 3: Confirm deployment
-echo -e "${BLUE}Ready to deploy version ${NEW_VERSION}${NC}"
+# Step 3: Ensure package.json and package-lock.json are in sync
+echo "📦 Step 3: Syncing package.json and package-lock.json..."
+echo "Running: npm install"
+echo ""
+
+if npm install; then
+  echo -e "${GREEN}✓ Package files synchronized${NC}"
+else
+  echo -e "${RED}✗ Failed to sync package files. Please run 'npm install' manually and fix any issues.${NC}"
+  exit 1
+fi
+
+echo ""
+
+# Step 4: Select platform(s) to deploy
+echo -e "${BLUE}Select platform(s) to deploy:${NC}"
+echo "1) Both iOS and Android"
+echo "2) iOS only"
+echo "3) Android only"
+echo ""
+read -p "Enter choice (1-3): " -n 1 -r
+echo ""
+
+PLATFORM=""
+case $REPLY in
+  1)
+    PLATFORM="all"
+    echo -e "${GREEN}Selected: Both iOS and Android${NC}"
+    ;;
+  2)
+    PLATFORM="ios"
+    echo -e "${GREEN}Selected: iOS only${NC}"
+    ;;
+  3)
+    PLATFORM="android"
+    echo -e "${GREEN}Selected: Android only${NC}"
+    ;;
+  *)
+    echo -e "${RED}Invalid choice. Deployment cancelled.${NC}"
+    exit 1
+    ;;
+esac
+
+echo ""
+
+# Step 5: Confirm deployment
+echo -e "${BLUE}Ready to deploy version ${NEW_VERSION} to ${PLATFORM}${NC}"
 echo ""
 read -p "Deploy version ${NEW_VERSION} to production? (y/N) " -n 1 -r
 echo ""
@@ -130,42 +175,46 @@ fi
 
 echo ""
 
-# Step 4: Build and submit
-echo "📦 Step 2: Building and submitting to app stores..."
-echo "Running: npx eas build --platform all --profile production --auto-submit"
+# Step 6: Build and submit
+echo "📦 Step 6: Building and submitting to app stores..."
+echo "Running: npx eas build --platform ${PLATFORM} --profile production --auto-submit"
 echo ""
 
-npx eas build --platform all --profile production --auto-submit
+npx eas build --platform ${PLATFORM} --profile production --auto-submit
 
 echo ""
 echo -e "${GREEN}✓ Build and auto-submit initiated!${NC}"
 echo ""
 
-# Step 5: Post-deployment instructions
+# Step 7: Post-deployment instructions
 echo "======================================"
 echo "📱 Next Steps - Manual Store Actions"
 echo "======================================"
 echo ""
 
-echo -e "${BLUE}🤖 Google Play Console:${NC}"
-echo "1. Go to: https://play.google.com/console/u/0/developers/7574537990443980441/app/4974480089571997239/tracks/production"
-echo "2. Click: 'Create New Release'"
-echo "3. Click: 'Add from Library' (select the build that was just submitted)"
-echo "4. Add release notes describing what's new in version ${CURRENT_VERSION}"
-echo "5. Click: 'Review Release'"
-echo "6. Click: 'Start Rollout to Production'"
-echo ""
+if [[ "$PLATFORM" == "all" || "$PLATFORM" == "android" ]]; then
+  echo -e "${BLUE}🤖 Google Play Console:${NC}"
+  echo "1. Go to: https://play.google.com/console/u/0/developers/7574537990443980441/app/4974480089571997239/tracks/production"
+  echo "2. Click: 'Create New Release'"
+  echo "3. Click: 'Add from Library' (select the build that was just submitted)"
+  echo "4. Add release notes describing what's new in version ${NEW_VERSION}"
+  echo "5. Click: 'Review Release'"
+  echo "6. Click: 'Start Rollout to Production'"
+  echo ""
+fi
 
-echo -e "${BLUE}🍎 App Store Connect:${NC}"
-echo "1. Go to: https://appstoreconnect.apple.com/apps/6752919846/distribution/info"
-https://appstoreconnect.apple.com/apps/6752919846/distribution/ios/version/deliverable
-echo "2. Wait for build to appear in TestFlight (usually 5-15 minutes)"
-echo "3. Once processed, go to 'App Store' tab"
-echo "4. Click: '+' Next to iOS App"
-echo "5. Select the new build (version ${CURRENT_VERSION}) about halfway down the page"
-echo "6. Add 'What's New' release notes"
-echo "7. Click: 'Save' then 'Submit for Review'"
-echo ""
+if [[ "$PLATFORM" == "all" || "$PLATFORM" == "ios" ]]; then
+  echo -e "${BLUE}🍎 App Store Connect:${NC}"
+  echo "1. Go to: https://appstoreconnect.apple.com/apps/6752919846/distribution/info"
+  echo "   Or: https://appstoreconnect.apple.com/apps/6752919846/distribution/ios/version/deliverable"
+  echo "2. Wait for build to appear in TestFlight (usually 5-15 minutes)"
+  echo "3. Once processed, go to 'App Store' tab"
+  echo "4. Click: '+' Next to iOS App"
+  echo "5. Select the new build (version ${NEW_VERSION}) about halfway down the page"
+  echo "6. Add 'What's New' release notes"
+  echo "7. Click: 'Save' then 'Submit for Review'"
+  echo ""
+fi
 
 echo "======================================"
 echo -e "${GREEN}✅ Deployment process complete!${NC}"
