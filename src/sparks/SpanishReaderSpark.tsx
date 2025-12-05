@@ -361,6 +361,8 @@ const SpanishReaderSpark: React.FC<SpanishReaderSparkProps> = ({
   // Text-to-speech function - returns a promise that resolves when speech is done
   const speakText = async (text: string, language: string = 'es-ES', words?: string[]): Promise<void> => {
     return new Promise(async (resolve, reject) => {
+      let highlightInterval: NodeJS.Timeout | null = null;
+      
       try {
         // Ensure audio session is set up
         if (!audioSessionSet) {
@@ -380,20 +382,20 @@ const SpanishReaderSpark: React.FC<SpanishReaderSparkProps> = ({
         let speechResolved = false;
 
         // Use slower rate for Spanish (0.6) since sentences are longer and harder to process
-        // Use normal rate (0.7) for English to match Spanish Flashcards
-        const speechRate = language === 'es-ES' ? 0.6 : 0.7;
+        // Use faster rate (0.85) for English to speed it up
+        const speechRate = language === 'es-ES' ? 0.6 : 0.85;
 
         // If words are provided, highlight them word by word
         // Calculate timing based on text length and speech rate
         if (words && words.length > 0) {
           const totalChars = text.length;
           // Adjust estimate based on rate: slower rate = fewer chars per second
-          const charsPerSecond = speechRate === 0.6 ? 8 : 10; // 0.6 rate ≈ 8 chars/sec, 0.7 rate ≈ 10 chars/sec
+          const charsPerSecond = speechRate === 0.6 ? 8 : speechRate === 0.85 ? 12 : 10; // 0.6 rate ≈ 8 chars/sec, 0.85 rate ≈ 12 chars/sec
           const estimatedDuration = (totalChars / charsPerSecond) * 1000;
           const wordDuration = Math.max(estimatedDuration / words.length, 200); // Minimum 200ms per word
           let currentWordIndex = 0;
 
-          const highlightInterval = setInterval(() => {
+          highlightInterval = setInterval(() => {
             if (currentWordIndex < words.length && speechStarted) {
               if (language === 'es-ES') {
                 setHighlightedWordIndex(prev => ({ ...prev, spanish: currentWordIndex }));
@@ -402,7 +404,10 @@ const SpanishReaderSpark: React.FC<SpanishReaderSparkProps> = ({
               }
               currentWordIndex++;
             } else if (currentWordIndex >= words.length) {
-              clearInterval(highlightInterval);
+              if (highlightInterval) {
+                clearInterval(highlightInterval);
+                highlightInterval = null;
+              }
             }
           }, wordDuration);
         }
@@ -418,6 +423,11 @@ const SpanishReaderSpark: React.FC<SpanishReaderSparkProps> = ({
             HapticFeedback.light();
           },
           onDone: () => {
+            // Clear highlight interval if still running
+            if (highlightInterval) {
+              clearInterval(highlightInterval);
+              highlightInterval = null;
+            }
             HapticFeedback.light();
             speechResolved = true;
             setIsSpeaking(false);
@@ -428,6 +438,11 @@ const SpanishReaderSpark: React.FC<SpanishReaderSparkProps> = ({
             }, 800);
           },
           onError: (error) => {
+            // Clear highlight interval if still running
+            if (highlightInterval) {
+              clearInterval(highlightInterval);
+              highlightInterval = null;
+            }
             console.error('Speech error:', error);
             setIsSpeaking(false);
             setHighlightedWordIndex({ spanish: null, english: null });
@@ -439,12 +454,22 @@ const SpanishReaderSpark: React.FC<SpanishReaderSparkProps> = ({
 
         // Fallback timeout
         setTimeout(() => {
+          // Clear highlight interval if still running
+          if (highlightInterval) {
+            clearInterval(highlightInterval);
+            highlightInterval = null;
+          }
           if (!speechStarted) {
             console.warn('Speech did not start within timeout, resolving anyway');
             resolve();
           }
         }, 5000);
       } catch (error) {
+        // Clear highlight interval if still running
+        if (highlightInterval) {
+          clearInterval(highlightInterval);
+          highlightInterval = null;
+        }
         console.error('Error in speakText:', error);
         setIsSpeaking(false);
         setHighlightedWordIndex({ spanish: null, english: null });
