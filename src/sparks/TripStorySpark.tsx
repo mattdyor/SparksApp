@@ -2842,13 +2842,13 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
         <View style={styles.modalFooter}>
           <View style={{ flexDirection: 'row', gap: 8 }}>
             <TouchableOpacity
-              style={[styles.createButton, { backgroundColor: colors.primary, flex: 1, paddingHorizontal: 4 }]}
+              style={[styles.createButton, { backgroundColor: colors.primary, flex: 1 }]}
               onPress={updateTrip}
             >
               <Text style={[styles.createButtonText, { color: colors.background, fontSize: 14 }]} numberOfLines={1}>Update Trip</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.createButton, { backgroundColor: colors.primary, flex: 1, paddingHorizontal: 4 }]}
+              style={[styles.createButton, { backgroundColor: colors.primary, flex: 1 }]}
               onPress={() => {
                 setShowEditTrip(false);
                 setShowAddActivityModal(true);
@@ -2857,7 +2857,7 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
               <Text style={[styles.createButtonText, { color: colors.background, fontSize: 14 }]} numberOfLines={1}>Add Activity</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.deleteButton, { backgroundColor: '#FF3B30', flex: 1, paddingHorizontal: 4, marginBottom: 0 }]}
+              style={[styles.deleteButton, { backgroundColor: '#FF3B30', flex: 1 }]}
               onPress={deleteTrip}
             >
               <Text style={[styles.deleteButtonText, { color: 'white', fontSize: 14 }]} numberOfLines={1}>Delete</Text>

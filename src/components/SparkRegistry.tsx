@@ -30,6 +30,7 @@ import ComingUpSpark from '../sparks/ComingUpSpark';
 import { FinalClockSpark } from '../sparks/FinalClockSpark';
 import TripSurveySpark from '../sparks/TripSurveySpark';
 import { SparkStatsSpark } from '../sparks/SparkStatsSpark';
+import RecAIpeSpark from '../sparks/RecAIpeSpark';
 import styled from 'styled-components/native';
 
 const PlaceholderContainer = styled.View`
@@ -373,10 +374,22 @@ export const sparkRegistry: Record<string, BaseSpark> = {
       description: 'Community usage stats and trending sparks',
       icon: '📊',
       category: 'productivity',
-      createdAt: '2025-12-05T00:00:00.000Z',
+      createdAt: '2025-11-03T00:00:00.000Z',
       rating: 4.5,
     },
     component: SparkStatsSpark,
+  },
+  'recaipe': {
+    metadata: {
+      id: 'recaipe',
+      title: 'RecAIpe',
+      description: 'AI-powered recipe generator with shopping and cooking modes',
+      icon: '🍳',
+      category: 'productivity',
+      createdAt: '2025-12-06T00:00:00.000Z',
+      rating: 4.8,
+    },
+    component: RecAIpeSpark,
   },
 };
 

@@ -78,6 +78,21 @@ export const WeightTrackerSpark: React.FC<SparkProps> = ({
     const lastEntry = sortedEntries[0];
     const lastWeight = lastEntry ? lastEntry.weight : null;
 
+    // Get initial weight (first entry chronologically)
+    const initialWeight = useMemo(() => {
+        if (data.entries.length === 0) return null;
+        const sorted = [...data.entries].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        return sorted[0].weight;
+    }, [data.entries]);
+
+    // Calculate goal percentage
+    const goalPercentage = useMemo(() => {
+        if (!lastWeight || !data.goalWeight || !initialWeight) return null;
+        if (initialWeight === data.goalWeight) return 100; // Already at goal
+        const progress = (initialWeight - lastWeight) / (initialWeight - data.goalWeight) * 100;
+        return Math.max(0, Math.min(100, progress)); // Clamp between 0-100
+    }, [lastWeight, data.goalWeight, initialWeight]);
+
     // Check if weighed in this week
     const hasWeighedThisWeek = useMemo(() => {
         if (!lastEntry) return false;
@@ -146,8 +161,10 @@ export const WeightTrackerSpark: React.FC<SparkProps> = ({
         const padding = 30;
 
         const weights = chartEntries.map(e => e.weight);
-        const minWeight = Math.min(...weights) - 2;
-        const maxWeight = Math.max(...weights) + 2;
+        // Include goal weight in range calculation if it exists
+        const allValues = data.goalWeight ? [...weights, data.goalWeight] : weights;
+        const minWeight = Math.min(...allValues) - 2;
+        const maxWeight = Math.max(...allValues) + 2;
         const range = maxWeight - minWeight || 1;
 
         const getX = (index: number) => padding + (index * (width - 2 * padding)) / (chartEntries.length - 1);
@@ -163,6 +180,30 @@ export const WeightTrackerSpark: React.FC<SparkProps> = ({
                     {/* Grid lines */}
                     <Line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke={colors.border} strokeWidth="1" />
                     <Line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke={colors.border} strokeWidth="1" />
+
+                    {/* Goal Weight Line */}
+                    {data.goalWeight && (
+                        <>
+                            <Line
+                                x1={padding}
+                                y1={getY(data.goalWeight)}
+                                x2={width - padding}
+                                y2={getY(data.goalWeight)}
+                                stroke={colors.success || '#4CAF50'}
+                                strokeWidth="2"
+                                strokeDasharray="5,5"
+                            />
+                            <SvgText
+                                x={width - padding + 2}
+                                y={getY(data.goalWeight) + 4}
+                                fontSize="10"
+                                fill={colors.success || '#4CAF50'}
+                                textAnchor="start"
+                            >
+                                Goal
+                            </SvgText>
+                        </>
+                    )}
 
                     {/* Data Line */}
                     <Path
@@ -195,7 +236,7 @@ export const WeightTrackerSpark: React.FC<SparkProps> = ({
                                     {e.weight}
                                 </SvgText>
                             )}
-                            {/* Date Labels */}
+                            {/* Date Labels - show month/day */}
                             <SvgText
                                 x={getX(i)}
                                 y={height - 10}
@@ -203,7 +244,7 @@ export const WeightTrackerSpark: React.FC<SparkProps> = ({
                                 fill={colors.textSecondary}
                                 textAnchor="middle"
                             >
-                                {new Date(e.date).getDate()}
+                                {new Date(e.date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}
                             </SvgText>
                         </React.Fragment>
                     ))}
@@ -240,6 +281,29 @@ export const WeightTrackerSpark: React.FC<SparkProps> = ({
                             value={data.unit === 'kg'}
                             onValueChange={(isKg) => saveData({ ...data, unit: isKg ? 'kg' : 'lbs' })}
                         />
+                    </SettingsSection>
+
+                    <SettingsSection title="Goal">
+                        <View style={{ marginBottom: 16 }}>
+                            <Text style={{ fontSize: 16, fontWeight: '600', marginBottom: 8, color: colors.text }}>Goal Weight</Text>
+                            <Text style={{ fontSize: 14, color: colors.textSecondary, marginBottom: 8 }}>
+                                Set your target weight to track progress.
+                            </Text>
+                            <View style={{ gap: 12 }}>
+                                <View>
+                                    <Text style={{ fontSize: 12, color: colors.textSecondary, marginBottom: 4 }}>Weight ({data.unit})</Text>
+                                    <SettingsInput
+                                        placeholder={`Goal in ${data.unit}`}
+                                        value={data.goalWeight?.toString() || ''}
+                                        onChangeText={(val) => {
+                                            const num = parseFloat(val);
+                                            saveData({ ...data, goalWeight: isNaN(num) ? null : num });
+                                        }}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                            </View>
+                        </View>
                     </SettingsSection>
 
                     <SettingsSection title="Manage Data">
@@ -333,7 +397,37 @@ export const WeightTrackerSpark: React.FC<SparkProps> = ({
             <View style={styles.content}>
 
                 {/* Title */}
-                <Text style={[styles.title, { color: colors.text }]}>Weekly Tracker</Text>
+                <View style={{ alignItems: 'center', marginBottom: 10 }}>
+                    <Text style={[styles.title, { color: colors.text }]}>⚖️ Weight Tracker</Text>
+                    <Text style={[styles.subtitle, { color: colors.textSecondary, textAlign: 'center' }]}>
+                        Track your weight, set goals, and visualize progress
+                    </Text>
+                </View>
+
+                {/* Current Stats */}
+                {lastWeight && (
+                    <View style={{ alignItems: 'center', marginBottom: 10 }}>
+                        {data.showLabels ? (
+                            <Text style={[styles.bigStat, { color: colors.text, fontSize: 32 }]}>
+                                {lastWeight} <Text style={{ fontSize: 16 }}>{data.unit}</Text>
+                            </Text>
+                        ) : null}
+                        {data.goalWeight && (
+                            <View style={{ flexDirection: 'row', gap: 16, marginTop: 8 }}>
+                                {data.showLabels && (
+                                    <Text style={{ color: colors.textSecondary, fontSize: 14 }}>
+                                        Goal: {data.goalWeight} {data.unit}
+                                    </Text>
+                                )}
+                                {goalPercentage !== null && (
+                                    <Text style={{ color: colors.success || '#4CAF50', fontSize: 14, fontWeight: '600' }}>
+                                        {goalPercentage.toFixed(0)}% to goal
+                                    </Text>
+                                )}
+                            </View>
+                        )}
+                    </View>
+                )}
 
                 {/* Graph */}
                 <Chart />
@@ -439,9 +533,15 @@ export const WeightTrackerSpark: React.FC<SparkProps> = ({
                         <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                             You've weighed in this week. See you next week!
                         </Text>
-                        <Text style={[styles.bigStat, { color: colors.text }]}>
-                            {lastWeight} <Text style={{ fontSize: 20 }}>{data.unit}</Text>
-                        </Text>
+                        {data.showLabels ? (
+                            <Text style={[styles.bigStat, { color: colors.text }]}>
+                                {lastWeight} <Text style={{ fontSize: 20 }}>{data.unit}</Text>
+                            </Text>
+                        ) : goalPercentage !== null ? (
+                            <Text style={[styles.bigStat, { color: colors.success || '#4CAF50', fontSize: 36 }]}>
+                                {goalPercentage.toFixed(0)}%
+                            </Text>
+                        ) : null}
                     </View>
                 )}
 

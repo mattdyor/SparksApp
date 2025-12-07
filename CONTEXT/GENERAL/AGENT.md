@@ -70,6 +70,7 @@ Everything is a "Spark". When adding a new feature, ask: "Is this a Spark?"
     2.  Add to `src/components/SparkRegistry.tsx`
     3.  Add type definition in `src/types/spark.ts`
     4.  **Initial Rating**: Set `rating: 4.5` in the metadata.
+    5.  **Update Summary**: Add the new spark to `CONTEXT/GENERAL/SUMMARY.md` in the appropriate category with a brief description.
 *   **Adding Assets**: Put images in `assets/` and run `npx expo install` if adding new native dependencies.
 
 ### **3. Context Management**

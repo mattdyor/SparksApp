@@ -24,7 +24,7 @@ interface Event {
     title: string;
     date: string; // ISO date string (YYYY-MM-DD)
     type: 'annual' | 'one-time';
-    category: 'birthday' | 'anniversary' | 'trip' | 'other';
+    category: 'birthday' | 'anniversary' | 'trip' | 'work' | 'party' | 'sports' | 'other';
 }
 
 interface ComingUpSparkProps {
@@ -427,12 +427,14 @@ const ComingUpSpark: React.FC<ComingUpSparkProps> = ({ showSettings, onCloseSett
         },
         categoryContainer: {
             flexDirection: 'row',
-            justifyContent: 'space-between',
+            flexWrap: 'wrap',
             gap: 8,
         },
         categoryButton: {
-            flex: 1,
+            width: '31%', // 3 columns with gaps
+            aspectRatio: 1,
             alignItems: 'center',
+            justifyContent: 'center',
             padding: 12,
             borderRadius: 12,
             backgroundColor: colors.surface,
@@ -461,6 +463,17 @@ const ComingUpSpark: React.FC<ComingUpSparkProps> = ({ showSettings, onCloseSett
         },
         deleteButtonText: {
             color: colors.error,
+            fontSize: 16,
+            fontWeight: '600',
+        },
+        button: {
+            backgroundColor: colors.primary,
+            padding: 16,
+            borderRadius: 12,
+            alignItems: 'center',
+        },
+        buttonText: {
+            color: '#fff',
             fontSize: 16,
             fontWeight: '600',
         },
@@ -516,6 +529,9 @@ const ComingUpSpark: React.FC<ComingUpSparkProps> = ({ showSettings, onCloseSett
             case 'birthday': return '🎂';
             case 'anniversary': return '💍';
             case 'trip': return '✈️';
+            case 'work': return '💻';
+            case 'party': return '🥳';
+            case 'sports': return '⚽️';
             default: return '📅';
         }
     };
@@ -617,12 +633,23 @@ const ComingUpSpark: React.FC<ComingUpSparkProps> = ({ showSettings, onCloseSett
                                 <DateTimePicker
                                     value={date}
                                     mode="date"
-                                    display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
                                     onChange={(event, selectedDate) => {
-                                        setShowDatePicker(false);
+                                        if (Platform.OS === 'android') {
+                                            setShowDatePicker(false);
+                                        }
                                         if (selectedDate) setDate(selectedDate);
                                     }}
+                                    style={{ marginTop: 10 }}
                                 />
+                            )}
+                            {showDatePicker && Platform.OS === 'ios' && (
+                                <TouchableOpacity
+                                    style={[styles.button, { marginTop: 10 }]}
+                                    onPress={() => setShowDatePicker(false)}
+                                >
+                                    <Text style={styles.buttonText}>Done</Text>
+                                </TouchableOpacity>
                             )}
                         </View>
 
@@ -641,7 +668,7 @@ const ComingUpSpark: React.FC<ComingUpSparkProps> = ({ showSettings, onCloseSett
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Category</Text>
                             <View style={styles.categoryContainer}>
-                                {(['birthday', 'anniversary', 'trip', 'other'] as const).map(cat => (
+                                {(['birthday', 'anniversary', 'trip', 'work', 'party', 'sports', 'other'] as const).map(cat => (
                                     <TouchableOpacity
                                         key={cat}
                                         style={[

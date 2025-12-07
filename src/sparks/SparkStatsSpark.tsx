@@ -16,6 +16,13 @@ import { FirebaseService } from '../services/FirebaseService';
 import { AnalyticsEvent } from '../types/analytics';
 import { useNavigation } from '@react-navigation/native';
 import { getSparkById } from '../components/SparkRegistry';
+import {
+    SettingsHeader,
+    SettingsFeedbackSection,
+    SaveCancelButtons,
+    SettingsContainer,
+    SettingsScrollView
+} from '../components/SettingsComponents';
 
 interface DailyStats {
     date: string; // YYYY-MM-DD
@@ -28,7 +35,7 @@ interface SparkTrend {
     opens: number;
 }
 
-export const SparkStatsSpark: React.FC<SparkProps> = ({ onCloseSettings }) => {
+export const SparkStatsSpark: React.FC<SparkProps> = ({ showSettings = false, onCloseSettings }) => {
     const { colors } = useTheme();
     const navigation = useNavigation();
     const [loading, setLoading] = useState(true);
@@ -42,13 +49,15 @@ export const SparkStatsSpark: React.FC<SparkProps> = ({ onCloseSettings }) => {
     const loadData = async () => {
         try {
             setLoading(true);
+            console.log('📊 SparkStats: Loading analytics data...');
             // Fetch last 14 days of data
             const events = await FirebaseService.getGlobalAnalytics(14);
+            console.log(`📊 SparkStats: Received ${events.length} analytics events`);
 
             processStats(events);
         } catch (error) {
-            console.error('Error loading stats:', error);
-            Alert.alert('Error', 'Failed to load community stats');
+            console.error('📊 SparkStats: Error loading stats:', error);
+            Alert.alert('Error', 'Failed to load community stats. Please try again later.');
         } finally {
             setLoading(false);
         }
@@ -83,6 +92,7 @@ export const SparkStatsSpark: React.FC<SparkProps> = ({ onCloseSettings }) => {
             date,
             activeUsers: usersByDay.get(date)?.size || 0
         }));
+        console.log('📊 SparkStats: Daily stats calculated:', stats);
         setDailyStats(stats);
 
         // 2. Calculate Top Sparks (Last 7 Days)
@@ -106,6 +116,7 @@ export const SparkStatsSpark: React.FC<SparkProps> = ({ onCloseSettings }) => {
             .sort((a, b) => b.opens - a.opens)
             .slice(0, 5); // Top 5
 
+        console.log('📊 SparkStats: Top sparks calculated:', sortedSparks);
         setTopSparks(sortedSparks);
     };
 
@@ -182,6 +193,28 @@ export const SparkStatsSpark: React.FC<SparkProps> = ({ onCloseSettings }) => {
             </View>
         );
     };
+
+    if (showSettings) {
+        return (
+            <SettingsContainer>
+                <SettingsScrollView>
+                    <SettingsHeader
+                        title="Spark Stats Settings"
+                        subtitle="View community usage and trends"
+                        icon="📊"
+                        sparkId="spark-stats"
+                    />
+
+                    <SettingsFeedbackSection sparkName="Spark Stats" sparkId="spark-stats" />
+
+                    <SaveCancelButtons
+                        onSave={onCloseSettings || (() => { })}
+                        onCancel={onCloseSettings || (() => { })}
+                    />
+                </SettingsScrollView>
+            </SettingsContainer>
+        );
+    }
 
     return (
         <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>

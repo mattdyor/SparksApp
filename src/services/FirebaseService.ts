@@ -182,6 +182,9 @@ export class FirebaseService {
   }
 
   static async getGlobalAnalytics(days: number = 14): Promise<AnalyticsEvent[]> {
+    console.log(`🔥 getGlobalAnalytics: Starting query for last ${days} days`);
+    console.log(`🔥 Database available:`, !!this.db);
+
     if (!this.db) {
       console.log('⚠️ Firebase not available, returning empty analytics');
       return [];
@@ -190,15 +193,30 @@ export class FirebaseService {
     try {
       const startDate = new Date();
       startDate.setDate(startDate.getDate() - days);
+      console.log(`🔥 Query start date:`, startDate.toISOString());
+      console.log(`🔥 Querying collection: 'analytics'`);
+      console.log(`🔥 Query condition: timestamp >= ${startDate.toISOString()}`);
 
       const snapshot = await this.db
         .collection('analytics')
         .where('timestamp', '>=', firestore.Timestamp.fromDate(startDate))
         .get();
 
-      return snapshot.docs.map((doc: any) => doc.data() as AnalyticsEvent);
+      console.log(`🔥 Query completed. Documents found: ${snapshot.docs.length}`);
+
+      if (snapshot.docs.length > 0) {
+        console.log(`🔥 Sample document (first):`, snapshot.docs[0].data());
+      } else {
+        console.log(`🔥 No documents found in 'analytics' collection`);
+      }
+
+      const events = snapshot.docs.map((doc: any) => doc.data() as AnalyticsEvent);
+      console.log(`🔥 Returning ${events.length} analytics events`);
+
+      return events;
     } catch (error) {
-      console.error('Error getting global analytics:', error);
+      console.error('❌ Error getting global analytics:', error);
+      console.error('❌ Error details:', (error as any).message, (error as any).code);
       return [];
     }
   }

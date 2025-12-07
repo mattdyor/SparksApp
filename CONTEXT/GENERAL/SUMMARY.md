@@ -1,6 +1,6 @@
 # Sparks App - Available Sparks
 
-Sparks is a collection of 25 unique, purpose-built mini-apps designed to make your daily life easier, more productive, and more fun. Each Spark is a focused tool that does one thing exceptionally well.
+Sparks is a collection of 26 unique, purpose-built mini-apps designed to make your daily life easier, more productive, and more fun. Each Spark is a focused tool that does one thing exceptionally well.
 
 ## 🎯 Productivity
 
@@ -12,6 +12,9 @@ Never forget essentials again. Organize and track your travel or trip packing it
 
 ### ⏳ Minute Minder
 Track your daily activities with start times and countdown timers. Perfect for managing your daily routine and staying on schedule.
+
+### 🍳 RecAIpe
+AI-powered recipe generator with shopping and cooking modes. Describe what you want to cook and let AI create a custom recipe with inline measurements. Includes shopping list and step-by-step cooking mode with progress tracking.
 
 ## 🌍 Travel
 
@@ -102,6 +105,6 @@ Submit your own Spark idea and become a product manager. Help shape the future o
 
 ---
 
-**Total Sparks:** 25 unique mini-apps  
+**Total Sparks:** 26 unique mini-apps  
 **Categories:** Productivity, Travel, Food, Health, Education, Golf, Games, Media, Utilities, Community  
 **All Sparks:** Available now and ready to make your life...just a little bit better⚡️
