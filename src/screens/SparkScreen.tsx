@@ -10,6 +10,8 @@ import { HapticFeedback } from '../utils/haptics';
 import { useTheme } from '../contexts/ThemeContext';
 import { QuickSwitchModal } from '../components/QuickSwitchModal';
 import { NotificationBadge } from '../components/NotificationBadge';
+import { PendingResponseModal } from '../components/PendingResponseModal';
+import { FeedbackNotificationService } from '../services/FeedbackNotificationService';
 
 type SparkScreenNavigationProp =
   | StackNavigationProp<MySparkStackParamList, 'Spark'>
@@ -32,7 +34,9 @@ export const SparkScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const [showSparkSettings, setShowSparkSettings] = useState(false);
   const [showQuickSwitch, setShowQuickSwitch] = useState(false);
+  const [showPendingResponses, setShowPendingResponses] = useState(false);
   const [sparkDarkMode, setSparkDarkMode] = useState(false);
+  const [hasPendingResponse, setHasPendingResponse] = useState(false);
 
   // Reset dark mode when leaving the spark
   useEffect(() => {
@@ -159,6 +163,12 @@ export const SparkScreen: React.FC<Props> = ({ navigation, route }) => {
           }
         });
       });
+
+      // Check for pending responses
+      FeedbackNotificationService.getPersistentDeviceId().then(async (deviceId) => {
+        const hasUnread = await FeedbackNotificationService.hasUnreadResponse(deviceId, sparkId);
+        setHasPendingResponse(hasUnread);
+      });
     }
 
     return () => {
@@ -188,6 +198,11 @@ export const SparkScreen: React.FC<Props> = ({ navigation, route }) => {
   const handleSettings = () => {
     HapticFeedback.light();
     setShowSparkSettings(true);
+  };
+
+  const handlePendingResponses = () => {
+    HapticFeedback.light();
+    setShowPendingResponses(true);
   };
 
   const handleQuickSwitch = () => {
@@ -314,16 +329,28 @@ export const SparkScreen: React.FC<Props> = ({ navigation, route }) => {
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={handleSettings}
-          >
-            <View style={{ position: 'relative' }}>
-              <Text style={[styles.buttonIcon, styles.settingsIcon]}>⚙️</Text>
-              <NotificationBadge sparkId={sparkId} size="small" />
-            </View>
-            <Text style={[styles.buttonLabel, styles.settingsLabel]}>Settings</Text>
-          </TouchableOpacity>
+          <View style={{ flex: 1, alignItems: 'center' }}>
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={handleSettings}
+            >
+              <View style={{ position: 'relative' }}>
+                <Text style={[styles.buttonIcon, styles.settingsIcon]}>⚙️</Text>
+                <NotificationBadge sparkId={sparkId} size="small" />
+              </View>
+              <Text style={[styles.buttonLabel, styles.settingsLabel]}>Settings</Text>
+            </TouchableOpacity>
+            {hasPendingResponse && (
+              <TouchableOpacity
+                onPress={handlePendingResponses}
+                style={{ marginTop: 4 }}
+              >
+                <Text style={[styles.buttonLabel, { fontSize: 9, color: colors.primary }]}>
+                  Pending Response
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       )}
 
@@ -334,6 +361,20 @@ export const SparkScreen: React.FC<Props> = ({ navigation, route }) => {
         recentSparks={recentSparks.filter(id => id !== sparkId)}
         onSelectSpark={handleSelectSpark}
         navigation={navigation}
+      />
+
+      {/* Pending Response Modal */}
+      <PendingResponseModal
+        visible={showPendingResponses}
+        onClose={() => {
+          setShowPendingResponses(false);
+          // Refresh pending response status when modal closes
+          FeedbackNotificationService.getPersistentDeviceId().then(async (deviceId) => {
+            const hasUnread = await FeedbackNotificationService.hasUnreadResponse(deviceId, sparkId);
+            setHasPendingResponse(hasUnread);
+          });
+        }}
+        sparkId={sparkId}
       />
     </SafeAreaView>
   );

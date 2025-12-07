@@ -70,7 +70,7 @@ export const sparkRegistry: Record<string, BaseSpark> = {
   flashcards: {
     metadata: {
       id: 'flashcards',
-      title: 'Spanish Flashcards',
+      title: 'Get Spanish',
       description: 'Study with interactive flip cards and progress tracking',
       icon: '🃏',
       category: 'education',
@@ -387,7 +387,7 @@ export const sparkRegistry: Record<string, BaseSpark> = {
       icon: '🍳',
       category: 'productivity',
       createdAt: '2025-12-06T00:00:00.000Z',
-      rating: 4.8,
+      rating: 4.6,
     },
     component: RecAIpeSpark,
   },

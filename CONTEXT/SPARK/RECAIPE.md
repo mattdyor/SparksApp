@@ -46,7 +46,7 @@ interface RecAIpeData {
 ### 2. Create Screen (mode: 'create')
 **Layout:**
 - Large text input: "Describe your recipe..."
-- Placeholder: "e.g., a light Indian dish with lots of veggies and tofu"
+- Placeholder: "e.g., oatmeal cookies - no nuts, hint of vanilla!"
 - Generate button (disabled if empty)
 - Cancel button → back to list
 

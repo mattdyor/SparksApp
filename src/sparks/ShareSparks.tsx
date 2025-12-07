@@ -145,23 +145,35 @@ const ShareSparks: React.FC<ShareSparksProps> = () => {
                 </Text>
 
                 <View style={styles.qrContainer}>
-                    <View style={styles.qrItem}>
+                    <TouchableOpacity
+                        style={styles.qrItem}
+                        onPress={() => {
+                            HapticFeedback.light();
+                            Linking.openURL('https://apps.apple.com/us/app/get-sparks/id6752919846');
+                        }}
+                    >
                         <Image
                             source={require('../../assets/qr-code-ios.png')}
                             style={styles.qrImage}
                             resizeMode="contain"
                         />
                         <Text style={styles.qrLabel}>App Store</Text>
-                    </View>
+                    </TouchableOpacity>
 
-                    <View style={styles.qrItem}>
+                    <TouchableOpacity
+                        style={styles.qrItem}
+                        onPress={() => {
+                            HapticFeedback.light();
+                            Linking.openURL('https://play.google.com/store/apps/details?id=com.mattdyor.sparks');
+                        }}
+                    >
                         <Image
                             source={require('../../assets/qr-code-android.png')}
                             style={styles.qrImage}
                             resizeMode="contain"
                         />
                         <Text style={styles.qrLabel}>Google Play</Text>
-                    </View>
+                    </TouchableOpacity>
                 </View>
 
                 <TouchableOpacity style={styles.actionButton} onPress={handleShare}>

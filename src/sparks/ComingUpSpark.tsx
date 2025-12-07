@@ -417,6 +417,18 @@ const ComingUpSpark: React.FC<ComingUpSparkProps> = ({ showSettings, onCloseSett
             color: colors.text, // Ensure text color is explicit
             fontWeight: '500',
         },
+        datePickerContainer: {
+            marginTop: 10,
+            backgroundColor: Platform.OS === 'ios' ? colors.background : colors.surface,
+            borderRadius: 12,
+            overflow: 'hidden',
+            borderWidth: Platform.OS === 'ios' ? 0 : 1,
+            borderColor: colors.border,
+            // Ensure proper contrast for iOS calendar
+            ...(Platform.OS === 'ios' && {
+                padding: 8,
+            }),
+        },
         switchContainer: {
             flexDirection: 'row',
             justifyContent: 'space-between',
@@ -630,18 +642,19 @@ const ComingUpSpark: React.FC<ComingUpSparkProps> = ({ showSettings, onCloseSett
                                 <Text>📅</Text>
                             </TouchableOpacity>
                             {showDatePicker && (
-                                <DateTimePicker
-                                    value={date}
-                                    mode="date"
-                                    display={Platform.OS === 'ios' ? 'inline' : 'default'}
-                                    onChange={(event, selectedDate) => {
-                                        if (Platform.OS === 'android') {
-                                            setShowDatePicker(false);
-                                        }
-                                        if (selectedDate) setDate(selectedDate);
-                                    }}
-                                    style={{ marginTop: 10 }}
-                                />
+                                <View style={styles.datePickerContainer}>
+                                    <DateTimePicker
+                                        value={date}
+                                        mode="date"
+                                        display={Platform.OS === 'ios' ? 'inline' : 'default'}
+                                        onChange={(event, selectedDate) => {
+                                            if (Platform.OS === 'android') {
+                                                setShowDatePicker(false);
+                                            }
+                                            if (selectedDate) setDate(selectedDate);
+                                        }}
+                                    />
+                                </View>
                             )}
                             {showDatePicker && Platform.OS === 'ios' && (
                                 <TouchableOpacity

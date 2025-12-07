@@ -590,9 +590,11 @@ interface FeedbackItemProps {
   response?: string;
   createdAt: string;
   feedbackId?: string; // Add feedbackId for debugging
+  readByUser?: boolean; // Whether user has read the response
+  onMarkAsRead?: (feedbackId: string) => Promise<void>; // Callback to mark as read
 }
 
-const FeedbackItem: React.FC<FeedbackItemProps> = ({ rating, comment, response, createdAt, feedbackId }) => {
+const FeedbackItem: React.FC<FeedbackItemProps> = ({ rating, comment, response, createdAt, feedbackId, readByUser, onMarkAsRead }) => {
   const { colors } = useTheme();
 
   const styles = StyleSheet.create({
@@ -647,6 +649,17 @@ const FeedbackItem: React.FC<FeedbackItemProps> = ({ rating, comment, response, 
       fontSize: 14,
       color: colors.text,
     },
+    markAsReadButton: {
+      backgroundColor: colors.primary,
+      paddingHorizontal: 12,
+      paddingVertical: 6,
+      borderRadius: 6,
+    },
+    markAsReadButtonText: {
+      color: '#fff',
+      fontSize: 12,
+      fontWeight: '600',
+    },
   });
 
   return (
@@ -671,7 +684,17 @@ const FeedbackItem: React.FC<FeedbackItemProps> = ({ rating, comment, response, 
 
       {response && (
         <View style={styles.response}>
-          <Text style={styles.responseLabel}>Response:</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
+            <Text style={styles.responseLabel}>Response:</Text>
+            {!readByUser && feedbackId && onMarkAsRead && (
+              <TouchableOpacity
+                style={styles.markAsReadButton}
+                onPress={() => onMarkAsRead(feedbackId)}
+              >
+                <Text style={styles.markAsReadButtonText}>Mark as Read</Text>
+              </TouchableOpacity>
+            )}
+          </View>
           <Text style={styles.responseText}>{response}</Text>
         </View>
       )}
@@ -994,6 +1017,30 @@ export const SettingsFeedbackSection = forwardRef<SettingsFeedbackSectionRef, Se
           <View style={styles.feedbackList}>
             <Text style={styles.sectionTitle}>Your Feedback</Text>
             {userFeedbacks.map((item, index) => {
+              const handleMarkAsRead = async (feedbackId: string) => {
+                try {
+                  const { ServiceFactory } = await import('../services/ServiceFactory');
+                  const FirebaseService = ServiceFactory.getFirebaseService();
+                  await (FirebaseService as any).markFeedbackAsReadByUser(feedbackId);
+                  
+                  // Reload feedback list to show updated status
+                  await loadUserFeedback();
+                  
+                  // Update unread count
+                  const deviceId = await FeedbackNotificationService.getPersistentDeviceId();
+                  const newCount = await FeedbackNotificationService.getUnreadCount(deviceId, sparkId);
+                  setUnreadCount(newCount);
+                  
+                  // Update app icon badge
+                  await FeedbackNotificationService.updateAppIconBadge();
+                  
+                  HapticFeedback.success();
+                } catch (error) {
+                  console.error('Error marking feedback as read:', error);
+                  Alert.alert('Error', 'Failed to mark response as read');
+                }
+              };
+              
               return (
                 <FeedbackItem
                   key={index}
@@ -1002,6 +1049,8 @@ export const SettingsFeedbackSection = forwardRef<SettingsFeedbackSectionRef, Se
                   response={item.response || ''}
                   createdAt={item.createdAt}
                   feedbackId={item.id}
+                  readByUser={item.readByUser}
+                  onMarkAsRead={handleMarkAsRead}
                 />
               );
             })}
