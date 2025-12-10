@@ -281,6 +281,8 @@ PODS:
     - ExpoModulesCore
   - ExpoSpeech (14.0.7):
     - ExpoModulesCore
+  - ExpoSpeechRecognition (3.0.1):
+    - ExpoModulesCore
   - ExpoSplashScreen (31.0.12):
     - ExpoModulesCore
   - EXTaskManager (14.0.8):
@@ -2275,6 +2277,7 @@ DEPENDENCIES:
   - ExpoPrint (from `../node_modules/expo-print/ios`)
   - ExpoSharing (from `../node_modules/expo-sharing/ios`)
   - ExpoSpeech (from `../node_modules/expo-speech/ios`)
+  - ExpoSpeechRecognition (from `../node_modules/expo-speech-recognition/ios`)
   - ExpoSplashScreen (from `../node_modules/expo-splash-screen/ios`)
   - EXTaskManager (from `../node_modules/expo-task-manager/ios`)
   - EXUpdatesInterface (from `../node_modules/expo-updates-interface/ios`)
@@ -2432,6 +2435,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-sharing/ios"
   ExpoSpeech:
     :path: "../node_modules/expo-speech/ios"
+  ExpoSpeechRecognition:
+    :path: "../node_modules/expo-speech-recognition/ios"
   ExpoSplashScreen:
     :path: "../node_modules/expo-splash-screen/ios"
   EXTaskManager:
@@ -2626,6 +2631,7 @@ SPEC CHECKSUMS:
   ExpoPrint: 3fa0bd322ea8effa81893a099803c914e59ad46f
   ExpoSharing: 032c01bb034319e2374badf082ae935be866d2e9
   ExpoSpeech: 18a7f92a932028e16d3df1891377a8b626ab5cc0
+  ExpoSpeechRecognition: ba4748362e203efcfbe428ad13007ed3cd6bce3a
   ExpoSplashScreen: 76af87337650d06926aa7d0157fe98b4fddca336
   EXTaskManager: cbbb80cbccea6487ccca0631809fbba2ed3e5271
   EXUpdatesInterface: 5adf50cb41e079c861da6d9b4b954c3db9a50734

@@ -32,6 +32,7 @@ import TripSurveySpark from '../sparks/TripSurveySpark';
 import RecAIpeSpark from '../sparks/RecAIpeSpark';
 import { SparkStatsSpark } from '../sparks/SparkStatsSpark';
 import { BigDennySpark } from '../sparks/BigDennySpark';
+import { SpeakSpark } from '../sparks/SpeakSpark';
 import styled from 'styled-components/native';
 
 const PlaceholderContainer = styled.View`
@@ -403,6 +404,18 @@ export const sparkRegistry: Record<string, BaseSpark> = {
             rating: 4.6,
         },
         component: RecAIpeSpark,
+    },
+    'speak-spark': {
+        metadata: {
+            id: 'speak-spark',
+            title: 'Speak Spark',
+            description: 'Control other Sparks with your voice',
+            icon: '🎤',
+            category: 'productivity',
+            createdAt: '2025-12-09T00:00:00.000Z',
+            rating: 4.5,
+        },
+        component: SpeakSpark,
     },
 };
 

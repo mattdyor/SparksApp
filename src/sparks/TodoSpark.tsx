@@ -103,15 +103,22 @@ export const TodoSpark: React.FC<TodoSparkProps> = ({
     if (savedData.todos) {
       // Migrate existing todos to include displayText and category
       const migratedTodos = savedData.todos.map((todo: any) => {
-        if (!todo.displayText) {
-          const { category, displayText } = parseTaskText(todo.text);
-          return {
-            ...todo,
+        let newTodo = { ...todo };
+
+        // Ensure category is lowercase if present
+        if (newTodo.category) {
+          newTodo.category = newTodo.category.toLowerCase();
+        }
+
+        if (!newTodo.displayText) {
+          const { category, displayText } = parseTaskText(newTodo.text);
+          newTodo = {
+            ...newTodo,
             displayText,
-            category,
+            category: category,
           };
         }
-        return todo;
+        return newTodo;
       });
       setTodos(migratedTodos);
     }
@@ -847,28 +854,39 @@ export const TodoSpark: React.FC<TodoSparkProps> = ({
       {getCategoryInfos().length > 0 && (
         <View style={styles.categoriesSection}>
           <View style={styles.categoryChips}>
-            {getCategoryInfos().map(({ name, status }) => (
+            {selectedCategory && (
               <TouchableOpacity
-                key={name}
-                style={[
-                  styles.categoryChip,
-                  status === 'future' && styles.categoryChipFuture,
-                  status === 'completedOnly' && styles.categoryChipCompleted,
-                  selectedCategory === name && styles.selectedCategoryChip
-                ]}
-                onPress={() => handleCategoryPress(name)}
+                style={[styles.categoryChip, styles.selectedCategoryChip]}
+                onPress={() => handleCategoryPress(selectedCategory)}
               >
-                <Text style={[
-                  styles.categoryChipText,
-                  selectedCategory === name && styles.selectedCategoryChipText
-                ]}>
-                  {name}
-                </Text>
+                <Text style={styles.selectedCategoryChipText}>Show All</Text>
               </TouchableOpacity>
-            ))}
+            )}
+            {getCategoryInfos()
+              .filter(({ name }) => !selectedCategory || name === selectedCategory)
+              .map(({ name, status }) => (
+                <TouchableOpacity
+                  key={name}
+                  style={[
+                    styles.categoryChip,
+                    status === 'future' && styles.categoryChipFuture,
+                    status === 'completedOnly' && styles.categoryChipCompleted,
+                    selectedCategory === name && styles.selectedCategoryChip
+                  ]}
+                  onPress={() => handleCategoryPress(name)}
+                >
+                  <Text style={[
+                    styles.categoryChipText,
+                    selectedCategory === name && styles.selectedCategoryChipText
+                  ]}>
+                    {name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
           </View>
         </View>
-      )}
+      )
+      }
 
       {/* Todos Section */}
       <View style={styles.todosSection}>
@@ -1066,6 +1084,6 @@ export const TodoSpark: React.FC<TodoSparkProps> = ({
           />
         </View>
       </CommonModal>
-    </ScrollView>
+    </ScrollView >
   );
 };
