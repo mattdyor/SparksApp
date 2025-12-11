@@ -1,5 +1,5 @@
 export const GeminiService = {
-    generateContent: async (prompt: string): Promise<string> => {
+    generateContent: async (prompt: string, images: string[] = []): Promise<string> => {
         const apiKey = process.env.EXPO_PUBLIC_GEMINI_API_KEY;
         if (!apiKey) {
             throw new Error('Missing EXPO_PUBLIC_GEMINI_API_KEY');
@@ -8,16 +8,28 @@ export const GeminiService = {
         // Using configuration from RecAIpeSpark which is confirmed working
         // Model: gemini-2.5-flash (as seen in working code)
         // API Version: v1
+        const contents: any[] = [{
+            parts: [{ text: prompt }]
+        }];
+
+        // Add images if provided
+        if (images && images.length > 0) {
+            images.forEach(base64Image => {
+                contents[0].parts.push({
+                    inline_data: {
+                        mime_type: "image/jpeg",
+                        data: base64Image
+                    }
+                });
+            });
+        }
+
         const response = await fetch(
             `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
             {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{ text: prompt }]
-                    }]
-                })
+                body: JSON.stringify({ contents })
             }
         );
 
@@ -37,10 +49,10 @@ export const GeminiService = {
         return text;
     },
 
-    generateJSON: async <T>(prompt: string): Promise<T> => {
+    generateJSON: async <T>(prompt: string, images: string[] = []): Promise<T> => {
         // Append JSON instruction
         const jsonPrompt = `${prompt}\n\nOutput strictly valid JSON.`;
-        const text = await GeminiService.generateContent(jsonPrompt);
+        const text = await GeminiService.generateContent(jsonPrompt, images);
 
         try {
             // Clean markdown code blocks if present

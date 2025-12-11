@@ -4,23 +4,23 @@ import {
     Text,
     StyleSheet,
     TouchableOpacity,
-    TextInput,
     ScrollView,
     Alert,
     Dimensions,
     Linking,
     TouchableWithoutFeedback,
     Keyboard,
-    KeyboardAvoidingView,
     Platform,
     StatusBar,
-    Modal,
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
 import { SettingsContainer, SettingsScrollView, SettingsHeader, SettingsFeedbackSection } from '../components/SettingsComponents';
+import { createCommonStyles } from '../styles/CommonStyles';
+import { CommonModal } from '../components/CommonModal';
+import { Input, TextArea } from '../components/FormComponents';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -47,6 +47,7 @@ const SongSaverSpark: React.FC<SongSaverSparkProps> = ({
     onComplete,
 }) => {
     const { colors } = useTheme();
+    const commonStyles = createCommonStyles(colors);
     const { getSparkData, setSparkData } = useSparkStore();
     const [tracks, setTracks] = useState<SpotifyTrack[]>([]);
     const [newUrl, setNewUrl] = useState('');
@@ -366,45 +367,22 @@ const SongSaverSpark: React.FC<SongSaverSparkProps> = ({
     );
 
     const styles = StyleSheet.create({
-        container: {
-            flex: 1,
-            backgroundColor: colors.background,
-        },
+        ...commonStyles,
         header: {
             padding: 20,
             borderBottomWidth: 0,
         },
-        title: {
-            fontSize: 24,
-            fontWeight: 'bold',
-            color: colors.text,
-            marginBottom: 8,
-        },
-        subtitle: {
-            fontSize: 16,
-            color: colors.textSecondary,
-        },
         inputContainer: {
             flexDirection: 'row',
             marginTop: 16,
-            marginBottom: 12, // Reduced from 20
+            marginBottom: 12,
             gap: 12,
             backgroundColor: colors.surface,
             padding: 16,
             borderRadius: 12,
             borderWidth: 0,
         },
-        urlInput: {
-            flex: 1,
-            height: 40,
-            borderWidth: 0,
-            borderRadius: 8,
-            paddingHorizontal: 16,
-            fontSize: 16,
-            color: colors.text,
-            backgroundColor: colors.border,
-            justifyContent: 'center', // Center placeholder
-        },
+
         addButton: {
             height: 40,
             paddingHorizontal: 16,
@@ -548,59 +526,6 @@ const SongSaverSpark: React.FC<SongSaverSparkProps> = ({
             fontSize: 16,
             fontWeight: '600',
         },
-        modalContainer: {
-            flex: 1,
-        },
-        modalHeader: {
-            flexDirection: 'row',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            padding: 20,
-            paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 20 : 20,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-        },
-        modalTitle: {
-            fontSize: 18,
-            fontWeight: '600',
-            flex: 1,
-            marginRight: 16,
-        },
-        closeButton: {
-            width: 32,
-            height: 32,
-            borderRadius: 16,
-            justifyContent: 'center',
-            alignItems: 'center',
-        },
-        closeButtonText: {
-            fontSize: 16,
-            fontWeight: 'bold',
-        },
-        modalContent: {
-            flex: 1,
-            padding: 20,
-        },
-        inputGroup: {
-            marginBottom: 20,
-        },
-        inputLabel: {
-            fontSize: 16,
-            fontWeight: '600',
-            marginBottom: 8,
-        },
-        modalInput: {
-            height: 50,
-            borderWidth: 1,
-            borderRadius: 8,
-            paddingHorizontal: 16,
-            fontSize: 16,
-        },
-        multilineInput: {
-            height: 120,
-            textAlignVertical: 'top',
-            paddingTop: 12,
-        },
         trackPreview: {
             marginTop: 20,
         },
@@ -617,34 +542,6 @@ const SongSaverSpark: React.FC<SongSaverSparkProps> = ({
             overflow: 'hidden',
             alignSelf: 'center',
         },
-        modalActions: {
-            flexDirection: 'row',
-            padding: 20,
-            borderTopWidth: 1,
-            borderTopColor: colors.border,
-            gap: 12,
-        },
-        modalButton: {
-            flex: 1,
-            paddingVertical: 16,
-            borderRadius: 8,
-            alignItems: 'center',
-        },
-        cancelButton: {
-            borderWidth: 1,
-            backgroundColor: 'transparent',
-        },
-        deleteButton: {
-            // Error color applied via backgroundColor
-        },
-        saveButton: {
-            // Primary color applied via backgroundColor
-        },
-        modalButtonText: {
-            fontSize: 16,
-            fontWeight: '600',
-        },
-
     });
 
     if (showSettings) {
@@ -686,10 +583,9 @@ const SongSaverSpark: React.FC<SongSaverSparkProps> = ({
                         <Text style={styles.subtitle}>Save and organize your favorite Spotify tracks</Text>
 
                         <View style={styles.inputContainer}>
-                            <TextInput
-                                style={styles.urlInput}
+                            <Input
+                                containerStyle={{ flex: 1, marginBottom: 0 }}
                                 placeholder="Category: spotify URL"
-                                placeholderTextColor={colors.textSecondary}
                                 value={newUrl}
                                 onChangeText={setNewUrl}
                                 autoCapitalize="none"
@@ -785,113 +681,67 @@ const SongSaverSpark: React.FC<SongSaverSparkProps> = ({
                 </ScrollView>
 
                 {/* Edit Modal */}
-                <Modal
+                <CommonModal
                     visible={showModal}
-                    animationType="slide"
-                    presentationStyle="pageSheet"
-                    onRequestClose={handleCloseModal}
-                >
-                    <View style={[styles.modalContainer, { backgroundColor: colors.background }]}>
-                        <View style={styles.modalHeader}>
-                            <Text style={[styles.modalTitle, { color: colors.text }]}>Edit Track</Text>
+                    title="Edit Track"
+                    onClose={handleCloseModal}
+                    footer={
+                        <View style={commonStyles.modalButtons}>
                             <TouchableOpacity
-                                style={[styles.closeButton, { backgroundColor: colors.border }]}
-                                onPress={handleCloseModal}
-                            >
-                                <Text style={[styles.closeButtonText, { color: colors.text }]}>✕</Text>
-                            </TouchableOpacity>
-                        </View>
-
-                        <ScrollView style={styles.modalContent}>
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.inputLabel, { color: colors.text }]}>Name (Optional)</Text>
-                                <TextInput
-                                    style={[styles.modalInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
-                                    placeholder="Give this track a name"
-                                    placeholderTextColor={colors.textSecondary}
-                                    value={editName}
-                                    onChangeText={setEditName}
-                                />
-                            </View>
-
-                            <View style={styles.inputGroup}>
-                                <Text style={[styles.inputLabel, { color: colors.text }]}>Category</Text>
-                                <TextInput
-                                    style={[styles.modalInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.surface }]}
-                                    placeholder="Category"
-                                    placeholderTextColor={colors.textSecondary}
-                                    value={editCategory}
-                                    onChangeText={setEditCategory}
-                                />
-                            </View>
-
-                            {editingTrack && (
-                                <View style={styles.trackPreview}>
-                                    <Text style={[styles.previewLabel, { color: colors.text }]}>Preview</Text>
-                                    <View style={[styles.previewCard, { borderColor: colors.border }]}>
-                                        {parseSpotifyInput(parseCategoryAndInput(editUrl).content).isEmbed ? (
-                                            <View style={styles.embedContainer}>
-                                                <WebView
-                                                    source={{ html: parseCategoryAndInput(editUrl).content }}
-                                                    style={styles.embedWebView}
-                                                    scrollEnabled={false}
-                                                    pointerEvents="none"
-                                                />
-                                            </View>
-                                        ) : (
-                                            <View style={[styles.coloredCard, {
-                                                backgroundColor: generateColorFromString(parseCategoryAndInput(editUrl).content)
-                                            }]}>
-                                                <Text style={styles.musicIcon}>🎵</Text>
-                                            </View>
-                                        )}
-
-                                        {editName && (
-                                            <View style={[styles.namePill, { backgroundColor: colors.secondary }]}>
-                                                <Text style={[styles.namePillText, { color: colors.background }]}>
-                                                    {editName}
-                                                </Text>
-                                            </View>
-                                        )}
-
-                                        {parseCategoryAndInput(editUrl).category && parseCategoryAndInput(editUrl).category !== 'Uncategorized' && (
-                                            <View style={[styles.categoryPill, { backgroundColor: 'rgba(30, 30, 30, 0.85)' }]}>
-                                                <Text style={[styles.categoryPillText, { color: '#ffffff' }]}>
-                                                    {parseCategoryAndInput(editUrl).category}
-                                                </Text>
-                                            </View>
-                                        )}
-                                    </View>
-                                </View>
-                            )}
-                        </ScrollView>
-
-                        <View style={styles.modalActions}>
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.cancelButton, { borderColor: colors.border }]}
-                                onPress={handleCloseModal}
-                            >
-                                <Text style={[styles.modalButtonText, { color: colors.text }]}>Cancel</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity
-                                style={[styles.modalButton, styles.deleteButton, { backgroundColor: colors.error }]}
+                                style={[commonStyles.modalButton, { backgroundColor: colors.error }]}
                                 onPress={handleDeleteTrack}
                             >
-                                <Text style={[styles.modalButtonText, { color: '#FFFFFF' }]}>Delete</Text>
+                                <Text style={{ color: '#fff', fontWeight: '600' }}>Delete</Text>
                             </TouchableOpacity>
-
                             <TouchableOpacity
-                                style={[styles.modalButton, styles.saveButton, { backgroundColor: colors.primary }]}
+                                style={[commonStyles.modalButton, { backgroundColor: colors.primary }]}
                                 onPress={handleSaveTrack}
                             >
-                                <Text style={[styles.modalButtonText, { color: colors.background }]}>Save</Text>
+                                <Text style={{ color: '#fff', fontWeight: '600' }}>Save</Text>
                             </TouchableOpacity>
                         </View>
+                    }
+                >
+                    <View>
+                        <Input
+                            label="Track Name"
+                            value={editName}
+                            onChangeText={setEditName}
+                            placeholder="Enter track name"
+                        />
+
+                        <Input
+                            label="Category"
+                            value={editCategory}
+                            onChangeText={setEditCategory}
+                            placeholder="e.g. Chill, Workout, Jazz"
+                        />
+
+                        <TextArea
+                            label="URL / Embed Code"
+                            value={editUrl}
+                            editable={false}
+                            multiline
+                        />
+
+                        {/* Preview */}
+                        {editingTrack && (
+                            <View style={styles.trackPreview}>
+                                <Text style={styles.previewLabel}>Preview</Text>
+                                <View style={styles.previewCard}>
+                                    <WebView
+                                        source={{ html: editingTrack.url }}
+                                        style={{ flex: 1, backgroundColor: 'transparent' }}
+                                        scrollEnabled={false}
+                                        pointerEvents="none"
+                                    />
+                                </View>
+                            </View>
+                        )}
                     </View>
-                </Modal>
-            </View>
-        </TouchableWithoutFeedback>
+                </CommonModal>
+            </View >
+        </TouchableWithoutFeedback >
     );
 };
 
