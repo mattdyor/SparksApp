@@ -1,29 +1,69 @@
 {
-    "name": "React Native Expo Development",
-    "image": "mcr.microsoft.com/devcontainers/universal:latest",
-    // Install all necessary Node packages and Expo CLI
-    "postCreateCommand": "npm install && npm install -g expo-cli",
-    // Recommended VS Code extensions for RN/Expo
+    "name": "SparksApp - React Native (Expo Go)",
+    "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bookworm",
+    // Setup script handles environment and dependencies
+    "postCreateCommand": "bash .devcontainer/setup.sh",
+    // VS Code customizations
     "customizations": {
         "vscode": {
             "extensions": [
                 "msjsdiag.vscode-react-native",
                 "expo.vscode-expo",
-                "EditorConfig.EditorConfig"
+                "EditorConfig.EditorConfig",
+                "dbaeumer.vscode-eslint",
+                "esbenp.prettier-vscode"
             ],
             "settings": {
-                // Example: set default terminal 
-                "terminal.integrated.defaultProfile.linux": "bash"
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "editor.formatOnSave": true,
+                "editor.defaultFormatter": "esbenp.prettier-vscode",
+                "editor.codeActionsOnSave": {
+                    "source.fixAll.eslint": "explicit"
+                },
+                "[typescript]": {
+                    "editor.defaultFormatter": "esbenp.prettier-vscode"
+                },
+                "[typescriptreact]": {
+                    "editor.defaultFormatter": "esbenp.prettier-vscode"
+                },
+                "files.exclude": {
+                    "**/.expo": true,
+                    "**/.expo-shared": true,
+                    "**/node_modules": true
+                }
             }
         }
     },
-    // Forward Metro Bundler and Expo DevTools ports
+    // Port forwarding for Expo
     "forwardPorts": [
         8081,
-        19000
+        19000,
+        19001,
+        19002
     ],
-    // The user will need at least a 4-core machine for a smooth experience
+    "portsAttributes": {
+        "8081": {
+            "label": "Metro Bundler",
+            "onAutoForward": "notify"
+        },
+        "19000": {
+            "label": "Expo DevTools",
+            "onAutoForward": "silent"
+        }
+    },
+    // Resource requirements
     "hostRequirements": {
-        "cpus": 4
+        "cpus": 4,
+        "memory": "8gb",
+        "storage": "32gb"
+    },
+    // Features
+    "features": {
+        "ghcr.io/devcontainers/features/node:1": {
+            "version": "20"
+        },
+        "ghcr.io/devcontainers/features/git:1": {
+            "version": "latest"
+        }
     }
 }

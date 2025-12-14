@@ -159,13 +159,13 @@ IMPORTANT FORMATTING RULES:
 1. The output must consist only of an 'Ingredients' section and an 'Instructions' section, with no introduction or concluding remarks.
 2. In the 'Ingredients' section, each ingredient must be on a single line.
 3. In the 'Instructions' section, the first time an ingredient is mentioned, include its quantity in parentheses immediately following the ingredient name.
-4. Write instructions as clear paragraphs, with each major step as a separate paragraph.
+4. Write instructions as clear paragraphs, with each major step as a separate paragraph. Paragraphs are typically 1 or 2 sentences long for these instructions. 
 5. Include cooking temperature and time where applicable.
 6. Start with a recipe title on the first line.
 
 Example format:
 
-Chocolate Chip Oatmeal Cookies
+🍪 Chocolate Chip Oatmeal Cookies
 
 Ingredients
 1 cup (2 sticks) unsalted butter, softened

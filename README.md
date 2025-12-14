@@ -65,7 +65,45 @@ Check out https://sparks.febak.com/check-out-the-sparks-app for details.
     npx expo start
     ```
     *   Scan the QR code with Expo Go (Android) or the Camera app (iOS).
-    *   Press `w` to run in the web browser.
+
+## Codespaces Quick Start
+
+Want to develop in the cloud? SparksApp fully supports GitHub Codespaces for Expo Go development.
+
+### Getting Started with Codespaces
+
+1.  **Open in Codespace**
+    *   Click "Code" > "Codespaces" > "Create codespace on main"
+    *   Wait for the container to build (3-5 minutes first time)
+    *   Setup script will automatically run
+
+2.  **Configure Environment Variables**
+    *   Edit the `.env` file created from `.env.example`
+    *   Add your Firebase credentials (get from [Firebase Console](https://console.firebase.google.com/))
+    *   Add your Gemini API key (get from [Google AI Studio](https://makersuite.google.com/app/apikey))
+
+3.  **Start Expo with Tunnel**
+    ```bash
+    npx expo start --tunnel
+    ```
+    *   **Note:** Use `--tunnel` flag for cloud development (required for Codespaces)
+
+4.  **Connect Your Phone**
+    *   Install [Expo Go](https://expo.dev/go) on your iOS or Android device
+    *   Open Expo Go and scan the QR code
+    *   App will load and hot reload as you make changes
+
+### Why Tunnel Mode?
+
+Codespaces runs in the cloud, so your phone can't reach it via local network. The `--tunnel` flag creates a public URL that your phone can access from anywhere.
+
+### Troubleshooting Codespaces
+
+*   **Can't connect?** Make sure port 8081 is public in Codespace port settings
+*   **Hot reload not working?** Restart Metro bundler: Stop (Ctrl+C) and run `npx expo start --tunnel` again
+*   **Environment variables not working?** Restart Metro after editing `.env`
+
+For detailed Codespaces documentation, see [CONTEXT/GENERAL/CODESPACESPLAN.md](CONTEXT/GENERAL/CODESPACESPLAN.md).
 
 ## Project Structure
 
