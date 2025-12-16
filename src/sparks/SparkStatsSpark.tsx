@@ -27,6 +27,7 @@ import {
 interface DailyStats {
     date: string; // YYYY-MM-DD
     activeUsers: number;
+    eventCount: number;
 }
 
 interface SparkTrend {
@@ -99,8 +100,8 @@ export const SparkStatsSpark: React.FC<SparkProps> = ({ showSettings = false, on
     };
 
     const processStats = (events: AnalyticsEvent[]) => {
-        // 1. Calculate DAU (Daily Active Users)
-        const usersByDay = new Map<string, Set<string>>();
+        // 1. Calculate DAU (Daily Active Users) - COMMENTED OUT FOR NOW
+        // const usersByDay = new Map<string, Set<string>>();
         const today = new Date();
         const last14Days = Array.from({ length: 14 }, (_, i) => {
             const d = new Date();
@@ -108,8 +109,13 @@ export const SparkStatsSpark: React.FC<SparkProps> = ({ showSettings = false, on
             return d.toISOString().split('T')[0];
         });
 
-        // Initialize map
-        last14Days.forEach(date => usersByDay.set(date, new Set()));
+        // Initialize maps
+        const usersByDay = new Map<string, Set<string>>();
+        const eventsByDay = new Map<string, number>();
+        last14Days.forEach(date => {
+            usersByDay.set(date, new Set());
+            eventsByDay.set(date, 0);
+        });
 
         events.forEach(event => {
             if (!event.timestamp) return;
@@ -118,12 +124,17 @@ export const SparkStatsSpark: React.FC<SparkProps> = ({ showSettings = false, on
             const dateObj = (event.timestamp as any).toDate ? (event.timestamp as any).toDate() : new Date(event.timestamp as any);
             const dateStr = dateObj.toISOString().split('T')[0];
 
-            // Use userId if available, otherwise fall back to deviceId for anonymous users
-            const userIdentifier = event.userId || (event as any).deviceId;
-
-            if (usersByDay.has(dateStr) && userIdentifier) {
-                usersByDay.get(dateStr)?.add(userIdentifier);
+            // Count events per day
+            if (eventsByDay.has(dateStr)) {
+                eventsByDay.set(dateStr, (eventsByDay.get(dateStr) || 0) + 1);
             }
+
+            // Calculate DAU (commented out but kept for future use)
+            // Use userId if available, otherwise fall back to deviceId for anonymous users
+            // const userIdentifier = event.userId || (event as any).deviceId;
+            // if (usersByDay.has(dateStr) && userIdentifier) {
+            //     usersByDay.get(dateStr)?.add(userIdentifier);
+            // }
         });
 
         // Debug logging
@@ -142,7 +153,8 @@ export const SparkStatsSpark: React.FC<SparkProps> = ({ showSettings = false, on
 
         const stats: DailyStats[] = last14Days.map(date => ({
             date,
-            activeUsers: usersByDay.get(date)?.size || 0
+            activeUsers: usersByDay.get(date)?.size || 0, // Keep for future use
+            eventCount: eventsByDay.get(date) || 0
         }));
         console.log('📊 SparkStats: Daily stats calculated:', stats);
         setDailyStats(stats);
@@ -172,23 +184,99 @@ export const SparkStatsSpark: React.FC<SparkProps> = ({ showSettings = false, on
         setTopSparks(sortedSparks);
     };
 
-    const Chart = () => {
+    // Daily Active Users Chart - COMMENTED OUT FOR NOW (but kept for future use)
+    // const DAUChart = () => {
+    //     if (dailyStats.length < 2) return null;
+
+    //     const width = Dimensions.get('window').width - 40;
+    //     const height = 220;
+    //     const padding = 30;
+
+    //     const values = dailyStats.map(d => d.activeUsers);
+    //     const minVal = 0; // Always start at 0 for DAU
+    //     const maxVal = Math.max(...values, 5); // Minimum scale of 5
+    //     const range = maxVal - minVal;
+
+    //     const getX = (index: number) => padding + (index * (width - 2 * padding)) / (dailyStats.length - 1);
+    //     const getY = (val: number) => height - padding - ((val - minVal) / range) * (height - 2 * padding);
+
+    //     const pathData = dailyStats.map((d, i) =>
+    //         `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(d.activeUsers)}`
+    //     ).join(' ');
+
+    //     return (
+    //         <View style={{ marginVertical: 20, alignItems: 'center' }}>
+    //             <Svg width={width} height={height}>
+    //                 {/* Grid lines */}
+    //                 <Line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke={colors.border} strokeWidth="1" />
+    //                 <Line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke={colors.border} strokeWidth="1" />
+
+    //                 {/* Data Line */}
+    //                 <Path
+    //                     d={pathData}
+    //                     stroke={colors.primary}
+    //                     strokeWidth="3"
+    //                     fill="none"
+    //                 />
+
+    //                 {/* Data Points */}
+    //                 {dailyStats.map((d, i) => (
+    //                     <React.Fragment key={d.date}>
+    //                         <Circle
+    //                             cx={getX(i)}
+    //                             cy={getY(d.activeUsers)}
+    //                             r="4"
+    //                             fill={colors.background}
+    //                             stroke={colors.primary}
+    //                             strokeWidth="2"
+    //                         />
+    //                         {/* Value Labels */}
+    //                         <SvgText
+    //                             x={getX(i)}
+    //                             y={getY(d.activeUsers) - 10}
+    //                             fontSize="10"
+    //                             fill={colors.text}
+    //                             textAnchor="middle"
+    //                         >
+    //                             {d.activeUsers}
+    //                         </SvgText>
+    //                         {/* Date Labels (every 3rd day) */}
+    //                         {i % 3 === 0 && (
+    //                             <SvgText
+    //                                 x={getX(i)}
+    //                                 y={height - 10}
+    //                                 fontSize="10"
+    //                                 fill={colors.textSecondary}
+    //                                 textAnchor="middle"
+    //                             >
+    //                                 {d.date.slice(5)}
+    //                             </SvgText>
+    //                         )}
+    //                     </React.Fragment>
+    //                 ))}
+    //             </Svg>
+    //         </View>
+    //     );
+    // };
+
+    // Daily Event Count Chart
+    const EventCountChart = () => {
         if (dailyStats.length < 2) return null;
 
         const width = Dimensions.get('window').width - 40;
         const height = 220;
         const padding = 30;
 
-        const values = dailyStats.map(d => d.activeUsers);
-        const minVal = 0; // Always start at 0 for DAU
-        const maxVal = Math.max(...values, 5); // Minimum scale of 5
+        const values = dailyStats.map(d => d.eventCount);
+        const minVal = 0; // Always start at 0
+        const maxVal = Math.max(...values, 10); // Minimum scale of 10
         const range = maxVal - minVal;
 
         const getX = (index: number) => padding + (index * (width - 2 * padding)) / (dailyStats.length - 1);
         const getY = (val: number) => height - padding - ((val - minVal) / range) * (height - 2 * padding);
 
         const pathData = dailyStats.map((d, i) =>
-            `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(d.activeUsers)}`
+            `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(d.eventCount)}`
         ).join(' ');
 
         return (
@@ -211,7 +299,7 @@ export const SparkStatsSpark: React.FC<SparkProps> = ({ showSettings = false, on
                         <React.Fragment key={d.date}>
                             <Circle
                                 cx={getX(i)}
-                                cy={getY(d.activeUsers)}
+                                cy={getY(d.eventCount)}
                                 r="4"
                                 fill={colors.background}
                                 stroke={colors.primary}
@@ -220,12 +308,12 @@ export const SparkStatsSpark: React.FC<SparkProps> = ({ showSettings = false, on
                             {/* Value Labels */}
                             <SvgText
                                 x={getX(i)}
-                                y={getY(d.activeUsers) - 10}
+                                y={getY(d.eventCount) - 10}
                                 fontSize="10"
                                 fill={colors.text}
                                 textAnchor="middle"
                             >
-                                {d.activeUsers}
+                                {d.eventCount}
                             </SvgText>
                             {/* Date Labels (every 3rd day) */}
                             {i % 3 === 0 && (
@@ -296,12 +384,19 @@ export const SparkStatsSpark: React.FC<SparkProps> = ({ showSettings = false, on
                 <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
             ) : (
                 <View style={styles.content}>
-                    {/* DAU Section */}
+                    {/* Daily Event Count Section */}
                     <View style={[styles.card, { backgroundColor: colors.surface }]}>
+                        <Text style={[styles.cardTitle, { color: colors.text }]}>Daily Event Count</Text>
+                        <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>Last 14 Days</Text>
+                        <EventCountChart />
+                    </View>
+
+                    {/* DAU Section - COMMENTED OUT FOR NOW (but kept for future use) */}
+                    {/* <View style={[styles.card, { backgroundColor: colors.surface, marginTop: 20 }]}>
                         <Text style={[styles.cardTitle, { color: colors.text }]}>Daily Active Users</Text>
                         <Text style={[styles.cardSubtitle, { color: colors.textSecondary }]}>Last 14 Days</Text>
-                        <Chart />
-                    </View>
+                        <DAUChart />
+                    </View> */}
 
                     {/* Top Sparks Section */}
                     <View style={[styles.card, { backgroundColor: colors.surface, marginTop: 20 }]}>
