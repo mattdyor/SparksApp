@@ -115,6 +115,14 @@ class AuthService {
 
       const auth = getAuth(app);
 
+      // Immediately check current auth state to restore session on app start
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        console.log('✅ AuthService: Found existing session for user:', currentUser.email);
+        const user = this.convertFirebaseUser(currentUser);
+        this.notifyAuthStateListeners(user);
+      }
+
       // Listen to auth state changes
       onAuthStateChanged(auth, async (firebaseUser) => {
         const user = firebaseUser ? this.convertFirebaseUser(firebaseUser) : null;

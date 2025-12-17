@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, StyleSheet, Alert, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { createCommonStyles } from '../../styles/CommonStyles';
 import { CommonModal } from '../../components/CommonModal';
 import FriendService from '../../services/FriendService';
 import { HapticFeedback } from '../../utils/haptics';
+import { useAuthStore } from '../../store/authStore';
+import AuthService from '../../services/AuthService';
 
 interface CreateInvitationModalProps {
     visible: boolean;
@@ -19,11 +21,42 @@ export const CreateInvitationModal: React.FC<CreateInvitationModalProps> = ({
 }) => {
     const { colors } = useTheme();
     const commonStyles = createCommonStyles(colors);
+    const { user } = useAuthStore();
     const [email, setEmail] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Verify user is authenticated when modal opens
+    useEffect(() => {
+        if (visible && !user) {
+            Alert.alert(
+                'Sign In Required',
+                'You must be signed in to send friend invitations.',
+                [{ text: 'OK', onPress: onClose }]
+            );
+        }
+    }, [visible, user, onClose]);
+
     const handleSubmit = async () => {
         console.log('📧 CreateInvitationModal: handleSubmit called');
+        
+        // Verify authentication before proceeding
+        if (!user || !user.uid) {
+            Alert.alert(
+                'Sign In Required',
+                'You must be signed in to send friend invitations. Please sign in and try again.'
+            );
+            return;
+        }
+
+        // Verify current Firebase Auth user matches store
+        const currentUser = AuthService.getCurrentUser();
+        if (!currentUser || currentUser.uid !== user.uid) {
+            Alert.alert(
+                'Authentication Error',
+                'Your session has expired. Please sign in again.'
+            );
+            return;
+        }
         
         if (!email.trim()) {
             Alert.alert('Error', 'Please enter an email address');
@@ -32,7 +65,7 @@ export const CreateInvitationModal: React.FC<CreateInvitationModalProps> = ({
 
         try {
             setIsSubmitting(true);
-            HapticFeedback.impact('light');
+            HapticFeedback.light();
 
             console.log('📧 CreateInvitationModal: Calling FriendService.createInvitation with:', email.trim());
             
@@ -44,7 +77,7 @@ export const CreateInvitationModal: React.FC<CreateInvitationModalProps> = ({
             const invitationId = await FriendService.createInvitation(email.trim());
             console.log('📧 CreateInvitationModal: Invitation created successfully:', invitationId);
             
-            HapticFeedback.notification('success');
+            HapticFeedback.success();
             Alert.alert('Success', 'Invitation sent!');
             
             setEmail('');
@@ -56,7 +89,7 @@ export const CreateInvitationModal: React.FC<CreateInvitationModalProps> = ({
                 stack: error?.stack,
                 name: error?.name,
             });
-            HapticFeedback.notification('error');
+            HapticFeedback.error();
             Alert.alert(
                 'Error', 
                 error?.message || 'Failed to send invitation. Please check the console for details.'

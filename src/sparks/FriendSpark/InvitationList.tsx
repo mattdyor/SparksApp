@@ -41,13 +41,37 @@ export const InvitationList: React.FC<InvitationListProps> = ({ invitations, onA
                     <View style={styles.actions}>
                         <TouchableOpacity
                             style={[commonStyles.primaryButton, styles.acceptButton]}
-                            onPress={() => onAccept(invitation.id)}
+                            onPress={async () => {
+                                console.log('✅ InvitationList: Accept button pressed for invitation:', invitation.id);
+                                if (onAccept && typeof onAccept === 'function') {
+                                    try {
+                                        await onAccept(invitation.id);
+                                    } catch (error) {
+                                        console.error('❌ InvitationList: Error in onAccept handler:', error);
+                                    }
+                                } else {
+                                    console.error('❌ InvitationList: onAccept is not a function:', typeof onAccept);
+                                }
+                            }}
+                            activeOpacity={0.7}
                         >
                             <Text style={commonStyles.primaryButtonText}>Accept</Text>
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[commonStyles.secondaryButton, styles.rejectButton]}
-                            onPress={() => onReject(invitation.id)}
+                            onPress={async () => {
+                                console.log('❌ InvitationList: Reject button pressed for invitation:', invitation.id);
+                                if (onReject && typeof onReject === 'function') {
+                                    try {
+                                        await onReject(invitation.id);
+                                    } catch (error) {
+                                        console.error('❌ InvitationList: Error in onReject handler:', error);
+                                    }
+                                } else {
+                                    console.error('❌ InvitationList: onReject is not a function:', typeof onReject);
+                                }
+                            }}
+                            activeOpacity={0.7}
                         >
                             <Text style={commonStyles.secondaryButtonText}>Reject</Text>
                         </TouchableOpacity>

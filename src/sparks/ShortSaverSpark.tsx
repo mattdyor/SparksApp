@@ -24,6 +24,7 @@ import { SettingsContainer, SettingsScrollView, SettingsHeader, SettingsFeedback
 import ShareableSparkService, { ShareableItem } from '../services/ShareableSparkService';
 import { FriendSelectionModal } from '../components/FriendSelectionModal';
 import { Friend } from '../services/FriendService';
+import SharedItemsService from '../services/SharedItemsService';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -35,6 +36,10 @@ interface ShortVideo {
   addedAt: number;
   category?: string;
   name?: string;
+  sharedByUserId?: string;
+  sharedByUserName?: string;
+  sharedAt?: number;
+  isShared?: boolean;
 }
 
 interface ShortSaverSparkProps {
@@ -90,33 +95,76 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
     });
   }, [videos]);
 
-  // Load saved videos on mount
+  // Load saved videos and shared items on mount
   useEffect(() => {
-    const data = getSparkData('short-saver');
-    if (data?.videos && data.videos.length > 0) {
-      // Load saved videos
-      setVideos(data.videos);
-    } else {
-      // Initialize with default video if no saved data exists
-      const defaultVideo: ShortVideo = {
-        id: 'ShKH1p_uWaA',
-        url: 'https://www.youtube.com/shorts/ShKH1p_uWaA',
-        title: 'Nate on fighting orangutan',
-        thumbnail: 'https://img.youtube.com/vi/ShKH1p_uWaA/maxresdefault.jpg',
-        addedAt: Date.now(),
-        category: 'Funny',
-        name: 'Nate on fighting orangutan'
-      };
+    const loadVideos = async () => {
+      const data = getSparkData('short-saver');
+      let userVideos: ShortVideo[] = [];
+      
+      if (data?.videos && data.videos.length > 0) {
+        // Load saved videos
+        userVideos = data.videos;
+      } else {
+        // Initialize with default video if no saved data exists
+        const defaultVideo: ShortVideo = {
+          id: 'ShKH1p_uWaA',
+          url: 'https://www.youtube.com/shorts/ShKH1p_uWaA',
+          title: 'Nate on fighting orangutan',
+          thumbnail: 'https://img.youtube.com/vi/ShKH1p_uWaA/maxresdefault.jpg',
+          addedAt: Date.now(),
+          category: 'Funny',
+          name: 'Nate on fighting orangutan'
+        };
 
-      const initialVideos = [defaultVideo];
-      setVideos(initialVideos);
-      setSparkData('short-saver', { videos: initialVideos });
-    }
+        userVideos = [defaultVideo];
+        setSparkData('short-saver', { videos: userVideos });
+      }
 
-    // Mark initialization as complete after a brief delay to ensure state is set
-    setTimeout(() => {
-      isInitializing.current = false;
-    }, 100);
+      // Load shared items (both pending and accepted)
+      try {
+        // Auto-accept pending shared items
+        const pendingItems = await SharedItemsService.getPendingSharedItems('short-saver');
+        for (const item of pendingItems) {
+          try {
+            await SharedItemsService.acceptSharedItem(item.id);
+            console.log(`✅ Auto-accepted shared item: ${item.id}`);
+          } catch (error) {
+            console.error(`❌ Error auto-accepting shared item ${item.id}:`, error);
+          }
+        }
+
+        // Get accepted shared items
+        const acceptedItems = await SharedItemsService.getAcceptedSharedItems('short-saver');
+        const sharedVideos: ShortVideo[] = acceptedItems.map(item => ({
+          ...item.itemData,
+          id: item.itemData.id || item.originalId,
+          sharedByUserId: item.sharedByUserId,
+          sharedByUserName: item.sharedByUserName,
+          sharedAt: item.sharedAt.toMillis(),
+          isShared: true,
+        }));
+
+        // Merge user videos and shared videos, sort by addedAt/sharedAt (newest first)
+        const allVideos = [...userVideos, ...sharedVideos].sort((a, b) => {
+          const aTime = a.addedAt || (a.sharedAt || 0);
+          const bTime = b.addedAt || (b.sharedAt || 0);
+          return bTime - aTime; // Newest first
+        });
+
+        setVideos(allVideos);
+      } catch (error) {
+        console.error('Error loading shared items:', error);
+        // If shared items fail to load, just use user videos
+        setVideos(userVideos);
+      }
+
+      // Mark initialization as complete after a brief delay to ensure state is set
+      setTimeout(() => {
+        isInitializing.current = false;
+      }, 100);
+    };
+
+    loadVideos();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run once on mount
 
@@ -132,8 +180,9 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
       return;
     }
 
-    // Save to persistent storage
-    setSparkData('short-saver', { videos });
+    // Filter out shared videos before saving (only save user's own videos)
+    const userVideos = videos.filter(v => !v.isShared);
+    setSparkData('short-saver', { videos: userVideos });
   }, [videos, setSparkData]);
 
   // Update filtered videos when videos or selectedCategory changes
@@ -205,53 +254,54 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
     return `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
   };
 
-  // Add new video
-  const handleAddVideo = async () => {
-    if (!newUrl.trim()) {
-      Alert.alert('Error', 'Please enter a YouTube URL');
-      return;
-    }
+    // Add new video
+    const handleAddVideo = async () => {
+      if (!newUrl.trim()) {
+        Alert.alert('Error', 'Please enter a YouTube URL');
+        return;
+      }
 
-    // Parse category and URL
-    const { category, url } = parseCategoryAndUrl(newUrl.trim());
-    const videoId = parseYouTubeUrl(url);
+      // Parse category and URL
+      const { category, url } = parseCategoryAndUrl(newUrl.trim());
+      const videoId = parseYouTubeUrl(url);
 
-    if (!videoId) {
-      Alert.alert('Error', 'Please enter a valid YouTube URL');
-      return;
-    }
+      if (!videoId) {
+        Alert.alert('Error', 'Please enter a valid YouTube URL');
+        return;
+      }
 
-    // Check if video already exists
-    if (videos.some(video => video.id === videoId)) {
-      Alert.alert('Error', 'This video is already saved');
-      return;
-    }
+      // Check if video already exists
+      if (videos.some(video => video.id === videoId)) {
+        Alert.alert('Error', 'This video is already saved');
+        return;
+      }
 
-    setIsAdding(true);
-    HapticFeedback.light();
+      setIsAdding(true);
+      HapticFeedback.light();
 
-    try {
-      const newVideo: ShortVideo = {
-        id: videoId,
-        url: url,
-        title: `YouTube Short ${videoId}`, // We'll try to get the real title later
-        thumbnail: getThumbnailUrl(videoId),
-        addedAt: Date.now(),
-        category: category || 'Uncategorized',
-      };
+      try {
+        const newVideo: ShortVideo = {
+          id: videoId,
+          url: url,
+          title: `YouTube Short ${videoId}`, // We'll try to get the real title later
+          thumbnail: getThumbnailUrl(videoId),
+          addedAt: Date.now(),
+          category: category || 'Uncategorized',
+        };
 
-      const updatedVideos = [...videos, newVideo];
-      setVideos(updatedVideos);
-      setNewUrl('');
+        // Add to beginning of array (newest first)
+        const updatedVideos = [newVideo, ...videos];
+        setVideos(updatedVideos);
+        setNewUrl('');
 
-      HapticFeedback.success();
-    } catch (error) {
-      console.error('Error adding video:', error);
-      Alert.alert('Error', 'Failed to add video. Please try again.');
-    } finally {
-      setIsAdding(false);
-    }
-  };
+        HapticFeedback.success();
+      } catch (error) {
+        console.error('Error adding video:', error);
+        Alert.alert('Error', 'Failed to add video. Please try again.');
+      } finally {
+        setIsAdding(false);
+      }
+    };
 
 
   // Play video directly in YouTube
@@ -364,7 +414,13 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
 
   // Handle share video
   const handleShareVideo = () => {
-    if (!editingVideo) return;
+    console.log('📤 ShortSaver: Share button pressed');
+    if (!editingVideo) {
+      console.error('❌ ShortSaver: No video selected for sharing');
+      Alert.alert('Error', 'No video selected');
+      return;
+    }
+    console.log('📤 ShortSaver: Opening share modal for video:', editingVideo.id);
     setShowShareModal(true);
     HapticFeedback.light();
   };
@@ -373,18 +429,21 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
     if (!editingVideo) return;
 
     try {
+      console.log('📤 ShortSaver: Sharing video with friend:', friend.userId);
       await ShareableSparkService.shareItemCopy(
         'short-saver',
         editingVideo.id,
         friend.userId,
         editingVideo
       );
-      HapticFeedback.notification('success');
+      console.log('✅ ShortSaver: Video shared successfully');
+      HapticFeedback.success();
       Alert.alert('Success', `Video shared with ${friend.displayName}!`);
+      setShowShareModal(false);
     } catch (error: any) {
-      console.error('Error sharing video:', error);
-      HapticFeedback.notification('error');
-      Alert.alert('Error', error.message || 'Failed to share video');
+      console.error('❌ ShortSaver: Error sharing video:', error);
+      HapticFeedback.error();
+      Alert.alert('Error', error?.message || 'Failed to share video');
     }
   };
 
@@ -404,7 +463,11 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
   // Video Card Component - Grid layout with thumbnails and category pills
   const VideoCard: React.FC<{ video: ShortVideo; index: number }> = ({ video, index }) => (
     <TouchableOpacity
-      style={[styles.videoCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+      style={[
+        styles.videoCard, 
+        { backgroundColor: colors.surface, borderColor: video.isShared ? '#9B59B6' : colors.border },
+        video.isShared && { borderWidth: 2 }
+      ]}
       onPress={() => handlePlayVideo(video)}
       onLongPress={() => handleVideoLongPress(video)}
       activeOpacity={0.7}
@@ -739,6 +802,29 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
       fontSize: 16,
       fontWeight: '600',
     },
+    sharedInfoContainer: {
+      padding: 16,
+      borderRadius: 12,
+      borderWidth: 2,
+      marginBottom: 20,
+    },
+    sharedInfoLabel: {
+      fontSize: 12,
+      marginBottom: 8,
+      textTransform: 'uppercase',
+    },
+    sharedByLink: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8,
+    },
+    sharedByText: {
+      fontSize: 16,
+      fontWeight: '600',
+    },
+    friendSparkLink: {
+      fontSize: 14,
+    },
   });
 
   if (showSettings) {
@@ -901,6 +987,35 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
             </View>
 
             <ScrollView style={styles.modalContent} keyboardShouldPersistTaps="handled">
+              {/* Shared item info */}
+              {editingVideo?.isShared && editingVideo.sharedByUserName && (
+                <View style={[styles.sharedInfoContainer, { backgroundColor: colors.surface, borderColor: '#9B59B6' }]}>
+                  <Text style={[styles.sharedInfoLabel, { color: colors.textSecondary }]}>
+                    Shared by
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => {
+                      // Navigate to Friend Spark
+                      const { navigationRef } = require('../navigation/AppNavigator');
+                      if (navigationRef.isReady()) {
+                        navigationRef.navigate('MySparks', {
+                          screen: 'Spark',
+                          params: { sparkId: 'friend-spark' },
+                        });
+                      }
+                    }}
+                    style={styles.sharedByLink}
+                  >
+                    <Text style={[styles.sharedByText, { color: '#9B59B6' }]}>
+                      {editingVideo.sharedByUserName}
+                    </Text>
+                    <Text style={[styles.friendSparkLink, { color: colors.textSecondary }]}>
+                      → Friend Spark
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               <View style={styles.inputGroup}>
                 <Text style={[styles.inputLabel, { color: colors.text }]}>Video Name</Text>
                 <TextInput
@@ -916,6 +1031,7 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
                   autoCapitalize="words"
                   autoCorrect={true}
                   returnKeyType="next"
+                  editable={!editingVideo?.isShared}
                 />
               </View>
 
@@ -938,6 +1054,7 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
                   numberOfLines={2}
                   returnKeyType="done"
                   onSubmitEditing={Keyboard.dismiss}
+                  editable={!editingVideo?.isShared}
                 />
               </View>
 
@@ -992,14 +1109,16 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
                 </Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.modalButton, styles.shareButton, { backgroundColor: colors.secondary }]}
-                onPress={handleShareVideo}
-              >
-                <Text style={[styles.modalButtonText, { color: colors.background }]}>
-                  Share
-                </Text>
-              </TouchableOpacity>
+              {!editingVideo?.isShared && (
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.shareButton, { backgroundColor: colors.secondary }]}
+                  onPress={handleShareVideo}
+                >
+                  <Text style={[styles.modalButtonText, { color: colors.background }]}>
+                    Share
+                  </Text>
+                </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 style={[styles.modalButton, styles.deleteButton, { backgroundColor: colors.error }]}

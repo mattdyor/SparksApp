@@ -425,6 +425,93 @@ export class FriendService {
     }
 
     /**
+     * Get accepted invitations (both sent and received)
+     */
+    static async getAcceptedInvitations(): Promise<FriendInvitation[]> {
+        const user = this.ensureAuthenticated();
+        const db = await this.getFirestore();
+
+        // Get invitations where user is sender or recipient and status is accepted
+        const q1 = query(
+            collection(db, INVITATIONS_COLLECTION),
+            where('fromUserId', '==', user.uid),
+            where('status', '==', 'accepted')
+        );
+        const q2 = query(
+            collection(db, INVITATIONS_COLLECTION),
+            where('toEmail', '==', user.email?.toLowerCase() || ''),
+            where('status', '==', 'accepted')
+        );
+
+        const [snapshot1, snapshot2] = await Promise.all([
+            getDocs(q1),
+            getDocs(q2),
+        ]);
+
+        const invitations: FriendInvitation[] = [];
+        const seenIds = new Set<string>();
+
+        snapshot1.forEach((doc) => {
+            if (!seenIds.has(doc.id)) {
+                seenIds.add(doc.id);
+                invitations.push({
+                    id: doc.id,
+                    ...doc.data(),
+                } as FriendInvitation);
+            }
+        });
+
+        snapshot2.forEach((doc) => {
+            if (!seenIds.has(doc.id)) {
+                seenIds.add(doc.id);
+                invitations.push({
+                    id: doc.id,
+                    ...doc.data(),
+                } as FriendInvitation);
+            }
+        });
+
+        // Sort by responded date (newest first)
+        invitations.sort((a, b) => {
+            const aTime = a.respondedAt?.toMillis?.() || a.createdAt?.toMillis?.() || 0;
+            const bTime = b.respondedAt?.toMillis?.() || b.createdAt?.toMillis?.() || 0;
+            return bTime - aTime;
+        });
+
+        return invitations;
+    }
+
+    /**
+     * Delete an invitation (can only delete sent invitations)
+     */
+    static async deleteInvitation(invitationId: string): Promise<void> {
+        const user = this.ensureAuthenticated();
+        const db = await this.getFirestore();
+
+        const invitationRef = doc(db, INVITATIONS_COLLECTION, invitationId);
+        const invitationDoc = await getDoc(invitationRef);
+
+        if (!invitationDoc.exists()) {
+            throw new Error('Invitation not found');
+        }
+
+        const invitation = invitationDoc.data() as FriendInvitation;
+
+        // Only allow deleting invitations you sent
+        if (invitation.fromUserId !== user.uid) {
+            throw new Error('You can only delete invitations you sent');
+        }
+
+        // Don't allow deleting accepted invitations (they represent friendships)
+        if (invitation.status === 'accepted') {
+            throw new Error('Cannot delete accepted invitations');
+        }
+
+        await deleteDoc(invitationRef);
+        console.log(`✅ Deleted invitation ${invitationId}`);
+    }
+
+    /**
      * Get user profile from Firestore
      */
     private static async getUserProfile(uid: string): Promise<{ displayName: string; email: string; photoURL?: string } | null> {
