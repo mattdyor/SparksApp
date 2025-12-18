@@ -24,6 +24,7 @@ interface FriendSparkSettingsProps {
 export const FriendSparkSettings: React.FC<FriendSparkSettingsProps> = ({ onClose }) => {
     const { colors } = useTheme();
     const commonStyles = createCommonStyles(colors);
+    const styles = createStyles(colors);
     const { user } = useAuthStore();
     const [invitations, setInvitations] = useState<FriendInvitation[]>([]);
     const [sentInvitations, setSentInvitations] = useState<FriendInvitation[]>([]);
@@ -265,6 +266,18 @@ export const FriendSparkSettings: React.FC<FriendSparkSettingsProps> = ({ onClos
                         </View>
                     )}
                 </SettingsSection>
+
+                {/* Close Button */}
+                <View style={styles.closeButtonContainer}>
+                    <TouchableOpacity
+                        style={[styles.closeButton, { borderColor: colors.border }]}
+                        onPress={onClose}
+                    >
+                        <Text style={[styles.closeButtonText, { color: colors.text }]}>
+                            Close
+                        </Text>
+                    </TouchableOpacity>
+                </View>
             </SettingsScrollView>
 
             <CreateInvitationModal
@@ -312,5 +325,23 @@ const styles = StyleSheet.create({
     deleteButton: {
         paddingHorizontal: 16,
         paddingVertical: 8,
+    },
+    closeButtonContainer: {
+        marginTop: 24,
+        paddingTop: 24,
+        borderTopWidth: 1,
+        borderTopColor: colors.border,
+    },
+    closeButton: {
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        borderWidth: 1,
+        backgroundColor: 'transparent',
+    },
+    closeButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
     },
 });

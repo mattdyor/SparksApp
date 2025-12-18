@@ -1,7 +1,6 @@
 import React from 'react';
 import styled from 'styled-components/native';
 import { TouchableOpacityProps } from 'react-native';
-import { lightTheme } from '../../theme/theme';
 
 type ButtonVariant = 'primary' | 'secondary' | 'outline' | 'ghost';
 type ButtonSize = 'small' | 'medium' | 'large';
@@ -13,44 +12,57 @@ interface ButtonProps extends TouchableOpacityProps {
   children: React.ReactNode;
 }
 
-const getButtonStyles = (variant: ButtonVariant, size: ButtonSize, theme = lightTheme) => {
+// Inline theme values to avoid module-level imports that can fail in release builds
+const THEME_VALUES = {
+  primary: '#007AFF',
+  secondary: '#5856D6',
+  borderRadius: 8,
+  spacing: { sm: 8, md: 16, lg: 24, xl: 32 },
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.22,
+  shadowRadius: 2,
+  elevation: 2,
+};
+
+const getButtonStyles = (variant: ButtonVariant, size: ButtonSize) => {
   const variants = {
     primary: {
-      backgroundColor: theme.colors.primary,
-      borderColor: theme.colors.primary,
+      backgroundColor: THEME_VALUES.primary,
+      borderColor: THEME_VALUES.primary,
       textColor: '#ffffff',
     },
     secondary: {
-      backgroundColor: theme.colors.secondary,
-      borderColor: theme.colors.secondary,
+      backgroundColor: THEME_VALUES.secondary,
+      borderColor: THEME_VALUES.secondary,
       textColor: '#ffffff',
     },
     outline: {
       backgroundColor: 'transparent',
-      borderColor: theme.colors.primary,
-      textColor: theme.colors.primary,
+      borderColor: THEME_VALUES.primary,
+      textColor: THEME_VALUES.primary,
     },
     ghost: {
       backgroundColor: 'transparent',
       borderColor: 'transparent',
-      textColor: theme.colors.primary,
+      textColor: THEME_VALUES.primary,
     },
   };
 
   const sizes = {
     small: {
-      paddingVertical: theme.spacing.sm,
-      paddingHorizontal: theme.spacing.md,
+      paddingVertical: THEME_VALUES.spacing.sm,
+      paddingHorizontal: THEME_VALUES.spacing.md,
       fontSize: 14,
     },
     medium: {
-      paddingVertical: theme.spacing.md,
-      paddingHorizontal: theme.spacing.lg,
+      paddingVertical: THEME_VALUES.spacing.md,
+      paddingHorizontal: THEME_VALUES.spacing.lg,
       fontSize: 16,
     },
     large: {
-      paddingVertical: theme.spacing.lg,
-      paddingHorizontal: theme.spacing.xl,
+      paddingVertical: THEME_VALUES.spacing.lg,
+      paddingHorizontal: THEME_VALUES.spacing.xl,
       fontSize: 18,
     },
   };
@@ -76,11 +88,15 @@ const StyledButton = styled.TouchableOpacity<{
     `;
   }}
   border-width: 1px;
-  border-radius: ${lightTheme.borderRadius.md}px;
+  border-radius: ${THEME_VALUES.borderRadius}px;
   align-items: center;
   justify-content: center;
   ${({ fullWidth }) => fullWidth && 'width: 100%;'}
-  ${lightTheme.shadows.sm}
+  shadow-color: ${THEME_VALUES.shadowColor};
+  shadow-offset: ${THEME_VALUES.shadowOffset.width}px ${THEME_VALUES.shadowOffset.height}px;
+  shadow-opacity: ${THEME_VALUES.shadowOpacity};
+  shadow-radius: ${THEME_VALUES.shadowRadius}px;
+  elevation: ${THEME_VALUES.elevation};
 `;
 
 const ButtonText = styled.Text<{ variant: ButtonVariant; size: ButtonSize }>`

@@ -681,14 +681,24 @@ const ToviewSpark: React.FC<ToviewSparkProps> = ({
 
     // Always show future toviews (no date filtering)
 
-    // Sort: incomplete by view date (ascending), then completed by completion date (descending)
+    // Sort: unviewed items first (by createdDate descending - newest first), 
+    // then viewed items (by completedDate descending - most recently viewed first)
     return filtered.sort((a, b) => {
+      // Unviewed items come first
+      if (!a.completed && b.completed) return -1;
+      if (a.completed && !b.completed) return 1;
+      
+      // Both unviewed: sort by createdDate descending (newest first)
+      if (!a.completed && !b.completed) {
+        return (b.createdDate || '').localeCompare(a.createdDate || '');
+      }
+      
+      // Both viewed: sort by completedDate descending (most recently viewed first)
       if (a.completed && b.completed) {
         return (b.completedDate || '').localeCompare(a.completedDate || '');
       }
-      if (a.completed) return 1;
-      if (b.completed) return -1;
-      return a.viewDate.localeCompare(b.viewDate);
+      
+      return 0;
     });
   };
 

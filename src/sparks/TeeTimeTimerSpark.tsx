@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert, Animated, PanResponder, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { activateKeepAwake, deactivateKeepAwake } from 'expo-keep-awake';
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
 import { useTheme } from '../contexts/ThemeContext';
@@ -778,16 +779,19 @@ export const TeeTimeTimerSpark: React.FC<TeeTimeTimerSparkProps> = ({
   // Timer logic
   useEffect(() => {
     if (timerState.isActive) {
+      activateKeepAwake(); // Keep screen awake when timer is active
       intervalRef.current = setInterval(() => {
         setCurrentTime(new Date());
       }, 1000);
     } else {
+      deactivateKeepAwake(); // Allow screen to sleep when timer stops
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
     }
 
     return () => {
+      deactivateKeepAwake(); // Cleanup on unmount
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }

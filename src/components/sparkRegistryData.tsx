@@ -390,7 +390,7 @@ export const sparkRegistry: Record<string, BaseSpark> = {
             title: 'Spark Stats',
             description: 'Community usage stats and trending sparks',
             icon: '📊',
-            category: 'productivity',
+            category: 'community',
             createdAt: '2025-11-03T00:00:00.000Z',
             rating: 4.5,
         },

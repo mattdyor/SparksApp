@@ -119,10 +119,17 @@ export const useSettingsStore = create<SettingsState>()(
         crashReporting: true,
       }),
       
-      // Theme getter
+      // Theme getter - ensure it always returns valid colors
       getThemeColors: () => {
-        const { darkMode } = get();
-        return darkMode ? darkTheme : lightTheme;
+        try {
+          const state = get();
+          const darkMode = state?.darkMode ?? false;
+          return darkMode ? darkTheme : lightTheme;
+        } catch (error) {
+          // Fallback to light theme if store isn't ready
+          console.warn('Theme store not ready, using light theme:', error);
+          return lightTheme;
+        }
       },
     }),
     {

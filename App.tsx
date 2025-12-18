@@ -13,21 +13,22 @@ import { ServiceFactory } from './src/services/ServiceFactory';
 import AuthService from './src/services/AuthService';
 
 // Initialize Firebase
-let firebaseApp: any = null;
 try {
-  // const firebase = require('@react-native-firebase/app');
-  const firebase = { default: { apps: [] } }; // Mock for web
-  firebaseApp = firebase.default;
+  // Use native Firebase if available, otherwise fallback to web/mock
+  let firebase;
+  try {
+    firebase = require('@react-native-firebase/app').default;
+  } catch (e) {
+    // If native firebase is not available, we'll let ServiceFactory handle it
+    console.log('ℹ️ Native Firebase not available, relying on web SDK fallback');
+  }
 
-  // Initialize Firebase app if not already initialized
-  if (!firebaseApp.apps.length) {
-    firebaseApp.initializeApp();
-    console.log('✅ Firebase app initialized');
-  } else {
-    console.log('✅ Firebase app already initialized');
+  if (firebase && !firebase.apps.length) {
+    firebase.initializeApp();
+    console.log('✅ Native Firebase initialized');
   }
 } catch (error) {
-  console.log('⚠️ Firebase not available:', (error as Error).message);
+  console.log('⚠️ Firebase initialization status:', (error as Error).message);
 }
 
 export default function App() {

@@ -5,6 +5,9 @@ rm -rf ios/build
 cd ios && pod install && cd ..
 npx expo run:ios --device "Matt's iPhone (2)" --configuration Release
 
+
+
+
 Then Product Archive 
 
 ## Understanding the Build Process
