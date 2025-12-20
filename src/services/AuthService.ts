@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
-import { getAuth, signInWithCredential, signOut as firebaseSignOut, onAuthStateChanged, User as FirebaseUser, GoogleAuthProvider, OAuthProvider } from 'firebase/auth';
+// @ts-ignore - getReactNativePersistence is available in React Native build but types might not resolve without specific config
+import { getAuth, signInWithCredential, signOut as firebaseSignOut, onAuthStateChanged, User as FirebaseUser, GoogleAuthProvider, OAuthProvider, initializeAuth, getReactNativePersistence, updateProfile } from 'firebase/auth';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFirestore, doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 
 // Gracefully handle GoogleSignin in Expo Go (where native modules aren't available)
@@ -113,7 +115,15 @@ class AuthService {
         app = getApps()[0];
       }
 
-      const auth = getAuth(app);
+      let auth;
+      try {
+        auth = initializeAuth(app, {
+          persistence: getReactNativePersistence(AsyncStorage)
+        });
+      } catch (e) {
+        // If already initialized, use getAuth
+        auth = getAuth(app);
+      }
 
       // Immediately check current auth state to restore session on app start
       const currentUser = auth.currentUser;
@@ -260,7 +270,7 @@ class AuthService {
 
       // Get the identity token from Apple
       const { identityToken } = credential;
-      
+
       if (!identityToken) {
         throw new Error('Failed to get identity token from Apple Sign-In');
       }
@@ -300,7 +310,7 @@ class AuthService {
       if (credential.fullName && credential.fullName.givenName && credential.fullName.familyName) {
         const displayName = `${credential.fullName.givenName} ${credential.fullName.familyName}`;
         if (firebaseUser.displayName !== displayName) {
-          await firebaseUser.updateProfile({ displayName });
+          await updateProfile(firebaseUser, { displayName });
         }
       }
 
