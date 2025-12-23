@@ -36,6 +36,7 @@ import { SparkStatsSpark } from '../sparks/SparkStatsSpark';
 import { BigDennySpark } from '../sparks/BigDennySpark';
 import { SpeakSpark } from '../sparks/SpeakSpark';
 import FriendSpark from '../sparks/FriendSpark';
+import TripodSpark from '../sparks/TripodSpark';
 import styled from 'styled-components/native';
 
 const PlaceholderContainer = styled.View`
@@ -455,6 +456,18 @@ export const sparkRegistry: Record<string, BaseSpark> = {
             rating: 4.5,
         },
         component: FriendSpark,
+    },
+    'tripod-spark': {
+        metadata: {
+            id: 'tripod-spark',
+            title: 'The Wolverine',
+            description: 'Get the ultimate grass-mounting tripod for your swing',
+            icon: '📸',
+            category: 'golf',
+            createdAt: '2025-12-22T00:00:00.000Z',
+            rating: 5.0,
+        },
+        component: TripodSpark,
     },
 };
 

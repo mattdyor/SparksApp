@@ -9,15 +9,15 @@ interface SettingsState {
   darkMode: boolean;
   animations: boolean;
   notifications: boolean;
-  
+
   // Display Settings
   fontSize: 'small' | 'medium' | 'large';
   language: 'en' | 'es' | 'fr' | 'de';
-  
+
   // Privacy Settings
   analytics: boolean;
   crashReporting: boolean;
-  
+
   // Actions
   toggleHaptic: () => void;
   toggleSound: () => void;
@@ -26,12 +26,12 @@ interface SettingsState {
   toggleNotifications: () => void;
   toggleAnalytics: () => void;
   toggleCrashReporting: () => void;
-  
+
   setFontSize: (size: 'small' | 'medium' | 'large') => void;
   setLanguage: (lang: 'en' | 'es' | 'fr' | 'de') => void;
-  
+
   resetAllSettings: () => void;
-  
+
   // Getters
   getThemeColors: () => ThemeColors;
 }
@@ -48,6 +48,7 @@ interface ThemeColors {
   warning: string;
   error: string;
   info: string;
+  card: string;
 }
 
 const lightTheme: ThemeColors = {
@@ -55,7 +56,7 @@ const lightTheme: ThemeColors = {
   secondary: '#007AFF',
   // dyor background
   background: '#ffffff',
-// dyor top nav
+  // dyor top nav
   surface: '#ffffff',
   text: '#333333',
   textSecondary: '#666666',
@@ -64,6 +65,7 @@ const lightTheme: ThemeColors = {
   warning: '#FFC107',
   error: '#DC3545',
   info: '#17A2B8',
+  card: '#ffffff',
 };
 
 const darkTheme: ThemeColors = {
@@ -79,6 +81,7 @@ const darkTheme: ThemeColors = {
   warning: '#FF9F0A',
   error: '#FF453A',
   info: '#64D2FF',
+  card: '#1C1C1E',
 };
 
 export const useSettingsStore = create<SettingsState>()(
@@ -94,7 +97,7 @@ export const useSettingsStore = create<SettingsState>()(
       language: 'en',
       analytics: true,
       crashReporting: true,
-      
+
       // Actions
       toggleHaptic: () => set((state) => ({ hapticEnabled: !state.hapticEnabled })),
       toggleSound: () => set((state) => ({ soundEnabled: !state.soundEnabled })),
@@ -103,10 +106,10 @@ export const useSettingsStore = create<SettingsState>()(
       toggleNotifications: () => set((state) => ({ notifications: !state.notifications })),
       toggleAnalytics: () => set((state) => ({ analytics: !state.analytics })),
       toggleCrashReporting: () => set((state) => ({ crashReporting: !state.crashReporting })),
-      
+
       setFontSize: (size) => set({ fontSize: size }),
       setLanguage: (lang) => set({ language: lang }),
-      
+
       resetAllSettings: () => set({
         hapticEnabled: true,
         soundEnabled: true,
@@ -118,7 +121,7 @@ export const useSettingsStore = create<SettingsState>()(
         analytics: true,
         crashReporting: true,
       }),
-      
+
       // Theme getter - ensure it always returns valid colors
       getThemeColors: () => {
         try {

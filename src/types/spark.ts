@@ -3,7 +3,7 @@ export interface SparkMetadata {
   title: string;
   description: string;
   icon: string;
-  category: 'productivity' | 'travel' | 'food' | 'education' | 'golf' | 'game' | 'media' | 'utility' | 'community' | 'health';
+  category: 'productivity' | 'travel' | 'food' | 'education' | 'golf' | 'game' | 'media' | 'utility' | 'community' | 'health' | 'social';
   createdAt: string; // ISO date string
   rating: number; // 1-5 stars
 }

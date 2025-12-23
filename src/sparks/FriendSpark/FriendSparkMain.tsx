@@ -16,6 +16,8 @@ export const FriendSparkMain: React.FC<FriendSparkMainProps> = ({ onFriendPress 
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
+    const [error, setError] = useState<string | null>(null);
+
     useEffect(() => {
         loadFriends();
     }, []);
@@ -23,11 +25,17 @@ export const FriendSparkMain: React.FC<FriendSparkMainProps> = ({ onFriendPress 
     const loadFriends = async () => {
         try {
             setIsLoading(true);
+            setError(null);
             const friendsList = await FriendService.getFriends();
             setFriends(friendsList);
         } catch (error: any) {
             console.error('Error loading friends:', error);
-            Alert.alert('Error', error.message || 'Failed to load friends');
+            if (error.message?.includes('authenticated')) {
+                setError('auth_required');
+            } else {
+                setError(error.message || 'Failed to load friends');
+                Alert.alert('Error', error.message || 'Failed to load friends');
+            }
         } finally {
             setIsLoading(false);
         }
@@ -46,9 +54,27 @@ export const FriendSparkMain: React.FC<FriendSparkMainProps> = ({ onFriendPress 
 
     if (isLoading) {
         return (
-            <View style={[styles.container, { backgroundColor: colors.background }]}>
+            <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center' }]}>
                 <ActivityIndicator size="large" color={colors.primary} />
                 <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Loading friends...</Text>
+            </View>
+        );
+    }
+
+    if (error === 'auth_required') {
+        const navigation = require('@react-navigation/native').useNavigation();
+        return (
+            <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
+                <Text style={[styles.title, { color: colors.text, textAlign: 'center' }]}>Sign In Required</Text>
+                <Text style={[styles.subtitle, { color: colors.textSecondary, textAlign: 'center', marginBottom: 24 }]}>
+                    Your session may have expired. Please sign in again to view your friends.
+                </Text>
+                <TouchableOpacity
+                    style={[styles.button, { backgroundColor: colors.primary }]}
+                    onPress={() => navigation.navigate('Settings')}
+                >
+                    <Text style={[styles.buttonText, { color: colors.background }]}>Go to Settings</Text>
+                </TouchableOpacity>
             </View>
         );
     }
@@ -177,5 +203,14 @@ const styles = StyleSheet.create({
     },
     friendEmail: {
         fontSize: 14,
+    },
+    button: {
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 8,
+    },
+    buttonText: {
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });

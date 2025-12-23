@@ -18,6 +18,7 @@ import {
   Modal,
 } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuthStore } from '../store/authStore';
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
 import { SettingsContainer, SettingsScrollView, SettingsHeader, SettingsFeedbackSection } from '../components/SettingsComponents';
@@ -416,6 +417,30 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
   // Handle share video
   // Handle share video
   const handleShareVideo = () => {
+    // Check if user is authenticated
+    const { isAuthenticated } = useAuthStore.getState();
+    if (!isAuthenticated()) {
+      Alert.alert(
+        'Sign In Required',
+        'You must be signed in to share videos with friends.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Sign In',
+            onPress: () => {
+              handleCloseModal();
+              // We'll rely on the user navigating to settings or the parent component handling this
+              // Ideally, we'd navigate to Settings here but we don't have direct navigation prop access easily without hook
+              // But FriendSelectionModal is inside the screen which has navigation? 
+              // ShortSaverSpark seems to be a screen or wrapped component.
+              // For now, simple alert is better than "No friends".
+            }
+          }
+        ]
+      );
+      return;
+    }
+
     console.log('📤 ShortSaver: Share button pressed');
     if (!editingVideo) {
       console.error('❌ ShortSaver: No video selected for sharing');
@@ -437,15 +462,29 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
 
   const handleSelectFriend = async (friend: Friend) => {
     const videoToShare = sharingVideo || editingVideo;
-    if (!videoToShare) return;
+    if (!videoToShare) {
+      Alert.alert('Error', 'No video selected to share');
+      return;
+    }
 
     try {
       console.log('📤 ShortSaver: Sharing video with friend:', friend.userId);
+
+      // Sanitized data object to prevent serialization issues
+      const shareData = {
+        id: videoToShare.id,
+        url: videoToShare.url,
+        title: videoToShare.title || '',
+        name: videoToShare.name || '',
+        category: videoToShare.category || '',
+        thumbnail: videoToShare.thumbnail || '',
+      };
+
       await ShareableSparkService.shareItemCopy(
         'short-saver',
         videoToShare.id,
         friend.userId,
-        videoToShare
+        shareData
       );
       console.log('✅ ShortSaver: Video shared successfully');
       HapticFeedback.success();

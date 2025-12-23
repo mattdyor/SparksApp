@@ -26,49 +26,54 @@ export const FriendSelectionModal: React.FC<FriendSelectionModalProps> = ({
     const [friends, setFriends] = useState<Friend[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
+    const [error, setError] = useState<string | null>(null);
+
     useEffect(() => {
         if (visible && user) {
             loadFriends();
+        } else if (visible && !user) {
+            // Should verify if user is really logged in or if store is just empty
+            // But usually parent should block.
         }
     }, [visible, user]);
 
     const loadFriends = async () => {
         try {
             setIsLoading(true);
+            setError(null);
             const friendsList = await FriendService.getFriends();
             setFriends(friendsList);
         } catch (error: any) {
             console.error('Error loading friends:', error);
-            // Don't show alert - just log and show empty state
+            if (error.message?.includes('authenticated')) {
+                setError('auth_required');
+            } else {
+                setError('load_failed');
+            }
         } finally {
             setIsLoading(false);
         }
     };
 
     const handleSelectFriend = (friend: Friend) => {
-        HapticFeedback.impact('light');
+        HapticFeedback.light();
         onSelectFriend(friend);
         onClose();
     };
 
     const handleAddFriend = () => {
-        HapticFeedback.impact('light');
+        HapticFeedback.light();
         onClose();
         onAddFriend?.();
     };
 
     const footer = (
         <View style={styles.footer}>
-            <View style={commonStyles.modalButtonContainer}>
-                <View style={commonStyles.modalButton}>
-                    <Text
-                        style={[commonStyles.modalButtonText, { color: colors.textSecondary }]}
-                        onPress={onClose}
-                    >
-                        Cancel
-                    </Text>
-                </View>
-            </View>
+            <TouchableOpacity onPress={onClose} style={styles.cancelButton}>
+                <Text style={[styles.cancelButtonText, { color: colors.textSecondary }]}>
+                    Cancel
+                </Text>
+            </TouchableOpacity>
         </View>
     );
 
@@ -80,6 +85,13 @@ export const FriendSelectionModal: React.FC<FriendSelectionModalProps> = ({
                         <ActivityIndicator size="large" color={colors.primary} />
                         <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
                             Loading friends...
+                        </Text>
+                    </View>
+                ) : error === 'auth_required' ? (
+                    <View style={styles.emptyState}>
+                        <Text style={[styles.emptyTitle, { color: colors.text }]}>Sign In Required</Text>
+                        <Text style={[styles.emptyMessage, { color: colors.textSecondary }]}>
+                            Please sign in to view friends
                         </Text>
                     </View>
                 ) : friends.length === 0 ? (
@@ -221,5 +233,13 @@ const styles = StyleSheet.create({
     footer: {
         paddingHorizontal: 16,
         paddingBottom: 16,
+        alignItems: 'center',
+    },
+    cancelButton: {
+        padding: 12,
+    },
+    cancelButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
     },
 });

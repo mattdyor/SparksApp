@@ -12,6 +12,7 @@ import { NotificationService } from './src/utils/notifications';
 import { FeedbackNotificationService } from './src/services/FeedbackNotificationService';
 import { ServiceFactory } from './src/services/ServiceFactory';
 import AuthService from './src/services/AuthService';
+import { StripeProvider } from '@stripe/stripe-react-native';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync().catch(() => {
@@ -42,9 +43,14 @@ try {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <ThemeProvider>
-        <AppContent />
-      </ThemeProvider>
+      <StripeProvider
+        publishableKey={process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_12345'}
+        merchantIdentifier="merchant.com.sparksapp" // Required for Apple Pay
+      >
+        <ThemeProvider>
+          <AppContent />
+        </ThemeProvider>
+      </StripeProvider>
     </SafeAreaProvider>
   );
 }

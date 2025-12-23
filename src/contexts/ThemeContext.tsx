@@ -47,7 +47,7 @@ const defaultDarkTheme = {
 const defaultContextValue: ThemeContextType = {
   colors: defaultLightTheme,
   isDarkMode: false,
-  toggleTheme: () => {},
+  toggleTheme: () => { },
 };
 
 const ThemeContext = createContext<ThemeContextType>(defaultContextValue);
@@ -63,13 +63,13 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
     let store: ReturnType<typeof useSettingsStore> | null = null;
     let darkMode = false;
     let getThemeColors = () => defaultLightTheme;
-    
+
     try {
       store = useSettingsStore();
       if (store) {
         darkMode = store.darkMode ?? false;
         getThemeColors = store.getThemeColors ?? (() => defaultLightTheme);
-        
+
         // Update state with store values
         setCurrentDarkMode(darkMode);
         try {
@@ -93,7 +93,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
   // Subscribe to store changes for dark mode - only after store is ready
   React.useEffect(() => {
     if (!storeReady) return;
-    
+
     try {
       const unsubscribe = useSettingsStore.subscribe(
         (state) => {
@@ -127,7 +127,7 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({ children }) => {
       console.warn('ThemeProvider: toggleTheme failed', error);
     }
   }, []);
-  
+
   const contextValue: ThemeContextType = {
     colors: themeColors,
     isDarkMode: currentDarkMode,
@@ -149,7 +149,7 @@ export const useTheme = (): ThemeContextType => {
     return {
       colors: defaultLightTheme,
       isDarkMode: false,
-      toggleTheme: () => {},
+      toggleTheme: () => { },
     };
   }
   return context;
