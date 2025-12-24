@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 // @ts-ignore - getReactNativePersistence is available in React Native build but types might not resolve without specific config
-import { getAuth, signInWithCredential, signOut as firebaseSignOut, onAuthStateChanged, User as FirebaseUser, GoogleAuthProvider, OAuthProvider, initializeAuth, getReactNativePersistence, updateProfile } from 'firebase/auth';
+import { getAuth, signInWithCredential, signOut as firebaseSignOut, onAuthStateChanged, User as FirebaseUser, GoogleAuthProvider, OAuthProvider, initializeAuth, getReactNativePersistence, updateProfile, signInWithPopup } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getFirestore, doc, setDoc, getDoc, Timestamp } from 'firebase/firestore';
 
@@ -168,6 +168,44 @@ class AuthService {
 
     try {
       console.log('🔐 AuthService: Starting Google Sign-In...');
+
+      // Web platform uses Firebase's signInWithPopup
+      if (Platform.OS === 'web') {
+        const { initializeApp, getApps } = require('firebase/app');
+        const firebaseConfig = {
+          apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+          authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+          projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+          storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+          messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+          appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+          measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID,
+        };
+
+        let app;
+        if (getApps().length === 0) {
+          app = initializeApp(firebaseConfig);
+        } else {
+          app = getApps()[0];
+        }
+
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+
+        // Add scopes if needed
+        provider.addScope('profile');
+        provider.addScope('email');
+
+        const result = await signInWithPopup(auth, provider);
+        const firebaseUser = result.user;
+
+        // Create or update user profile in Firestore
+        await this.createOrUpdateUserProfile(firebaseUser);
+
+        const user = this.convertFirebaseUser(firebaseUser);
+        console.log('✅ AuthService: Web Sign-in successful', user.email);
+        return user;
+      }
 
       // Check if Google Play Services are available (Android)
       if (Platform.OS === 'android') {

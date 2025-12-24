@@ -66,7 +66,7 @@ Use a pre-configured cloud environment to add sparks via the codebase without an
 
     ```bash
     # If needed, you can still run the CLI manually from a terminal:
-    npx expo start --web --tunnel
+    npx expo start --web -c
     ```
 
     This will provide a web-based preview of the app so you can verify your spark looks correct.
