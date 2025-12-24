@@ -41,7 +41,7 @@ The most user-friendly way to contribute is directly through the interface of th
 4.  **Submit:** Submit your spark for review directly through the app.
 
 > **Note:** The Spark Wizard is designed for a seamless, no-code experience.
-> ![Spark Wizard Screenshot](Screenshot%202025-12-20%20at%207.40.13%20PM.png)
+> ![Sparks Marketplace](SparksSummary.png)
 
 ---
 
