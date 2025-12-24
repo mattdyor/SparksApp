@@ -254,18 +254,18 @@ export const RecordSwing: React.FC<RecordSwingProps> = ({
     const styles = StyleSheet.create({
         recordSwingButton: {
             height: 40,
-            paddingHorizontal: 20,
+            paddingHorizontal: 10,
             borderRadius: 20,
-            backgroundColor: '#4CAF50',
+            backgroundColor: colors.primary,
             borderWidth: 2,
-            borderColor: '#4CAF50',
+            borderColor: colors.primary,
             alignItems: 'center',
             justifyContent: 'center',
             marginBottom: 8,
         },
         recordingButton: {
-            backgroundColor: '#F44336',
-            borderColor: '#F44336',
+            backgroundColor: colors.primary,
+            borderColor: colors.primary,
         },
         recordSwingButtonText: {
             fontSize: 14,
@@ -395,7 +395,7 @@ export const RecordSwing: React.FC<RecordSwingProps> = ({
                         ? `${countdown}`
                         : isRecording
                             ? `Stop Recording (${recordingDuration}s)`
-                            : '🎥 Record Swing'}
+                            : 'Record Swing'}
                 </Text>
             </TouchableOpacity>
 

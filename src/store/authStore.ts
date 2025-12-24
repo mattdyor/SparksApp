@@ -8,11 +8,11 @@ interface AuthState {
   user: User | null;
   role: UserRole;
   sparkAdminRoles: string[];
-  
+
   // Loading states
   isLoading: boolean;
   isInitializing: boolean;
-  
+
   // Actions
   setUser: (user: User | null) => void;
   setRole: (role: UserRole) => void;
@@ -20,7 +20,7 @@ interface AuthState {
   setIsLoading: (loading: boolean) => void;
   setIsInitializing: (initializing: boolean) => void;
   clearAuth: () => void;
-  
+
   // Helpers
   isAuthenticated: () => boolean;
   isAppAdmin: () => boolean;
@@ -36,36 +36,36 @@ export const useAuthStore = create<AuthState>()(
       sparkAdminRoles: [],
       isLoading: false,
       isInitializing: false,
-      
+
       // Actions
       setUser: (user) => set({ user }),
-      
+
       setRole: (role) => set({ role }),
-      
+
       setSparkAdminRoles: (roles) => set({ sparkAdminRoles: roles }),
-      
+
       setIsLoading: (loading) => set({ isLoading: loading }),
-      
+
       setIsInitializing: (initializing) => set({ isInitializing: initializing }),
-      
+
       clearAuth: () => set({
         user: null,
         role: 'standard',
         sparkAdminRoles: [],
         isLoading: false,
       }),
-      
+
       // Helpers
       isAuthenticated: () => {
         const state = get();
-        return state.user !== null;
+        return state.user !== null && !state.user.isAnonymous;
       },
-      
+
       isAppAdmin: () => {
         const state = get();
         return state.role === 'app-admin';
       },
-      
+
       isSparkAdmin: (sparkId: string) => {
         const state = get();
         return state.isAppAdmin() || state.sparkAdminRoles.includes(sparkId);

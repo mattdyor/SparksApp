@@ -25,7 +25,9 @@ export const AuthenticationGate: React.FC<AuthenticationGateProps> = ({ children
     const [isSigningInWithApple, setIsSigningInWithApple] = useState(false);
 
     // If user is authenticated, show children
-    if (user && user.uid) {
+    // Note: We consider anonymous users as "unauthenticated" for features wrapped in AuthenticationGate
+    // unless explicitly handled differently in the future
+    if (user && user.uid && !user.isAnonymous) {
         return <>{children}</>;
     }
 

@@ -1,10 +1,12 @@
 for Android...
-android/app/build.gradle - increase version code by 1
+**IMPORTANT**: Increment `versionCode` in `app.json` (line 91) before building!
+The `expo prebuild --clean` command regenerates build.gradle from app.json.
 
-cd /Users/mattdyor/SparksApp && rm -rf node_modules && npm install 
-npx expo prebuild --clean
-cd /Users/mattdyor/SparksApp/android && ./gradlew clean
 cd /Users/mattdyor/SparksApp
+rm -rf android ios
+npm install
+npx expo prebuild --clean
+cd android && ./gradlew clean && cd ..
 npx expo run:android --variant release
 
 If you just wanna install the app that was built already...

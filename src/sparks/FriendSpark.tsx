@@ -37,14 +37,14 @@ export const FriendSpark: React.FC<FriendSparkProps> = ({
     const renderUnauthenticated = () => (
         <View style={[styles.container, { backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', padding: 20 }]}>
             <Text style={[styles.message, { color: colors.text }]}>
-                You must be logged in to use this Spark.
+                Must be signed in to use Friend Spark
             </Text>
             <TouchableOpacity
                 style={[styles.button, { backgroundColor: colors.primary }]}
                 onPress={() => navigation.navigate('Settings')}
             >
                 <Text style={[styles.buttonText, { color: colors.background }]}>
-                    Visit Settings Page
+                    Sign In
                 </Text>
             </TouchableOpacity>
         </View>

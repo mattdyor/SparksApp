@@ -48,7 +48,7 @@ export const FriendSparkMain: React.FC<FriendSparkMainProps> = ({ onFriendPress 
     };
 
     const handleFriendPress = (friend: Friend) => {
-        HapticFeedback.impact('light');
+        HapticFeedback.light();
         onFriendPress?.(friend);
     };
 

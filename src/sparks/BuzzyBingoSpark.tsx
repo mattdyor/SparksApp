@@ -25,6 +25,7 @@ try {
 import { useSparkStore } from "../store";
 import { HapticFeedback } from "../utils/haptics";
 import * as Sharing from "expo-sharing";
+import ConfettiCannon from 'react-native-confetti-cannon';
 import {
   SettingsContainer,
   SettingsScrollView,
@@ -128,9 +129,6 @@ export const BuzzyBingoSpark: React.FC<BuzzyBingoSparkProps> = ({
   const [showImportModal, setShowImportModal] = useState(false);
   const [importText, setImportText] = useState("");
   const [showShareModal, setShowShareModal] = useState(false);
-  const [celebrationScale] = useState(new Animated.Value(0));
-  const [celebrationRotation] = useState(new Animated.Value(0));
-  const [celebrationOpacity] = useState(new Animated.Value(0));
   const [bingoLines, setBingoLines] = useState<string[]>([]);
   const [showCelebration, setShowCelebration] = useState(false);
   const [generationPrompt, setGenerationPrompt] = useState("");
@@ -138,6 +136,7 @@ export const BuzzyBingoSpark: React.FC<BuzzyBingoSparkProps> = ({
 
   const accelerometerSubscription = useRef<any>(null);
   const lastShakeTime = useRef<number>(0);
+  const confettiRef = useRef<any>(null);
 
   // Normalize words to exactly 24 words (duplicate if needed)
   const normalizeWords = (words: string[]): string[] => {
@@ -205,7 +204,7 @@ Chocolate Cake
     } catch (error: any) {
       console.error("Gemini generation error:", error);
       const errorMessage = error?.message || "Failed to generate words. Please check your internet connection and try again.";
-      
+
       if (errorMessage.includes("Missing EXPO_PUBLIC_GEMINI_API_KEY")) {
         Alert.alert(
           "Configuration Error",
@@ -384,59 +383,8 @@ Chocolate Cake
       setTimeout(() => HapticFeedback.light(), 800);
       setTimeout(() => HapticFeedback.light(), 1200);
 
-      // Reset animation values
-      celebrationScale.setValue(0);
-      celebrationRotation.setValue(0);
-      celebrationOpacity.setValue(0);
-
-      // Longer, more elaborate celebration sequence
-      Animated.parallel([
-        // Scale animation - grows big, then settles
-        Animated.sequence([
-          Animated.spring(celebrationScale, {
-            toValue: 1.5,
-            friction: 3,
-            tension: 40,
-            useNativeDriver: true,
-          }),
-          Animated.spring(celebrationScale, {
-            toValue: 1.2,
-            friction: 4,
-            tension: 50,
-            useNativeDriver: true,
-          }),
-        ]),
-        // Rotation animation - spins
-        Animated.sequence([
-          Animated.timing(celebrationRotation, {
-            toValue: 1,
-            duration: 1500,
-            useNativeDriver: true,
-          }),
-        ]),
-        // Opacity fade in and out
-        Animated.sequence([
-          Animated.timing(celebrationOpacity, {
-            toValue: 1,
-            duration: 200,
-            useNativeDriver: true,
-          }),
-          Animated.delay(1300),
-          Animated.timing(celebrationOpacity, {
-            toValue: 0,
-            duration: 300,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]).start(() => {
-        // Reset after celebration
-        setTimeout(() => {
-          setShowCelebration(false);
-          celebrationScale.setValue(0);
-          celebrationRotation.setValue(0);
-          celebrationOpacity.setValue(0);
-        }, 100);
-      });
+      // Trigger confetti
+      setTimeout(() => confettiRef.current?.start(), 100);
     } else {
       HapticFeedback.light();
     }
@@ -462,8 +410,8 @@ Chocolate Cake
         ({ x, y, z }: any) => {
           const acceleration = Math.sqrt(
             Math.pow(x - lastX, 2) +
-              Math.pow(y - lastY, 2) +
-              Math.pow(z - lastZ, 2)
+            Math.pow(y - lastY, 2) +
+            Math.pow(z - lastZ, 2)
           );
 
           if (acceleration > SHAKE_THRESHOLD) {
@@ -1089,8 +1037,8 @@ Chocolate Cake
                         borderColor: isBingo
                           ? "#FFD700"
                           : isChecked
-                          ? colors.primary
-                          : colors.border,
+                            ? colors.primary
+                            : colors.border,
                       },
                     ]}
                     onPress={() => toggleSquare(rowIndex, colIndex)}
@@ -1132,34 +1080,16 @@ Chocolate Cake
         </TouchableOpacity>
       </View>
 
-      {/* Celebration Animation */}
+      {/* Celebration Confetti */}
       {showCelebration && (
-        <Animated.View
-          style={[
-            styles.celebrationContainer,
-            {
-              opacity: celebrationOpacity,
-              transform: [
-                {
-                  scale: celebrationScale,
-                },
-                {
-                  rotate: celebrationRotation.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: ["0deg", "360deg"],
-                  }),
-                },
-              ],
-            },
-          ]}
-        >
-          <Text style={[styles.celebrationText, { color: "#FFD700" }]}>
-            🎉 BINGO! 🎉
-          </Text>
-          <Text style={[styles.celebrationSubtext, { color: "#FF6B6B" }]}>
-            YOU DID IT!
-          </Text>
-        </Animated.View>
+        <ConfettiCannon
+          ref={confettiRef}
+          count={200}
+          origin={{ x: -10, y: 0 }}
+          autoStart={false}
+          fadeOut
+          onAnimationEnd={() => setShowCelebration(false)}
+        />
       )}
     </View>
   );

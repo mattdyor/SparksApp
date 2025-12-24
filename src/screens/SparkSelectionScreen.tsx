@@ -1,5 +1,5 @@
 import React from 'react';
-import { ScrollView, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MySparkStackParamList } from '../types/navigation';
 import { getAllSparks, getSparkById } from '../components/SparkRegistry';
@@ -178,7 +178,11 @@ export const SparkSelectionScreen: React.FC<Props> = ({ navigation }) => {
                 >
                   <View style={styles.sparkCardContent}>
                     <View style={styles.sparkIconContainer}>
-                      <Text style={styles.sparkIcon}>{spark.metadata.icon}</Text>
+                      {spark.metadata.iconImage ? (
+                        <Image source={spark.metadata.iconImage} style={{ width: 36, height: 36, resizeMode: 'contain' }} />
+                      ) : (
+                        <Text style={styles.sparkIcon}>{spark.metadata.icon}</Text>
+                      )}
                       <NotificationBadge sparkId={spark.metadata.id} size="small" />
                     </View>
                     <Text style={styles.sparkTitle} numberOfLines={2}>{spark.metadata.title}</Text>

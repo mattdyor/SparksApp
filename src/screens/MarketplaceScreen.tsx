@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ScrollView, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { ScrollView, View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MarketplaceStackParamList } from '../types/navigation';
 import { getAllSparks } from '../components/SparkRegistry';
@@ -294,7 +294,11 @@ export const MarketplaceScreen: React.FC<Props> = ({ navigation }) => {
                   >
                     <View style={styles.sparkCardContent}>
                       <View style={styles.sparkIconContainer}>
-                        <Text style={styles.sparkIcon}>{spark.metadata.icon}</Text>
+                        {spark.metadata.iconImage ? (
+                          <Image source={spark.metadata.iconImage} style={{ width: 32, height: 32, resizeMode: 'contain' }} />
+                        ) : (
+                          <Text style={styles.sparkIcon}>{spark.metadata.icon}</Text>
+                        )}
                         <NotificationBadge sparkId={spark.metadata.id} size="small" />
                       </View>
                       <Text style={styles.sparkTitle} numberOfLines={2}>{spark.metadata.title}</Text>
@@ -318,7 +322,11 @@ export const MarketplaceScreen: React.FC<Props> = ({ navigation }) => {
                   >
                     <View style={styles.sparkCardContentWithRating}>
                       <View style={styles.sparkIconContainer}>
-                        <Text style={styles.sparkIcon}>{spark.metadata.icon}</Text>
+                        {spark.metadata.iconImage ? (
+                          <Image source={spark.metadata.iconImage} style={{ width: 32, height: 32, resizeMode: 'contain' }} />
+                        ) : (
+                          <Text style={styles.sparkIcon}>{spark.metadata.icon}</Text>
+                        )}
                         <NotificationBadge sparkId={spark.metadata.id} size="small" />
                       </View>
                       <Text style={styles.sparkTitle} numberOfLines={2}>{spark.metadata.title}</Text>
@@ -370,7 +378,11 @@ export const MarketplaceScreen: React.FC<Props> = ({ navigation }) => {
                 onPress={() => handleSparkPress(spark.metadata.id)}
               >
                 <View style={styles.sparkCardContent}>
-                  <Text style={styles.sparkIcon}>{spark.metadata.icon}</Text>
+                  {spark.metadata.iconImage ? (
+                    <Image source={spark.metadata.iconImage} style={{ width: 32, height: 32, resizeMode: 'contain', marginBottom: 4 }} />
+                  ) : (
+                    <Text style={styles.sparkIcon}>{spark.metadata.icon}</Text>
+                  )}
                   <Text style={styles.sparkTitle} numberOfLines={2}>{spark.metadata.title}</Text>
                 </View>
               </TouchableOpacity>

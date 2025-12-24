@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, ScrollView, Dimensions } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, ScrollView, Dimensions, Modal, Alert, Linking } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { useTheme } from '../../contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuthStore } from '../../store/authStore';
+import { OrderService, ShippingInfo } from '../../services/OrderService';
+import { ShippingForm } from './ShippingForm';
+import { PaymentConfirmation } from './PaymentConfirmation';
 
 interface ProductShowcaseProps {
     onAddToBag: (color: string) => void;
@@ -10,10 +14,105 @@ interface ProductShowcaseProps {
 
 const { width } = Dimensions.get('window');
 
+const VENMO_LINK = 'https://venmo.com/code?user_id=2749420076826624446';
+
 const ProductShowcase: React.FC<ProductShowcaseProps> = ({ onAddToBag }) => {
     const { isDarkMode, colors } = useTheme();
     const theme = isDarkMode ? 'dark' : 'light';
+    const { user } = useAuthStore();
     const [selectedColor, setSelectedColor] = useState<'orange' | 'black'>('orange');
+    const [showShippingForm, setShowShippingForm] = useState(false);
+    const [showPaymentConfirmation, setShowPaymentConfirmation] = useState(false);
+    const [currentOrderId, setCurrentOrderId] = useState<string | null>(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+
+    const handleBuyNow = () => {
+        if (!user) {
+            Alert.alert(
+                'Sign In Required',
+                'Please sign in to purchase The Wolverine',
+                [{ text: 'OK' }]
+            );
+            return;
+        }
+        setShowShippingForm(true);
+    };
+
+    const handleShippingSubmit = async (shippingInfo: ShippingInfo) => {
+        if (!user) {
+            Alert.alert('Error', 'Please sign in to continue');
+            return;
+        }
+
+        // Use shipping email if user email is not available (e.g., anonymous auth)
+        const userEmail = user.email || shippingInfo.email;
+
+        setIsProcessing(true);
+        try {
+            // Create order in Firestore
+            const orderId = await OrderService.createOrder(
+                user.uid,
+                userEmail,
+                shippingInfo
+            );
+
+            setCurrentOrderId(orderId);
+            setShowShippingForm(false);
+
+            // Open Venmo link
+            const canOpen = await Linking.canOpenURL(VENMO_LINK);
+            if (canOpen) {
+                await Linking.openURL(VENMO_LINK);
+            } else {
+                Alert.alert('Error', 'Cannot open Venmo. Please install the Venmo app or use venmo.com');
+            }
+
+            // Show payment confirmation modal
+            setTimeout(() => {
+                setShowPaymentConfirmation(true);
+            }, 1000);
+
+        } catch (error) {
+            console.error('Error creating order:', error);
+            Alert.alert('Error', 'Failed to create order. Please try again.');
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleConfirmPayment = async () => {
+        if (!currentOrderId) return;
+
+        try {
+            await OrderService.confirmPaymentSent(currentOrderId);
+            setShowPaymentConfirmation(false);
+            setCurrentOrderId(null);
+
+            Alert.alert(
+                'Order Received!',
+                'Thank you! We\'ll verify your payment and ship The Wolverine within 2-3 business days.',
+                [{ text: 'OK' }]
+            );
+        } catch (error) {
+            console.error('Error confirming payment:', error);
+            Alert.alert('Error', 'Failed to confirm payment. Please try again.');
+        }
+    };
+
+    const handleNotYet = () => {
+        setShowPaymentConfirmation(false);
+        Alert.alert(
+            'No Problem',
+            'Your order is saved. You can send payment to @MattDyor on Venmo anytime.',
+            [
+                {
+                    text: 'Open Venmo',
+                    onPress: () => Linking.openURL(VENMO_LINK)
+                },
+                { text: 'OK' }
+            ]
+        );
+    };
 
     return (
         <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -33,7 +132,7 @@ const ProductShowcase: React.FC<ProductShowcaseProps> = ({ onAddToBag }) => {
                     <Text style={[styles.brandText, { color: colors.primary }]}>THE WOLVERINE</Text>
                     <Text style={[styles.title, { color: colors.text }]}>Mount Up. Swing Well.</Text>
                     <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                        Record your swing on the golf course. The ultimate grass-mounting tripod for your swing analysis. Compact, durable, and ready for the range.
+                        Stick "The Wolverine" in the grass and prop your camera up on every shot in about 2 seconds. Use it with Golf Brain to record your whole round.
                     </Text>
 
                     {/* Color Selection */}
@@ -80,12 +179,36 @@ const ProductShowcase: React.FC<ProductShowcaseProps> = ({ onAddToBag }) => {
 
                 <TouchableOpacity
                     style={[styles.addToBagButton, { backgroundColor: colors.primary }]}
-                    onPress={() => onAddToBag(selectedColor)}
+                    onPress={handleBuyNow}
+                    disabled={isProcessing}
                 >
-                    <Text style={styles.addToBagText}>Add to Bag</Text>
-                    <Ionicons name="bag-handle-outline" size={20} color="#FFF" style={{ marginLeft: 8 }} />
+                    <Text style={styles.addToBagText}>{isProcessing ? 'Processing...' : 'Buy Now'}</Text>
+                    <Ionicons name="card-outline" size={20} color="#FFF" style={{ marginLeft: 8 }} />
                 </TouchableOpacity>
             </BlurView>
+
+            {/* Shipping Form Modal */}
+            <Modal
+                visible={showShippingForm}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setShowShippingForm(false)}
+            >
+                <ShippingForm
+                    onSubmit={handleShippingSubmit}
+                    onCancel={() => setShowShippingForm(false)}
+                />
+            </Modal>
+
+            {/* Payment Confirmation Modal */}
+            {currentOrderId && (
+                <PaymentConfirmation
+                    visible={showPaymentConfirmation}
+                    orderId={currentOrderId}
+                    onConfirmPayment={handleConfirmPayment}
+                    onNotYet={handleNotYet}
+                />
+            )}
         </View>
     );
 };

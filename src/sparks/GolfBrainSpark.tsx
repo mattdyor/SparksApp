@@ -3153,12 +3153,12 @@ const OutcomeGrid: React.FC<{
       fontSize: 16,
       fontWeight: '600',
       color: colors.text,
-      marginBottom: 8,
+      marginBottom: 0,
     },
     grid: {
       flexDirection: 'row',
       alignSelf: 'center', // Center horizontally
-      width: 180, // 3 cells * 60px each
+      width: '90%', // Use percentage to span most of screen width
       borderWidth: 1,
       borderColor: colors.border,
     },
@@ -3166,8 +3166,7 @@ const OutcomeGrid: React.FC<{
       flex: 1,
     },
     cell: {
-      aspectRatio: 1, // Square cells
-      height: 60, // 1px larger than before (40 + 1)
+      height: 40,
       borderRadius: 0, // No border radius for touching cells
       justifyContent: 'center',
       alignItems: 'center',
@@ -4512,13 +4511,14 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
       fontSize: 16,
       fontWeight: '600',
       color: colors.text,
-      marginRight: 12,
+      marginRight: 8,
+      width: 40,
     },
     puttDistanceDropdown: {
       flex: 1,
       backgroundColor: colors.background,
       borderRadius: 6,
-      paddingHorizontal: 8,
+      paddingHorizontal: 12,
       paddingVertical: 8,
       minHeight: 40,
       borderWidth: 1,
@@ -5418,7 +5418,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
               const defaultClubForShot = getDefaultClubForShot();
 
               return (
-                <View style={[styles.shotCard, { marginBottom: 0, paddingBottom: 12 }]}>
+                <View style={[styles.shotCard, { marginBottom: 0, paddingBottom: 18 }]}>
                   {/* Shot Header - Moved to top */}
                   <View style={styles.shotHeader}>
                     <Text style={styles.shotNumber}>
@@ -5535,7 +5535,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
                   </View>
 
                   {/* Outcome Grid for this shot */}
-                  <View style={{ height: 20, marginTop: 12 }} />
+                  <View style={{ height: 12, marginTop: 6 }} />
                   <View style={[
                     (shotInfo.shot.direction === 'penalty') && {
                       backgroundColor: '#000000',
@@ -5550,55 +5550,13 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
                       selectedOutcome={shotInfo.shot.direction}
                       isPoorShot={shotInfo.shot.poorShot === true}
                       onSelect={(outcome) => {
-                        console.log('GolfBrain: onSelect called with outcome:', outcome);
-                        console.log('GolfBrain: Current shot poorShot before:', shotInfo.shot.poorShot);
                         updateShot(shotInfo.shot.id, shotInfo.type === 'shot' ? 'shot' : 'putt', 'direction', outcome);
-                        // Clear poorShot flag when any cell is selected (except long press)
                         updateShot(shotInfo.shot.id, shotInfo.type === 'shot' ? 'shot' : 'putt', 'poorShot', false);
-                        console.log('GolfBrain: Cleared poorShot flag');
                       }}
                       onPoopSelect={(outcome) => {
-                        console.log('GolfBrain: onPoopSelect called with outcome:', outcome);
-                        console.log('GolfBrain: Setting poorShot to true');
                         updateShot(shotInfo.shot.id, shotInfo.type === 'shot' ? 'shot' : 'putt', 'direction', outcome);
                         updateShot(shotInfo.shot.id, shotInfo.type === 'shot' ? 'shot' : 'putt', 'poorShot', true);
 
-                        // Handle poor shot - ask if user wants to add another shot
-                        // COMMENTED OUT: User wants to try without this prompt
-                        /*
-                        Alert.alert(
-                          'Add Another Shot?',
-                          shotInfo.type === 'shot' ? 'Do you want to add another shot?' : 'Do you want to add another putt?',
-                          [
-                            {
-                              text: 'No',
-                              style: 'cancel'
-                            },
-                            {
-                              text: 'Yes',
-                              onPress: () => {
-                                // Add another shot with gap wedge default
-                                const newShot: Shot = {
-                                  id: `shot-${Date.now()}-${Math.random()}`,
-                                  type: shotInfo.type,
-                                  lie: 'green',
-                                  direction: 'good', // Default to good
-                                  club: 'Gap Wedge', // Default to gap wedge
-                                  timestamp: Date.now(),
-                                };
-                                
-                                if (shotInfo.type === 'shot') {
-                                  setShots(prev => [...prev, newShot]);
-                                  // Stay on current shot, don't navigate to the new shot
-                                } else {
-                                  setPutts(prev => [...prev, newShot]);
-                                  // Stay on current shot, don't navigate to the new shot
-                                }
-                              }
-                            }
-                          ]
-                        );
-                        */
                       }}
                       onFlameAnimation={onFlameAnimation}
                       onPoopAnimation={onPoopAnimation}
@@ -5608,8 +5566,8 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
                   </View>
 
                   {/* Record Swing Component */}
-                  {shotInfo.isShot && (
-                    <View style={{ marginBottom: 16 }}>
+                  {1 == 1 && (
+                    <View style={{ marginBottom: 6 }}>
                       {shotInfo.shot.videoUri ? (
                         <View style={styles.videoContainer}>
                           <Video
@@ -5654,7 +5612,7 @@ const HoleDetailScreen = React.forwardRef<{ saveCurrentData: () => void }, {
                   )}
                   {/* OB/Water buttons - Moved to bottom */}
                   {shotInfo.isShot && (
-                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 16, marginBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', gap: 8, marginTop: 0, marginBottom: 8 }}>
                       <TouchableOpacity
                         style={[
                           styles.obWaterButton,

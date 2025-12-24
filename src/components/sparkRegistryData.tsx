@@ -6,7 +6,6 @@ import { BaseSpark as BaseSparkComponent } from './BaseSpark';
 import { IdeasSpark } from '../sparks/IdeasSpark';
 import { SpinnerSpark } from '../sparks/SpinnerSpark';
 import { FlashcardsSpark } from '../sparks/FlashcardsSpark';
-import { BusinessSpark } from '../sparks/BusinessSpark';
 import { PackingListSpark } from '../sparks/PackingListSpark';
 import { TodoSpark } from '../sparks/TodoSpark';
 import ToviewSpark from '../sparks/ToviewSpark';
@@ -88,26 +87,14 @@ export const sparkRegistry: Record<string, BaseSpark> = {
     flashcards: {
         metadata: {
             id: 'flashcards',
-            title: 'Get Spanish',
+            title: 'Spanish Cards',
             description: 'Study with interactive flip cards and progress tracking',
             icon: '🃏',
-            category: 'education',
+            category: 'spanish',
             createdAt: '2024-01-02T00:00:00.000Z',
             rating: 4.6,
         },
         component: FlashcardsSpark,
-    },
-    'business-sim': {
-        metadata: {
-            id: 'business-sim',
-            title: 'Business Simulator',
-            description: 'Run your own virtual company with strategic decisions',
-            icon: '💼',
-            category: 'game',
-            createdAt: '2024-01-03T00:00:00.000Z',
-            rating: 4.0,
-        },
-        component: BusinessSpark,
     },
     'packing-list': {
         metadata: {
@@ -163,7 +150,7 @@ export const sparkRegistry: Record<string, BaseSpark> = {
             title: 'Amigo',
             description: 'Practice Spanish conversation with Ana and Miguel',
             icon: '🇪🇸',
-            category: 'spanish',    
+            category: 'spanish',
             createdAt: '2024-01-08T00:00:00.000Z',
             rating: 4.5,
         },
@@ -450,7 +437,7 @@ export const sparkRegistry: Record<string, BaseSpark> = {
             id: 'friend-spark',
             title: 'Friend Spark',
             description: 'Connect with friends and share sparks',
-            icon: '👥',
+            icon: '🤝',
             category: 'social',
             createdAt: '2025-12-15T00:00:00.000Z',
             rating: 4.5,
@@ -463,9 +450,10 @@ export const sparkRegistry: Record<string, BaseSpark> = {
             title: 'The Wolverine',
             description: 'Get the ultimate grass-mounting tripod for your swing',
             icon: '📸',
+            iconImage: require('../../assets/wolverine_icon.png'),
             category: 'golf',
             createdAt: '2025-12-22T00:00:00.000Z',
-            rating: 5.0,
+            rating: 4.4,
         },
         component: TripodSpark,
     },

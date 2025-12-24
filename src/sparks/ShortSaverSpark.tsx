@@ -17,6 +17,8 @@ import {
   StatusBar,
   Modal,
 } from 'react-native';
+import { useNavigation, NavigationProp } from '@react-navigation/native';
+import { RootTabParamList } from '../types/navigation';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuthStore } from '../store/authStore';
 import { useSparkStore } from '../store';
@@ -57,6 +59,7 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
   onComplete,
 }) => {
   const { colors } = useTheme();
+  const navigation = useNavigation<NavigationProp<RootTabParamList>>();
   const { getSparkData, setSparkData } = useSparkStore();
   const [videos, setVideos] = useState<ShortVideo[]>([]);
   const [newUrl, setNewUrl] = useState('');
@@ -415,7 +418,6 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
   };
 
   // Handle share video
-  // Handle share video
   const handleShareVideo = () => {
     // Check if user is authenticated
     const { isAuthenticated } = useAuthStore.getState();
@@ -429,11 +431,7 @@ const ShortSaverSpark: React.FC<ShortSaverSparkProps> = ({
             text: 'Sign In',
             onPress: () => {
               handleCloseModal();
-              // We'll rely on the user navigating to settings or the parent component handling this
-              // Ideally, we'd navigate to Settings here but we don't have direct navigation prop access easily without hook
-              // But FriendSelectionModal is inside the screen which has navigation? 
-              // ShortSaverSpark seems to be a screen or wrapped component.
-              // For now, simple alert is better than "No friends".
+              navigation.navigate('Settings');
             }
           }
         ]

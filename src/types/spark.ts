@@ -3,9 +3,11 @@ export interface SparkMetadata {
   title: string;
   description: string;
   icon: string;
-  category: 'productivity' | 'travel' | 'food' | 'education' | 'golf' | 'game' | 'media' | 'utility' | 'community' | 'health' | 'social';
+  iconImage?: any; // Image source (require or uri)
+  category: 'productivity' | 'travel' | 'food' | 'golf' | 'game' | 'media' | 'utility' | 'community' | 'health' | 'social' | 'spanish';
   createdAt: string; // ISO date string
   rating: number; // 1-5 stars
+  archived?: boolean; // Optional flag for archived sparks
 }
 
 export interface SparkConfig {

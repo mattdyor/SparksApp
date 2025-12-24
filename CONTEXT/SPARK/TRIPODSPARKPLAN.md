@@ -14,7 +14,7 @@ Create a dedicated Spark to showcase and sell the "Wolverine" tripod. The experi
 ## 2. Data Model
 **Product**:
 - Name: "The Wolverine"
-- Description: "The ultimate grass-mounting tripod for your swing analysis. Compact, durable, and ready for the range."
+- Description: "The ultimate grass-mounting tripod for your swing analysis. Compact, durable, and ready for the golf course."
 - Price: $5.00 USD (Shipping included)
 - Colors: Orange, Black (based on image)
 - Image: `assets/wolverine_tripod.jpg` (Available locally)

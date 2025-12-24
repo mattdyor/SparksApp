@@ -36,6 +36,7 @@ export interface User {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
+  isAnonymous: boolean;
 }
 
 export type UserRole = 'standard' | 'spark-admin' | 'app-admin';
@@ -599,6 +600,7 @@ class AuthService {
       email: firebaseUser.email,
       displayName: firebaseUser.displayName,
       photoURL: firebaseUser.photoURL,
+      isAnonymous: firebaseUser.isAnonymous,
     };
   }
 
