@@ -187,6 +187,16 @@ const ShareSparks: React.FC<ShareSparksProps> = () => {
                 <TouchableOpacity onPress={() => Linking.openURL('https://sparks.febak.com/check-out-the-sparks-app')}>
                     <Text style={styles.linkText}>sparks.febak.com/check-out-the-sparks-app</Text>
                 </TouchableOpacity>
+
+                <TouchableOpacity 
+                    onPress={() => {
+                        HapticFeedback.light();
+                        Linking.openURL('https://linkly.link/2TcvP');
+                    }}
+                    style={{ marginTop: 8 }}
+                >
+                    <Text style={styles.linkText}>Universal Link</Text>
+                </TouchableOpacity>
             </ScrollView>
         </View>
     );
