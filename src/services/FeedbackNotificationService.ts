@@ -108,29 +108,65 @@ export class FeedbackNotificationService {
     try {
       // Import WebFirebaseService dynamically to avoid circular dependencies
       const WebFirebaseService = require('./WebFirebaseService').WebFirebaseService;
-      
+
       // Only start listener if Firebase is initialized
       if (!WebFirebaseService.isInitialized()) {
         console.log('⚠️ Firebase not initialized, cannot start feedback listener');
-        return () => {};
+        return () => { };
       }
 
-      // Set up the real-time listener
-      const unsubscribe = WebFirebaseService.startFeedbackResponseListener(
+      // Set up the real-time listener for user feedback replies
+      const unsubscribeFeedback = WebFirebaseService.startFeedbackResponseListener(
         deviceId,
         (feedbackId: string, sparkId: string, sparkName: string) => {
           console.log('📬 Real-time feedback response received:', { feedbackId, sparkId, sparkName });
-          
-          // Add as pending response (which will send a notification)
           this.addPendingResponse(deviceId, feedbackId, sparkId, sparkName);
         }
       );
 
-      console.log('✅ Started real-time feedback response listener');
-      return unsubscribe;
+      // Set up the real-time listener for admin to detect new spark submissions
+      let unsubscribeSubmissions = () => { };
+      const { AdminResponseService } = require('./AdminResponseService');
+      AdminResponseService.isAdmin().then((isAdmin: boolean) => {
+        if (isAdmin) {
+          const { SparkSubmissionAdminService } = require('./SparkSubmissionAdminService');
+          unsubscribeSubmissions = SparkSubmissionAdminService.startSubmissionsListener((submission: any) => {
+            console.log('📬 Real-time spark submission received:', submission.sparkName);
+            this.sendAdminSubmissionNotification(submission.sparkName);
+            this.updateAppIconBadge();
+          });
+        }
+      });
+
+      console.log('✅ Started real-time feedback response and submission listeners');
+      return () => {
+        unsubscribeFeedback();
+        unsubscribeSubmissions();
+      };
     } catch (error) {
       console.error('❌ Error starting feedback response listener:', error);
-      return () => {};
+      return () => { };
+    }
+  }
+
+  /**
+   * Send admin notification for new spark submission
+   */
+  static async sendAdminSubmissionNotification(sparkName: string): Promise<void> {
+    try {
+      if (!isNotificationsAvailable || !Notifications) return;
+
+      await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '🆕 New Spark Submission!',
+          body: `Someone just submitted a new spark idea: ${sparkName}`,
+          data: { type: 'new_spark_submission' },
+          sound: true,
+        },
+        trigger: null,
+      });
+    } catch (error) {
+      console.error('Error sending admin submission notification:', error);
     }
   }
 
@@ -162,16 +198,16 @@ export class FeedbackNotificationService {
     try {
       const { ServiceFactory } = await import('./ServiceFactory');
       const FirebaseService = ServiceFactory.getFirebaseService();
-      
+
       // Mark as read in Firebase
       await (FirebaseService as any).markFeedbackAsReadByUser(feedbackId);
-      
+
       // Remove from pending responses in AsyncStorage
       const responses = await this.getPendingResponses(deviceId);
       const updatedResponses = responses.filter(r => r.feedbackId !== feedbackId);
       const key = `${this.PENDING_RESPONSES_KEY}_${deviceId}`;
       await AsyncStorage.setItem(key, JSON.stringify(updatedResponses));
-      
+
       // Update app icon badge with aggregated counts
       await this.updateAppIconBadge();
     } catch (error) {
@@ -186,25 +222,25 @@ export class FeedbackNotificationService {
     try {
       const { ServiceFactory } = await import('./ServiceFactory');
       const FirebaseService = ServiceFactory.getFirebaseService();
-      
+
       // Get all unread feedback for this spark
       const unreadCount = await (FirebaseService as any).getUnreadFeedbackCount(deviceId, sparkId);
-      
+
       if (unreadCount > 0) {
         // Get all feedback items for this user/spark
         const { FeedbackService } = await import('./FeedbackService');
         const allFeedback = await FeedbackService.getUserFeedback(deviceId, sparkId);
-        
+
         // Find feedback items with responses that haven't been read
         const unreadFeedbackIds = allFeedback
           .filter(f => f.response && f.response.trim() && f.readByUser !== true)
           .map(f => f.id)
           .filter(Boolean) as string[];
-        
+
         if (unreadFeedbackIds.length > 0) {
           // Mark all as read in Firebase
           await (FirebaseService as any).markMultipleFeedbackAsReadByUser(unreadFeedbackIds);
-          
+
           // Remove all pending responses for this spark from AsyncStorage
           const responses = await this.getPendingResponses(deviceId);
           const updatedResponses = responses.filter(r => r.sparkId !== sparkId);
@@ -212,7 +248,7 @@ export class FeedbackNotificationService {
           await AsyncStorage.setItem(key, JSON.stringify(updatedResponses));
         }
       }
-      
+
       // Update app icon badge with aggregated counts
       await this.updateAppIconBadge();
     } catch (error) {
@@ -224,9 +260,9 @@ export class FeedbackNotificationService {
    * Add a pending response notification
    */
   static async addPendingResponse(
-    deviceId: string, 
-    feedbackId: string, 
-    sparkId: string, 
+    deviceId: string,
+    feedbackId: string,
+    sparkId: string,
     sparkName: string
   ): Promise<void> {
     try {
@@ -236,10 +272,10 @@ export class FeedbackNotificationService {
         sparkId,
         sparkName
       });
-      
+
       const responses = await this.getPendingResponses(deviceId);
       console.log('🔔 Existing pending responses for device:', deviceId, 'count:', responses.length);
-      
+
       const newResponse: PendingResponse = {
         feedbackId,
         sparkId,
@@ -264,13 +300,13 @@ export class FeedbackNotificationService {
 
       // Send notification
       await this.sendResponseNotification(sparkName, feedbackId);
-      
+
       // Update badge count (internal method for individual spark)
       await this.updateBadgeCount(deviceId);
-      
+
       // Update app icon badge with aggregated counts
       await this.updateAppIconBadge();
-      
+
       console.log('✅ Pending response added successfully');
     } catch (error) {
       console.error('❌ Error adding pending response:', error);
@@ -313,7 +349,7 @@ export class FeedbackNotificationService {
 
       const responses = await this.getPendingResponses(deviceId);
       const unreadCount = responses.filter(r => !r.read).length;
-      
+
       await Notifications.setBadgeCountAsync(unreadCount);
     } catch (error) {
       console.error('Error updating badge count:', error);
@@ -333,10 +369,10 @@ export class FeedbackNotificationService {
       }
 
       const deviceId = await this.getPersistentDeviceId();
-      
+
       // Get total unread replies across all sparks
       const totalUnreadReplies = await this.getUnreadCount(deviceId);
-      
+
       // Check if user is admin and get unread feedback count
       let totalUnreadFeedback = 0;
       let totalUnreadSuggestions = 0;
@@ -347,8 +383,11 @@ export class FeedbackNotificationService {
         if (isAdmin) {
           // For admins, count both feedback (with comments) and reviews (ratings only)
           totalUnreadFeedback = await AdminResponseService.getTotalUnreadCount();
+
+          // Also check for new spark submissions (already included in getTotalUnreadCount now, 
+          // but we might want to start a listener for them specifically in the background)
         }
-        
+
         // Check for GolfWisdom admin suggestions
         try {
           const { GolfWisdomAdminService } = await import('./GolfWisdomAdminService');
@@ -373,7 +412,7 @@ export class FeedbackNotificationService {
       } catch (error) {
         // If admin check fails, assume not admin
         console.log('Admin check failed, assuming not admin:', error);
-        
+
         // Still try to get friend invitations even if admin check fails
         try {
           const { FriendInvitationNotificationService } = await import('./FriendInvitationNotificationService');
@@ -382,10 +421,10 @@ export class FeedbackNotificationService {
           console.log('Friend invitation check failed:', error);
         }
       }
-      
+
       // Aggregate total unread count
       const totalUnread = totalUnreadReplies + totalUnreadFeedback + totalUnreadSuggestions + totalUnreadInvitations;
-      
+
       // Update app icon badge
       await Notifications.setBadgeCountAsync(totalUnread);
     } catch (error) {
@@ -401,10 +440,10 @@ export class FeedbackNotificationService {
     try {
       const { ServiceFactory } = await import('./ServiceFactory');
       const FirebaseService = ServiceFactory.getFirebaseService();
-      
+
       // Use Firebase to get unread count directly
       const count = await (FirebaseService as any).getUnreadFeedbackCount(deviceId, sparkId);
-      
+
       return count;
     } catch (error) {
       console.error('Error getting unread count:', error);
@@ -416,8 +455,8 @@ export class FeedbackNotificationService {
    * Send admin notification for new feedback
    */
   static async sendAdminNotification(
-    sparkName: string, 
-    feedbackText: string, 
+    sparkName: string,
+    feedbackText: string,
     rating: number
   ): Promise<void> {
     try {
@@ -460,7 +499,7 @@ export class FeedbackNotificationService {
     try {
       const { ServiceFactory } = await import('./ServiceFactory');
       const FirebaseService = ServiceFactory.getFirebaseService();
-      
+
       // Check if Firebase is initialized with proper error handling
       try {
         if (!(FirebaseService as any).isInitialized()) {
@@ -474,7 +513,7 @@ export class FeedbackNotificationService {
 
       const responses = await (FirebaseService as any).getUserFeedbackResponses(userId, sparkId);
       const unreadResponses = responses.filter((response: any) => !response.isRead);
-      
+
       console.log(`📩 Checking unread responses for ${sparkId}: ${unreadResponses.length} unread`);
       return unreadResponses.length > 0;
     } catch (error) {

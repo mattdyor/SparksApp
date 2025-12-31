@@ -134,7 +134,31 @@ const CustomTabBar: React.FC<BottomTabBarProps & { tabBarVisible: boolean }> = (
   const { colors } = useTheme();
   const { recentSparks } = useAppStore();
   const [showQuickSwitch, setShowQuickSwitch] = React.useState(false);
+  const [adminUnreadCount, setAdminUnreadCount] = React.useState(0);
   const isNavigatingRef = React.useRef(false);
+
+  // Check for admin unread counts (feedback, reviews, submissions)
+  React.useEffect(() => {
+    const checkAdminCounts = async () => {
+      try {
+        const { AdminResponseService } = require('../services/AdminResponseService');
+        const isAdmin = await AdminResponseService.isAdmin();
+        if (isAdmin) {
+          const totalUnread = await AdminResponseService.getTotalUnreadCount();
+          setAdminUnreadCount(totalUnread);
+        } else {
+          setAdminUnreadCount(0);
+        }
+      } catch (error) {
+        console.log('Error checking admin counts in TabBar:', error);
+      }
+    };
+
+    checkAdminCounts();
+    // Refresh periodically
+    const interval = setInterval(checkAdminCounts, 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Log navigation state changes
   React.useEffect(() => {
@@ -243,11 +267,32 @@ const CustomTabBar: React.FC<BottomTabBarProps & { tabBarVisible: boolean }> = (
       justifyContent: 'center',
     },
     tabIcon: {
-      fontSize: 20,
+      fontSize: 24,
       marginBottom: 4,
+    },
+    badge: {
+      position: 'absolute',
+      top: 5,
+      right: '25%',
+      backgroundColor: '#FF3B30',
+      minWidth: 18,
+      height: 18,
+      borderRadius: 9,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: 4,
+      borderWidth: 1.5,
+      borderColor: '#fff',
+      zIndex: 1,
+    },
+    badgeText: {
+      color: '#fff',
+      fontSize: 10,
+      fontWeight: 'bold',
     },
     tabLabel: {
       fontSize: 12,
+      fontWeight: '500',
     },
     quickSwitchButton: {
       flex: 1,
@@ -502,6 +547,13 @@ const CustomTabBar: React.FC<BottomTabBarProps & { tabBarVisible: boolean }> = (
                   <Text style={[styles.tabIcon, { color: isFocused ? colors.primary : colors.textSecondary }]}>
                     {icon}
                   </Text>
+                  {route.name === 'Settings' && adminUnreadCount > 0 && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>
+                        {adminUnreadCount > 99 ? '99+' : adminUnreadCount}
+                      </Text>
+                    </View>
+                  )}
                   <Text style={[styles.tabLabel, { color: isFocused ? colors.primary : colors.textSecondary }]}>
                     {label}
                   </Text>

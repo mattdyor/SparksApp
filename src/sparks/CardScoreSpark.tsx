@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, Modal, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput, Alert, Modal, KeyboardAvoidingView, Platform, Dimensions } from 'react-native';
+import { Svg, Path, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { useSparkStore } from '../store';
 import { HapticFeedback } from '../utils/haptics';
 import { useTheme } from '../contexts/ThemeContext';
@@ -20,6 +21,7 @@ interface PlayerSet {
   setName: string;
   players: string[];
   winHistory: Record<string, number>;
+  highScoreWins: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -42,6 +44,7 @@ const defaultPlayerSet: PlayerSet = {
   setName: 'Default',
   players: ['Hero', 'Villain'],
   winHistory: { Hero: 0, Villain: 0 },
+  highScoreWins: true,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -58,8 +61,10 @@ const CardScoreSettings: React.FC<{
   const [editingSet, setEditingSet] = useState<PlayerSet | null>(null);
   const [newSetName, setNewSetName] = useState('');
   const [newPlayers, setNewPlayers] = useState<string[]>(['', '']);
+  const [newHighScoreWins, setNewHighScoreWins] = useState(true);
   const [editingSetName, setEditingSetName] = useState('');
   const [editingPlayers, setEditingPlayers] = useState<string[]>([]);
+  const [editingHighScoreWins, setEditingHighScoreWins] = useState(true);
 
   const handleCreateSet = () => {
     setNewSetName('');
@@ -88,6 +93,7 @@ const CardScoreSettings: React.FC<{
       setName: newSetName.trim(),
       players: validPlayers.map(p => p.trim()),
       winHistory,
+      highScoreWins: newHighScoreWins,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
@@ -101,6 +107,7 @@ const CardScoreSettings: React.FC<{
     setEditingSet(set);
     setEditingSetName(set.setName);
     setEditingPlayers([...set.players, '']);
+    setEditingHighScoreWins(set.highScoreWins !== false); // Default to true
     setShowEditModal(true);
   };
 
@@ -136,6 +143,7 @@ const CardScoreSettings: React.FC<{
       setName: editingSetName.trim(),
       players: validPlayers.map(p => p.trim()),
       winHistory: updatedWinHistory,
+      highScoreWins: editingHighScoreWins,
       updatedAt: new Date().toISOString(),
     };
 
@@ -320,7 +328,7 @@ const CardScoreSettings: React.FC<{
             <View key={set.id} style={styles.playerSetCard}>
               <Text style={styles.playerSetName}>{set.setName}</Text>
               <Text style={styles.playerSetInfo}>
-                Players: {set.players.join(', ')}
+                Players: {set.players.join(', ')} | {set.highScoreWins !== false ? 'Highest Wins' : 'Lowest Wins'}
               </Text>
               <Text style={styles.playerSetInfo}>
                 Wins: {Object.entries(set.winHistory)
@@ -389,6 +397,32 @@ const CardScoreSettings: React.FC<{
             <TouchableOpacity style={styles.addPlayerButton} onPress={() => addPlayerField(false)}>
               <Text style={styles.addPlayerText}>+ Add Player</Text>
             </TouchableOpacity>
+
+            <Text style={{ color: colors.text, marginBottom: 8, fontWeight: '600' }}>
+              Win Condition:
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+              <TouchableOpacity
+                style={[
+                  styles.editButton,
+                  newHighScoreWins && { backgroundColor: colors.primary },
+                  !newHighScoreWins && { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }
+                ]}
+                onPress={() => setNewHighScoreWins(true)}
+              >
+                <Text style={[styles.buttonText, !newHighScoreWins && { color: colors.text }]}>Highest Wins</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.editButton,
+                  !newHighScoreWins && { backgroundColor: colors.primary },
+                  newHighScoreWins && { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }
+                ]}
+                onPress={() => setNewHighScoreWins(false)}
+              >
+                <Text style={[styles.buttonText, newHighScoreWins && { color: colors.text }]}>Lowest Wins</Text>
+              </TouchableOpacity>
+            </View>
             <SaveCancelButtons
               onSave={handleSaveNewSet}
               onCancel={() => setShowCreateModal(false)}
@@ -438,6 +472,32 @@ const CardScoreSettings: React.FC<{
             <TouchableOpacity style={styles.addPlayerButton} onPress={() => addPlayerField(true)}>
               <Text style={styles.addPlayerText}>+ Add Player</Text>
             </TouchableOpacity>
+
+            <Text style={{ color: colors.text, marginBottom: 8, fontWeight: '600' }}>
+              Win Condition:
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+              <TouchableOpacity
+                style={[
+                  styles.editButton,
+                  editingHighScoreWins && { backgroundColor: colors.primary },
+                  !editingHighScoreWins && { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }
+                ]}
+                onPress={() => setEditingHighScoreWins(true)}
+              >
+                <Text style={[styles.buttonText, !editingHighScoreWins && { color: colors.text }]}>Highest Wins</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.editButton,
+                  !editingHighScoreWins && { backgroundColor: colors.primary },
+                  editingHighScoreWins && { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }
+                ]}
+                onPress={() => setEditingHighScoreWins(false)}
+              >
+                <Text style={[styles.buttonText, editingHighScoreWins && { color: colors.text }]}>Lowest Wins</Text>
+              </TouchableOpacity>
+            </View>
             <SaveCancelButtons
               onSave={handleSaveEditSet}
               onCancel={() => {
@@ -472,7 +532,7 @@ export const CardScoreSpark: React.FC<CardScoreSparkProps> = ({
   // Load data on mount (only once)
   useEffect(() => {
     const savedData = getSparkData('card-score');
-    
+
     // Initialize player sets
     if (savedData?.playerSets && savedData.playerSets.length > 0) {
       setPlayerSets(savedData.playerSets);
@@ -497,7 +557,7 @@ export const CardScoreSpark: React.FC<CardScoreSparkProps> = ({
     if (playerSets.length === 0 && activeGame === null) {
       return;
     }
-    
+
     setSparkData('card-score', {
       playerSets,
       activeGame,
@@ -590,7 +650,7 @@ export const CardScoreSpark: React.FC<CardScoreSparkProps> = ({
 
   const handleCancelScore = () => {
     if (!activeGame) return;
-    
+
     // If we've started entering scores for this round, remove the entire round
     if (currentPlayerIndex > 0) {
       const updatedRounds = [...activeGame.rounds];
@@ -603,7 +663,7 @@ export const CardScoreSpark: React.FC<CardScoreSparkProps> = ({
         });
       }
     }
-    
+
     setShowAddRoundModal(false);
     setCurrentPlayerIndex(0);
     setManualScoreInput('');
@@ -620,9 +680,13 @@ export const CardScoreSpark: React.FC<CardScoreSparkProps> = ({
       totals[player] = activeGame.rounds.reduce((sum, round) => sum + (round[player] || 0), 0);
     });
 
-    // Find winner(s) - highest score
-    const maxScore = Math.max(...Object.values(totals));
-    const winners = Object.keys(totals).filter(player => totals[player] === maxScore);
+    // Find winner(s)
+    const highScoreWins = playerSet.highScoreWins !== false;
+    const targetScore = highScoreWins
+      ? Math.max(...Object.values(totals))
+      : Math.min(...Object.values(totals));
+
+    const winners = Object.keys(totals).filter(player => totals[player] === targetScore);
 
     // Update win history
     const updatedPlayerSets = playerSets.map(set => {
@@ -646,8 +710,8 @@ export const CardScoreSpark: React.FC<CardScoreSparkProps> = ({
 
     // Show winner alert
     const winnerText = winners.length === 1
-      ? `${winners[0]} wins with ${maxScore} points!`
-      : `Tie! ${winners.join(' and ')} both have ${maxScore} points!`;
+      ? `${winners[0]} wins with ${targetScore} points!`
+      : `Tie! ${winners.join(' and ')} both have ${targetScore} points!`;
 
     Alert.alert('Game Over', winnerText);
     HapticFeedback.success();
@@ -667,8 +731,93 @@ export const CardScoreSpark: React.FC<CardScoreSparkProps> = ({
 
   // Get color for player based on index
   const getPlayerColor = (index: number): string => {
-    const colors = ['#AF52DE', '#FF3B30', '#FF9500', '#007AFF']; // Purple, Red, Orange, Blue
+    const colors = ['#AF52DE', '#FF3B30', '#FF9500', '#007AFF', '#34C759', '#5856D6', '#FF2D55']; // Added more colors
     return colors[index % colors.length];
+  };
+
+  const ScoreChart = () => {
+    if (!activeGame || activeGame.rounds.length < 1) return null;
+    const playerSet = playerSets.find(s => s.id === activeGame.activeSetId);
+    if (!playerSet) return null;
+
+    const width = Dimensions.get('window').width - 40;
+    const height = 200;
+    const padding = 30;
+
+    // Calculate cumulative scores for each player
+    const cumulativeScores: Record<string, number[]> = {};
+    playerSet.players.forEach(player => {
+      let sum = 0;
+      cumulativeScores[player] = [0]; // Start at 0
+      activeGame.rounds.forEach(round => {
+        sum += round[player] || 0;
+        cumulativeScores[player].push(sum);
+      });
+    });
+
+    const allScores = Object.values(cumulativeScores).flat();
+    const minScore = Math.min(...allScores, 0);
+    const maxScore = Math.max(...allScores, 1);
+    const range = maxScore - minScore;
+
+    const getX = (index: number) => padding + (index * (width - 2 * padding)) / (activeGame.rounds.length);
+    const getY = (score: number) => height - padding - ((score - minScore) / range) * (height - 2 * padding);
+
+    return (
+      <View style={{ marginVertical: 20, alignItems: 'center', backgroundColor: colors.surface, borderRadius: 12, padding: 10 }}>
+        <Svg width={width} height={height}>
+          {/* Axis lines */}
+          <Line x1={padding} y1={padding} x2={padding} y2={height - padding} stroke={colors.border} strokeWidth="1" />
+          <Line x1={padding} y1={height - padding} x2={width - padding} y2={height - padding} stroke={colors.border} strokeWidth="1" />
+
+          {/* Zero line if there are negative scores */}
+          {minScore < 0 && (
+            <Line
+              x1={padding}
+              y1={getY(0)}
+              x2={width - padding}
+              y2={getY(0)}
+              stroke={colors.border}
+              strokeWidth="1"
+              strokeDasharray="4,4"
+            />
+          )}
+
+          {playerSet.players.map((player, playerIndex) => {
+            const scores = cumulativeScores[player];
+            const pathData = scores.map((s, i) =>
+              `${i === 0 ? 'M' : 'L'} ${getX(i)} ${getY(s)}`
+            ).join(' ');
+
+            return (
+              <React.Fragment key={player}>
+                <Path
+                  d={pathData}
+                  stroke={getPlayerColor(playerIndex)}
+                  strokeWidth="3"
+                  fill="none"
+                />
+                {/* Final Score Circle */}
+                <Circle
+                  cx={getX(scores.length - 1)}
+                  cy={getY(scores[scores.length - 1])}
+                  r="4"
+                  fill={getPlayerColor(playerIndex)}
+                />
+              </React.Fragment>
+            );
+          })}
+        </Svg>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 10, marginTop: 10 }}>
+          {playerSet.players.map((player, index) => (
+            <View key={player} style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: getPlayerColor(index), marginRight: 4 }} />
+              <Text style={{ fontSize: 10, color: colors.textSecondary }}>{player}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+    );
   };
 
   const styles = StyleSheet.create({
@@ -959,6 +1108,8 @@ export const CardScoreSpark: React.FC<CardScoreSparkProps> = ({
             <Text style={styles.activeGameTitle}>Now Playing: {playerSet.setName}</Text>
           </View>
 
+          <ScoreChart />
+
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={styles.scoreTable}>
               {/* Header */}
@@ -967,11 +1118,11 @@ export const CardScoreSpark: React.FC<CardScoreSparkProps> = ({
                 {playerSet.players.map((player, playerIndex) => {
                   const shouldRotate = playerSet.players.length > 2;
                   const columnWidth = shouldRotate ? 50 : 70;
-                  
+
                   if (shouldRotate) {
                     return (
-                      <View 
-                        key={player} 
+                      <View
+                        key={player}
                         style={[styles.tableHeaderCellRotated, { width: columnWidth }]}
                       >
                         <Text style={styles.tableHeaderTextRotated}>
@@ -980,12 +1131,12 @@ export const CardScoreSpark: React.FC<CardScoreSparkProps> = ({
                       </View>
                     );
                   }
-                  
+
                   return (
-                    <Text 
-                      key={player} 
+                    <Text
+                      key={player}
                       style={[
-                        styles.tableHeaderText, 
+                        styles.tableHeaderText,
                         { width: columnWidth, textAlign: 'center' }
                       ]}
                     >
@@ -1001,11 +1152,11 @@ export const CardScoreSpark: React.FC<CardScoreSparkProps> = ({
                 {playerSet.players.map((player, playerIndex) => {
                   const columnWidth = playerSet.players.length > 2 ? 50 : 70;
                   return (
-                    <Text 
-                      key={player} 
+                    <Text
+                      key={player}
                       style={[
-                        styles.tableCell, 
-                        styles.tableCellValue, 
+                        styles.tableCell,
+                        styles.tableCellValue,
                         { width: columnWidth, color: getPlayerColor(playerIndex), fontWeight: 'bold' }
                       ]}
                     >
@@ -1018,8 +1169,8 @@ export const CardScoreSpark: React.FC<CardScoreSparkProps> = ({
               {/* Round Rows */}
               {reversedRounds.length === 0 ? (
                 <View style={styles.tableRow}>
-                  <Text style={[styles.tableCell, { 
-                    width: 60 + (playerSet.players.length * (playerSet.players.length > 2 ? 50 : 70)) 
+                  <Text style={[styles.tableCell, {
+                    width: 60 + (playerSet.players.length * (playerSet.players.length > 2 ? 50 : 70))
                   }]}>
                     No rounds yet. Tap "Add Round" to start!
                   </Text>
@@ -1033,11 +1184,11 @@ export const CardScoreSpark: React.FC<CardScoreSparkProps> = ({
                     {playerSet.players.map((player, playerIndex) => {
                       const columnWidth = playerSet.players.length > 2 ? 50 : 70;
                       return (
-                        <Text 
-                          key={player} 
+                        <Text
+                          key={player}
                           style={[
-                            styles.tableCell, 
-                            styles.tableCellValue, 
+                            styles.tableCell,
+                            styles.tableCellValue,
                             { width: columnWidth, color: getPlayerColor(playerIndex) }
                           ]}
                         >

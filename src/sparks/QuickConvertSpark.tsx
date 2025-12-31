@@ -544,13 +544,24 @@ const QuickConvertSpark: React.FC<QuickConvertSparkProps> = ({
     return amount.toFixed(2);
   };
 
-  const calculateCustomConversion = (): string => {
+  const calculateCustomConversion = (): { usd: string; tipLocal: string; tipUsd: string; totalLocal: string; totalUsd: string } => {
     const amount = parseFloat(customAmount);
     if (isNaN(amount) || amount <= 0 || !data.exchangeRate) {
-      return '';
+      return { usd: '', tipLocal: '', tipUsd: '', totalLocal: '', totalUsd: '' };
     }
     const usdAmount = amount / data.exchangeRate;
-    return usdAmount.toFixed(2);
+    const tipLocal = amount * 0.20;
+    const tipUsd = tipLocal / data.exchangeRate;
+    const totalLocal = amount + tipLocal;
+    const totalUsd = totalLocal / data.exchangeRate;
+    
+    return {
+      usd: usdAmount.toFixed(2),
+      tipLocal: tipLocal.toFixed(2),
+      tipUsd: tipUsd.toFixed(2),
+      totalLocal: totalLocal.toFixed(2),
+      totalUsd: totalUsd.toFixed(2),
+    };
   };
 
   if (showSettings) {
@@ -605,9 +616,33 @@ const QuickConvertSpark: React.FC<QuickConvertSparkProps> = ({
               =
             </Text>
             <Text style={[styles.customUsdText, { color: colors.text }]}>
-              ${calculateCustomConversion() || '0.00'} USD
+              ${calculateCustomConversion().usd || '0.00'} USD
             </Text>
           </View>
+          
+          {/* 20% Tip */}
+          {customAmount && parseFloat(customAmount) > 0 && (
+            <>
+              <View style={[styles.conversionRow, { borderTopColor: colors.border }]}>
+                <Text style={[styles.conversionLabel, { color: colors.textSecondary }]}>
+                  20% Tip:
+                </Text>
+                <Text style={[styles.conversionValue, { color: colors.text }]}>
+                  {selectedCountryInfo.symbol}{calculateCustomConversion().tipLocal} {selectedCountryInfo.code} = ${calculateCustomConversion().tipUsd} USD
+                </Text>
+              </View>
+              
+              {/* Total */}
+              <View style={[styles.conversionRow, { borderTopColor: colors.border }]}>
+                <Text style={[styles.conversionLabel, { color: colors.textSecondary }]}>
+                  Total:
+                </Text>
+                <Text style={[styles.conversionValue, { color: colors.text, fontWeight: '600' }]}>
+                  {selectedCountryInfo.symbol}{calculateCustomConversion().totalLocal} {selectedCountryInfo.code} = ${calculateCustomConversion().totalUsd} USD
+                </Text>
+              </View>
+            </>
+          )}
         </View>
 
         {/* Conversion Table */}
@@ -713,6 +748,25 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#007AFF',
+  },
+  conversionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+  },
+  conversionLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  conversionValue: {
+    fontSize: 14,
+    fontWeight: '400',
+    flex: 2,
+    textAlign: 'right',
   },
   tableContainer: {
     borderRadius: 12,

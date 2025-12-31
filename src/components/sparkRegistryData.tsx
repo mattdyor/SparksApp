@@ -37,6 +37,7 @@ import { SpeakSpark } from "../sparks/SpeakSpark";
 import FriendSpark from "../sparks/FriendSpark";
 import TripodSpark from "../sparks/TripodSpark";
 import MemorySpark from "../sparks/MemorySpark";
+import { DreamCatcherSpark } from "../sparks/DreamCatcherSpark";
 import styled from "styled-components/native";
 
 const PlaceholderContainer = styled.View`
@@ -491,6 +492,18 @@ export const sparkRegistry: Record<string, BaseSpark> = {
       rating: 4.5,
     },
     component: MemorySpark,
+  },
+  "dream-catcher": {
+    metadata: {
+      id: "dream-catcher",
+      title: "Dream Catcher",
+      description: "Record and interpret your dreams",
+      icon: "🌙",
+      category: "health",
+      createdAt: "2025-12-27T00:00:00.000Z",
+      rating: 4.5,
+    },
+    component: DreamCatcherSpark,
   },
 };
 

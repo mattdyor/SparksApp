@@ -1,13 +1,14 @@
 import { FirebaseService } from './ServiceFactory';
 import { FeedbackNotificationService } from './FeedbackNotificationService';
+import { SparkSubmissionAdminService } from './SparkSubmissionAdminService';
 
 export class AdminResponseService {
   /**
    * Add a response to user feedback
    */
   static async addResponse(
-    feedbackId: string, 
-    response: string, 
+    feedbackId: string,
+    response: string,
     adminDeviceId: string
   ): Promise<void> {
     try {
@@ -16,7 +17,7 @@ export class AdminResponseService {
         adminId: adminDeviceId,
         text: response
       });
-      
+
       // Get the feedback details to send notification
       const feedback = await (FirebaseService as any).getFeedbackById(feedbackId);
       if (feedback) {
@@ -27,7 +28,7 @@ export class AdminResponseService {
           sparkName: feedback.sparkName,
           hasResponse: !!feedback.response
         });
-        
+
         // Send notification to the user who submitted the feedback
         await FeedbackNotificationService.addPendingResponse(
           feedback.userId,
@@ -35,7 +36,7 @@ export class AdminResponseService {
           feedback.sparkId,
           feedback.sparkName
         );
-        
+
         console.log('✅ Response added and notification sent to user:', feedback.userId);
       } else {
         console.warn('⚠️ AdminResponseService.addResponse - Feedback not found for ID:', feedbackId);
@@ -100,14 +101,14 @@ export class AdminResponseService {
   static async getUnreadFeedbackCount(): Promise<number> {
     try {
       const allFeedback = await this.getAllFeedback();
-      
+
       // Filter for unread feedback with comments that need responses
       const unreadFeedback = allFeedback.filter(
         item => (item.viewedByAdmin === undefined || item.viewedByAdmin === false) &&
-                (item.comment && item.comment.trim() !== '') &&
-                (!item.response || item.response.trim() === '')
+          (item.comment && item.comment.trim() !== '') &&
+          (!item.response || item.response.trim() === '')
       );
-      
+
       return unreadFeedback.length;
     } catch (error) {
       console.error('Error getting unread feedback count:', error);
@@ -121,14 +122,14 @@ export class AdminResponseService {
   static async getUnreadReviewsCount(): Promise<number> {
     try {
       const allFeedback = await this.getAllFeedback();
-      
+
       // Filter for unread reviews (ratings only, no comments)
       const unreadReviews = allFeedback.filter(
         item => (item.viewedByAdmin === undefined || item.viewedByAdmin === false) &&
-                (!item.comment || item.comment.trim() === '') &&
-                item.rating
+          (!item.comment || item.comment.trim() === '') &&
+          item.rating
       );
-      
+
       return unreadReviews.length;
     } catch (error) {
       console.error('Error getting unread reviews count:', error);
@@ -137,13 +138,14 @@ export class AdminResponseService {
   }
 
   /**
-   * Get total unread count (feedback + reviews) for admin
+   * Get total unread count (feedback + reviews + spark submissions) for admin
    */
   static async getTotalUnreadCount(): Promise<number> {
     try {
       const feedbackCount = await this.getUnreadFeedbackCount();
       const reviewsCount = await this.getUnreadReviewsCount();
-      return feedbackCount + reviewsCount;
+      const submissionsCount = await SparkSubmissionAdminService.getUnreadSubmissionsCount();
+      return feedbackCount + reviewsCount + submissionsCount;
     } catch (error) {
       console.error('Error getting total unread count:', error);
       return 0;

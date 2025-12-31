@@ -38,6 +38,7 @@ const ComingUpSpark: React.FC<ComingUpSparkProps> = ({ showSettings, onCloseSett
     const [events, setEvents] = useState<Event[]>([]);
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingEvent, setEditingEvent] = useState<Event | null>(null);
+    const [showPastEvents, setShowPastEvents] = useState(false);
 
     // Form state
     const [title, setTitle] = useState('');
@@ -260,10 +261,34 @@ const ComingUpSpark: React.FC<ComingUpSparkProps> = ({ showSettings, onCloseSett
         HapticFeedback.light();
     };
 
-    const sortedEvents = [...events].sort((a, b) => {
-        const dateA = getNextOccurrence(a);
-        const dateB = getNextOccurrence(b);
-        return dateA.getTime() - dateB.getTime();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const filteredEvents = events.filter(event => {
+        const nextDate = getNextOccurrence(event);
+        if (showPastEvents) {
+            // Only one-time events that occurred before today
+            if (event.type === 'annual') return false;
+            const [year, month, day] = event.date.split('-').map(Number);
+            const eventDate = new Date(year, month - 1, day);
+            eventDate.setHours(0, 0, 0, 0);
+            return eventDate < today;
+        } else {
+            // Upcoming occurrences (including today)
+            return nextDate >= today;
+        }
+    });
+
+    const sortedEvents = [...filteredEvents].sort((a, b) => {
+        if (showPastEvents) {
+            // Sort past events newest to oldest
+            return new Date(b.date).getTime() - new Date(a.date).getTime();
+        } else {
+            // Sort upcoming events soonest first
+            const dateA = getNextOccurrence(a);
+            const dateB = getNextOccurrence(b);
+            return dateA.getTime() - dateB.getTime();
+        }
     });
 
     const styles = StyleSheet.create({
@@ -514,6 +539,21 @@ const ComingUpSpark: React.FC<ComingUpSparkProps> = ({ showSettings, onCloseSett
             color: colors.textSecondary,
             textAlign: 'center',
         },
+        toggleButton: {
+            padding: 16,
+            borderRadius: 12,
+            backgroundColor: colors.surface,
+            borderWidth: 1,
+            borderColor: colors.border,
+            alignItems: 'center',
+            marginTop: 20,
+            marginBottom: 40,
+        },
+        toggleButtonText: {
+            color: colors.primary,
+            fontSize: 16,
+            fontWeight: '600',
+        },
     });
 
     if (showSettings) {
@@ -555,7 +595,7 @@ const ComingUpSpark: React.FC<ComingUpSparkProps> = ({ showSettings, onCloseSett
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.title}>Coming Up</Text>
+                <Text style={styles.title}>{showPastEvents ? 'Past Events' : 'Coming Up'}</Text>
                 <TouchableOpacity style={styles.addButton} onPress={openAddModal}>
                     <Text style={styles.addButtonText}>+</Text>
                 </TouchableOpacity>
@@ -603,6 +643,20 @@ const ComingUpSpark: React.FC<ComingUpSparkProps> = ({ showSettings, onCloseSett
                             </TouchableOpacity>
                         );
                     })
+                )}
+
+                {events.length > 0 && (
+                    <TouchableOpacity
+                        style={styles.toggleButton}
+                        onPress={() => {
+                            setShowPastEvents(!showPastEvents);
+                            HapticFeedback.light();
+                        }}
+                    >
+                        <Text style={styles.toggleButtonText}>
+                            {showPastEvents ? 'View Coming Up' : 'View Past Events'}
+                        </Text>
+                    </TouchableOpacity>
                 )}
             </ScrollView>
 
