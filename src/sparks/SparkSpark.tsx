@@ -14,8 +14,10 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HapticFeedback } from '../utils/haptics';
 import { ServiceFactory } from '../services/ServiceFactory';
 import { getFirestore, collection, doc, setDoc, query, where, getDocs, orderBy } from 'firebase/firestore';
@@ -134,6 +136,7 @@ interface SparkSparkProps {
 
 export default function SparkSpark({ showSettings = false, onCloseSettings }: SparkSparkProps) {
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
   const [currentPage, setCurrentPage] = useState(0);
   const [fadeAnim] = useState(new Animated.Value(1));
   const [slideAnim] = useState(new Animated.Value(0));
@@ -151,9 +154,43 @@ export default function SparkSpark({ showSettings = false, onCloseSettings }: Sp
   const [submitted, setSubmitted] = useState(false);
   const [reviewIconIndex, setReviewIconIndex] = useState(0);
   const [reviewIconOpacity] = useState(new Animated.Value(1));
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
+  const inputLayoutRef = useRef({ y: 0, height: 0 });
 
   const pageCount = 9;
   const totalSteps = 7;
+
+  // Keyboard listeners
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => {
+        setKeyboardHeight(e.endCoordinates.height);
+        // Scroll to input when keyboard appears
+        setTimeout(() => {
+          if (inputLayoutRef.current.y > 0 && scrollViewRef.current) {
+            scrollViewRef.current.scrollTo({
+              y: Math.max(0, inputLayoutRef.current.y - 100),
+              animated: true,
+            });
+          }
+        }, Platform.OS === 'ios' ? 250 : 100);
+      }
+    );
+    const hideSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => {
+        setKeyboardHeight(0);
+      }
+    );
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   // Animate the review page icons
   useEffect(() => {
@@ -532,7 +569,7 @@ export default function SparkSpark({ showSettings = false, onCloseSettings }: Sp
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? insets.bottom : 20}
       >
         <Animated.View
           style={[
@@ -551,68 +588,144 @@ export default function SparkSpark({ showSettings = false, onCloseSettings }: Sp
             }
           ]}
         >
-          <ScrollView
-            style={{ flex: 1 }}
-            contentContainerStyle={styles.formScrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {/* Journey Map */}
-            {renderJourneyMap()}
+          <View style={{ flex: 1 }}>
+            <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+              <ScrollView
+                ref={scrollViewRef}
+                style={{ flex: 1 }}
+                contentContainerStyle={[
+                  styles.formScrollContent,
+                  { paddingBottom: keyboardHeight > 0 ? keyboardHeight + 100 : 100 }
+                ]}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+                keyboardDismissMode="on-drag"
+              >
+                {/* Journey Map */}
+                {renderJourneyMap()}
 
-            {/* Progress Bar */}
-            {renderProgressBar()}
+                {/* Progress Bar */}
+                {renderProgressBar()}
 
-            {/* Themed Background */}
-            <View style={[styles.themedBackground, { opacity: 0.05 }]}>
-              <Text style={styles.backgroundEmoji}>{theme.icon}</Text>
-            </View>
-
-            {/* Form Card */}
-            <View style={[styles.formCard, { backgroundColor: colors.surface }]}>
-              <View style={styles.themeHeader}>
-                <Text style={styles.themeIcon}>{page.icon}</Text>
-                <View style={styles.themeInfo}>
-                  <Text style={[styles.themeTitle, { color: colors.text }]}>{page.title}</Text>
+                {/* Themed Background */}
+                <View style={[styles.themedBackground, { opacity: 0.05 }]}>
+                  <Text style={styles.backgroundEmoji}>{theme.icon}</Text>
                 </View>
-              </View>
 
-              <Text style={[styles.formSubtitle, { color: colors.textSecondary }]}>{page.subtitle}</Text>
-              <Text style={[styles.formMessage, { color: colors.text }]}>{page.message}</Text>
+                {/* Form Card */}
+                <View style={[styles.formCard, { backgroundColor: colors.surface }]}>
+                  <View style={styles.themeHeader}>
+                    <Text style={styles.themeIcon}>{page.icon}</Text>
+                    <View style={styles.themeInfo}>
+                      <Text style={[styles.themeTitle, { color: colors.text }]}>{page.title}</Text>
+                    </View>
+                  </View>
 
-              {page.dropdown ? (
-                <Dropdown
-                  options={PAYMENT_OPTIONS}
-                  selectedValue={value}
-                  onSelect={(val) => updateFormData(page.field, val)}
-                  style={[styles.dropdown, { backgroundColor: colors.background, borderColor: colors.border }]}
-                  textStyle={[styles.dropdownText, { color: colors.text }]}
-                />
-              ) : (
-                <>
-                  <TextInput
-                    style={[
-                      styles.input,
-                      {
-                        backgroundColor: colors.background,
-                        borderColor: colors.border,
-                        color: colors.text,
-                        minHeight: page.multiline ? 120 : 50,
-                      }
-                    ]}
-                    placeholder={page.placeholder}
-                    placeholderTextColor={colors.textSecondary}
-                    value={value}
-                    onChangeText={(text) => updateFormData(page.field, text)}
-                    multiline={page.multiline}
-                    returnKeyType="next"
-                    onSubmitEditing={() => canProceedToNext() && handleNext()}
-                  />
-                  {showCounter && renderCharCounter(page.field, currentPage)}
-                </>
-              )}
-            </View>
-          </ScrollView>
+                  <Text style={[styles.formSubtitle, { color: colors.textSecondary }]}>{page.subtitle}</Text>
+                  <Text style={[styles.formMessage, { color: colors.text }]}>{page.message}</Text>
+
+                  {page.dropdown ? (
+                    <Dropdown
+                      options={PAYMENT_OPTIONS}
+                      selectedValue={value}
+                      onSelect={(val) => updateFormData(page.field, val)}
+                      style={[styles.dropdown, { backgroundColor: colors.background, borderColor: colors.border }]}
+                      textStyle={[styles.dropdownText, { color: colors.text }]}
+                    />
+                  ) : (
+                    <>
+                      <View
+                        onLayout={(event) => {
+                          const { y, height } = event.nativeEvent.layout;
+                          inputLayoutRef.current = { y, height };
+                        }}
+                      >
+                        <TextInput
+                          ref={inputRef}
+                          style={[
+                            styles.input,
+                            {
+                              backgroundColor: colors.background,
+                              borderColor: colors.border,
+                              color: colors.text,
+                              minHeight: page.multiline ? 120 : 50,
+                            }
+                          ]}
+                          placeholder={page.placeholder}
+                          placeholderTextColor={colors.textSecondary}
+                          value={value}
+                          onChangeText={(text) => updateFormData(page.field, text)}
+                          multiline={page.multiline}
+                          returnKeyType="next"
+                          onSubmitEditing={() => canProceedToNext() && handleNext()}
+                          onFocus={() => {
+                            // Scroll to input when focused
+                            setTimeout(() => {
+                              if (inputLayoutRef.current.y > 0 && scrollViewRef.current) {
+                                scrollViewRef.current.scrollTo({
+                                  y: Math.max(0, inputLayoutRef.current.y - 100),
+                                  animated: true,
+                                });
+                              }
+                            }, Platform.OS === 'ios' ? 300 : 100);
+                          }}
+                        />
+                      </View>
+                      {showCounter && renderCharCounter(page.field, currentPage)}
+                    </>
+                  )}
+                </View>
+              </ScrollView>
+            </TouchableWithoutFeedback>
+
+            {/* Navigation Bar - Fixed at bottom, stays above keyboard */}
+            <View style={[
+              styles.navigationBar, 
+              { 
+                backgroundColor: colors.surface, 
+                borderTopColor: colors.border,
+                paddingBottom: Math.max(insets.bottom, 16),
+              }
+            ]}>
+            <TouchableOpacity
+              style={[styles.navButton, currentPage === 1 && styles.navButtonDisabled]}
+              onPress={handleBack}
+              disabled={currentPage === 1}
+            >
+              <Text style={[styles.navButtonText, { color: currentPage === 1 ? colors.textSecondary : colors.primary }]}>
+                ← Retreat
+              </Text>
+            </TouchableOpacity>
+
+            {currentPage === totalSteps ? (
+              <TouchableOpacity
+                style={[styles.submitButton, { backgroundColor: colors.primary }, submitting && styles.navButtonDisabled]}
+                onPress={handleSubmit}
+                disabled={submitting || !canProceedToNext()}
+              >
+                {submitting ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={[styles.submitButtonText]}>Summon My Spark! ✨</Text>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.nextButton,
+                  { backgroundColor: colors.primary },
+                  !canProceedToNext() && styles.navButtonDisabled
+                ]}
+                onPress={handleNext}
+                disabled={!canProceedToNext()}
+              >
+                <Text style={[styles.nextButtonText, { color: canProceedToNext() ? '#FFFFFF' : colors.textSecondary }]}>
+                  {canProceedToNext() ? 'Advance →' : 'Advance...'}
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+          </View>
         </Animated.View>
       </KeyboardAvoidingView>
     );
@@ -748,8 +861,11 @@ export default function SparkSpark({ showSettings = false, onCloseSettings }: Sp
   };
 
   const renderNavigation = () => {
-    if (currentPage === 0 || currentPage === 8) return null;
+    // Navigation is now rendered inside form pages (inside KeyboardAvoidingView)
+    // Only render for review page (page 7) which doesn't have KeyboardAvoidingView
+    if (currentPage === 0 || currentPage === 8 || (currentPage >= 1 && currentPage <= totalSteps - 1)) return null;
 
+    // This should only render for review page (currentPage === totalSteps)
     return (
       <View style={[styles.navigationBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
         <TouchableOpacity
@@ -955,10 +1071,11 @@ const styles = StyleSheet.create({
   },
   pageContainer: {
     flex: 1,
+    flexDirection: 'column',
   },
   formScrollContent: {
     padding: 20,
-    paddingBottom: 100,
+    paddingBottom: 20, // Base padding, will be adjusted dynamically for keyboard
   },
   introScrollView: {
     flex: 1,
@@ -1238,6 +1355,13 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     paddingHorizontal: 20,
     borderTopWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 5,
+    width: '100%',
+    minHeight: 60, // Ensure minimum height
   },
   navButton: {
     paddingVertical: 12,
