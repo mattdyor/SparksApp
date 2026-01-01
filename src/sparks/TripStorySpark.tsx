@@ -219,29 +219,55 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
     return () => animation.stop();
   }, []);
 
-  useEffect(() => {
-    loadTrips();
-  }, []);
+  // Helpers for persistent relative paths
+  const toAbsoluteUri = (uri: string): string => {
+    if (!uri) return '';
+    if (uri.startsWith('http') || uri.startsWith('data:') || uri.startsWith('ph://')) return uri;
+    // If it's already an absolute file URI but from a DIFFERENT document directory, 
+    // we should try to extract the relative part
+    if (uri.startsWith('file://') && !uri.includes(FileSystem.documentDirectory!)) {
+      const parts = uri.split('/Documents/');
+      if (parts.length > 1) {
+        return `${FileSystem.documentDirectory}${parts[1]}`;
+      }
+    }
+    if (uri.startsWith('file://')) return uri;
+    return `${FileSystem.documentDirectory}${uri}`;
+  };
+
+  const toRelativePath = (uri: string): string => {
+    if (!uri || uri.startsWith('http') || uri.startsWith('data:') || uri.startsWith('ph://')) return uri;
+    const docDir = FileSystem.documentDirectory!;
+    if (uri.includes(docDir)) {
+      return uri.replace(docDir, '');
+    }
+    // If it's an absolute path from a different session/container
+    const parts = uri.split('/Documents/');
+    if (parts.length > 1) {
+      return parts[1];
+    }
+    return uri;
+  };
 
   const savePhotoPermanently = async (uri: string, tripId: string, photoId: string): Promise<string> => {
     try {
-      // If already in document directory, return as is
-      if (uri.includes(FileSystem.documentDirectory!)) {
-        return uri;
-      }
-
       const filename = `trip_${tripId}_${photoId}.jpg`;
       const destPath = `${FileSystem.documentDirectory}${filename}`;
+
+      // If it's already in the permanent storage, just return the relative path
+      if (uri === destPath) {
+        return filename;
+      }
 
       await FileSystem.copyAsync({
         from: uri,
         to: destPath
       });
 
-      return destPath;
+      return filename; // Return relative path
     } catch (error) {
       console.error('Error saving photo permanently:', error);
-      return uri; // Fallback to original URI if copy fails
+      return toRelativePath(uri); // Fallback to relative path of original URI
     }
   };
 
@@ -256,17 +282,39 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
 
       for (let j = 0; j < updatedPhotos.length; j++) {
         const photo = updatedPhotos[j];
-        // If photo has no URI but has ID (migration case) OR needs moving to permanent storage
-        if (!photo.uri || !photo.uri.includes(FileSystem.documentDirectory!)) {
+        const isAbsolute = photo.uri.startsWith('file://');
+        const isTemporary = photo.uri.includes('/Library/Caches/') || photo.uri.includes('/tmp/');
+
+        // If it's absolute OR temporary, we need to process it
+        if (isAbsolute || isTemporary || !photo.uri) {
           try {
-            // If we have an ID but no URI, we might be able to recover or it's lost
-            // For this implementation, we'll assume we're migrating from a state where we have the URI
             if (photo.uri) {
-              const newUri = await savePhotoPermanently(photo.uri, trip.id, photo.id);
-              if (newUri !== photo.uri) {
-                updatedPhotos[j] = { ...photo, uri: newUri };
-                tripChanged = true;
-                hasChanges = true;
+              const currentAbsolute = toAbsoluteUri(photo.uri);
+              const fileInfo = await FileSystem.getInfoAsync(currentAbsolute);
+
+              if (fileInfo.exists) {
+                // File exists, ensure it's in permanent storage and get relative path
+                const relativePath = await savePhotoPermanently(currentAbsolute, trip.id, photo.id);
+                if (relativePath !== photo.uri) {
+                  updatedPhotos[j] = { ...photo, uri: relativePath };
+                  tripChanged = true;
+                  hasChanges = true;
+                }
+              } else {
+                // File missing at expected path, try to find it by filename in current DocDir
+                const filename = photo.uri.split('/').pop();
+                if (filename) {
+                  const recoveryPath = `${FileSystem.documentDirectory}${filename}`;
+                  const recoveryInfo = await FileSystem.getInfoAsync(recoveryPath);
+                  if (recoveryInfo.exists) {
+                    console.log(`✅ Recovered missing photo: ${filename}`);
+                    updatedPhotos[j] = { ...photo, uri: filename };
+                    tripChanged = true;
+                    hasChanges = true;
+                  } else {
+                    console.warn(`❌ Could not recover photo: ${filename}`);
+                  }
+                }
               }
             }
           } catch (error) {
@@ -281,6 +329,7 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
     }
 
     if (hasChanges) {
+      // Save the migrated data immediately
       await setSparkData('trip-story', {
         trips: updatedTrips,
         activeDayDate,
@@ -310,10 +359,17 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
     try {
       const data = await getSparkData('trip-story');
       if (data?.trips) {
-        // Check if migration is needed (if photos don't have URIs but have IDs)
-        // This is a simplified check - in production we'd check version or specific fields
+        // Check if migration is needed:
+        // 1. Photos with no URI but an ID
+        // 2. Photos with absolute paths (file://)
+        // 3. Photos in temp/cache directories
         const needsMigration = data.trips.some((t: Trip) =>
-          t.photos.some(p => !p.uri && p.id)
+          t.photos.some(p =>
+            !p.uri ||
+            p.uri.startsWith('file://') ||
+            p.uri.includes('/Library/Caches/') ||
+            p.uri.includes('/tmp/')
+          )
         );
 
         let updatedTrips = data.trips;
@@ -601,7 +657,7 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
           id: photoId,
           tripId: currentTrip!.id,
           activityId: (activity || selectedActivity)?.id,
-          uri: permanentUri,
+          uri: toRelativePath(permanentUri),
           timestamp: photoDate,
           location: location || undefined,
           caption: '',
@@ -813,7 +869,7 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
           id: photoId,
           tripId: currentTrip!.id,
           activityId: (activity || selectedActivity)?.id,
-          uri: permanentUri,
+          uri: toRelativePath(permanentUri),
           timestamp: photoDate,
           location: location || undefined,
           caption: '',
@@ -940,7 +996,7 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
           id: photoId,
           tripId: currentTrip.id,
           activityId: (customPickerActivity || selectedActivity)?.id,
-          uri: permanentUri,
+          uri: toRelativePath(permanentUri),
           timestamp: photoDate,
           location: location || undefined,
           caption: '',
@@ -1018,9 +1074,10 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
     const updatedPhoto: TripPhoto = {
       ...selectedPhoto,
       caption: photoName,
-      timestamp: new Date(photoDate + 'T00:00:00').toISOString(),
+      timestamp: new Date(photoDate + 'T12:00:00Z').toISOString(), // Use consistent noon UTC timestamp
       activityId: photoActivityId || undefined,
       location,
+      uri: toRelativePath(selectedPhoto.uri), // Ensure URI is saved as relative path
     };
 
     const updatedTrips = trips.map(trip =>
@@ -1353,10 +1410,11 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
       // Helper function to resize and compress image for PDF
       const resizeImageForPDF = async (photoUri: string): Promise<string> => {
         try {
+          const absoluteUri = toAbsoluteUri(photoUri);
           // Resize image to max 400px width (maintains aspect ratio)
           // Compress to 0.7 quality to reduce file size
           const manipulatedImage = await ImageManipulator.manipulateAsync(
-            photoUri,
+            absoluteUri,
             [{ resize: { width: 400 } }], // Max width 400px, height auto
             { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
           );
@@ -2383,7 +2441,7 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
           <ScrollView style={styles.modalContent}>
             {/* Photo Preview */}
             <View style={styles.photoPreviewContainer}>
-              <Image source={{ uri: selectedPhoto.uri }} style={styles.photoPreviewFullWidth} />
+              <Image source={{ uri: toAbsoluteUri(selectedPhoto.uri) }} style={styles.photoPreviewFullWidth} />
             </View>
 
             {/* Photo Name */}
@@ -2988,7 +3046,7 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
                     >
                       {imageUri ? (
                         <Image
-                          source={{ uri: imageUri }}
+                          source={{ uri: toAbsoluteUri(imageUri) }}
                           style={[styles.photoGridImage, { width: photoSize, height: photoSize }]}
                           resizeMode="cover"
                           onError={(error) => {
@@ -3341,7 +3399,7 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
                             }}
                           >
                             <Image
-                              source={{ uri: marker.photo.uri }}
+                              source={{ uri: toAbsoluteUri(marker.photo.uri) }}
                               style={styles.markerPhoto}
                             />
                             <View style={styles.markerLabel}>
@@ -3641,7 +3699,7 @@ const TripStorySpark: React.FC<TripStorySparkProps> = ({
                 delayPressIn={0}
               >
                 <Image
-                  source={{ uri: photo.uri }}
+                  source={{ uri: toAbsoluteUri(photo.uri) }}
                   style={[styles.horizontalImage, { width: imageWidth, height: imageHeight }]}
                   resizeMode="cover"
                   fadeDuration={0}

@@ -8,6 +8,7 @@ import {
     Dimensions,
     Platform,
     Alert,
+    TextInput,
 } from 'react-native';
 import { Svg, Path, Circle, Line, Text as SvgText } from 'react-native-svg';
 import { useTheme } from '../contexts/ThemeContext';
@@ -63,6 +64,7 @@ export const WeightTrackerSpark: React.FC<SparkProps> = ({
     const [direction, setDirection] = useState<'higher' | 'same' | 'lower' | null>(null);
     const [diffPounds, setDiffPounds] = useState(0);
     const [diffTenths, setDiffTenths] = useState(0);
+    const [firstWeightInput, setFirstWeightInput] = useState('');
 
     // Save data wrapper
     const saveData = (newData: WeightTrackerData) => {
@@ -516,13 +518,56 @@ export const WeightTrackerSpark: React.FC<SparkProps> = ({
                         ) : (
                             <View style={{ padding: 20 }}>
                                 <Text style={{ textAlign: 'center', color: colors.textSecondary, marginBottom: 20 }}>
-                                    No previous weight found. Please enter your starting weight in Settings.
+                                    Welcome! What's your current weight?
                                 </Text>
+                                <View style={{ marginBottom: 20 }}>
+                                    <TextInput
+                                        style={[
+                                            styles.firstWeightInput,
+                                            {
+                                                backgroundColor: colors.background,
+                                                borderColor: colors.border,
+                                                color: colors.text,
+                                            }
+                                        ]}
+                                        placeholder={`Enter weight in ${data.unit}`}
+                                        placeholderTextColor={colors.textSecondary}
+                                        value={firstWeightInput}
+                                        onChangeText={setFirstWeightInput}
+                                        keyboardType="numeric"
+                                        autoFocus={true}
+                                    />
+                                </View>
                                 <TouchableOpacity
-                                    style={[styles.submitButton, { backgroundColor: colors.primary }]}
-                                    onPress={() => Alert.alert("Go to Settings", "Click the gear icon in the top right.")}
+                                    style={[
+                                        styles.submitButton,
+                                        { backgroundColor: colors.primary },
+                                        !firstWeightInput && { opacity: 0.5 }
+                                    ]}
+                                    onPress={() => {
+                                        const weight = parseFloat(firstWeightInput);
+                                        if (isNaN(weight) || weight <= 0) {
+                                            Alert.alert("Invalid Weight", "Please enter a valid weight.");
+                                            return;
+                                        }
+
+                                        const newEntry: WeightEntry = {
+                                            id: Date.now().toString(),
+                                            date: new Date().toISOString(),
+                                            weight: parseFloat(weight.toFixed(1)),
+                                        };
+
+                                        saveData({
+                                            ...data,
+                                            entries: [...data.entries, newEntry],
+                                        });
+
+                                        setFirstWeightInput('');
+                                        HapticFeedback.success();
+                                    }}
+                                    disabled={!firstWeightInput}
                                 >
-                                    <Text style={styles.submitButtonText}>Go to Settings</Text>
+                                    <Text style={styles.submitButtonText}>Save Weight</Text>
                                 </TouchableOpacity>
                             </View>
                         )}
@@ -672,6 +717,14 @@ const styles = StyleSheet.create({
         borderColor: '#eee',
         borderRadius: 12,
         borderStyle: 'dashed',
+    },
+    firstWeightInput: {
+        borderWidth: 1,
+        borderRadius: 12,
+        padding: 16,
+        fontSize: 18,
+        textAlign: 'center',
+        marginBottom: 12,
     },
 });
 
