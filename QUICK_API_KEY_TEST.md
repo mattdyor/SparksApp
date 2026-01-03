@@ -25,7 +25,8 @@ Since EAS env vars are injected at **build time**, you need to:
 2. **Or test locally** by temporarily adding to `.env`:
    ```bash
    # Create/edit .env file
-   echo "EXPO_PUBLIC_GEMINI_API_KEY=AIzaSyDraHWmxCvGaBTT_lg6w0itWTz8S0HSW0k" >> .env
+   # Replace YOUR_API_KEY_HERE with your actual Gemini API key
+   echo "EXPO_PUBLIC_GEMINI_API_KEY=YOUR_API_KEY_HERE" >> .env
    ```
 
 3. **Run the app** and test an AI feature:

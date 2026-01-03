@@ -118,6 +118,65 @@ echo ""
 echo -e "${GREEN}✓ Version bumped to ${NEW_VERSION}${NC}"
 echo ""
 
+# Update RELEASENOTES.md: Replace "Next Release" with the new version
+echo "📝 Updating RELEASENOTES.md..."
+node -e "
+  const fs = require('fs');
+  const path = './RELEASENOTES.md';
+  
+  if (!fs.existsSync(path)) {
+    console.log('⚠️  RELEASENOTES.md not found, skipping update');
+    process.exit(0);
+  }
+  
+  let content = fs.readFileSync(path, 'utf8');
+  const newVersion = '${NEW_VERSION}';
+  
+  // Replace '## Next Release' with '## Version X.X.X'
+  content = content.replace(/^## Next Release$/m, '## Version ' + newVersion);
+  
+  // Find the version section and add a new 'Next Release' section after the separator
+  const lines = content.split('\n');
+  const versionIndex = lines.findIndex(line => line.trim() === '## Version ' + newVersion);
+  
+  if (versionIndex !== -1) {
+    // Find the next '---' separator after the version section
+    let separatorIndex = -1;
+    for (let i = versionIndex + 1; i < lines.length; i++) {
+      if (lines[i].trim() === '---') {
+        separatorIndex = i;
+        break;
+      }
+    }
+    
+    // Insert the new 'Next Release' section after the separator
+    const newSection = [
+      '',
+      '## Next Release',
+      '',
+      '### New Sparks',
+      '- (Add new sparks here)',
+      '',
+      '### Major Work Items',
+      '- (Add major work items here as they\\'re completed)',
+      ''
+    ];
+    
+    if (separatorIndex !== -1) {
+      lines.splice(separatorIndex + 1, 0, ...newSection);
+    } else {
+      // If no separator found, add after the version section
+      lines.splice(versionIndex + 1, 0, ...newSection);
+    }
+    
+    content = lines.join('\n');
+  }
+  
+  fs.writeFileSync(path, content, 'utf8');
+  console.log('✓ Updated RELEASENOTES.md');
+"
+echo ""
+
 # Step 3: Ensure package.json and package-lock.json are in sync
 echo "📦 Step 3: Syncing package.json and package-lock.json..."
 echo "Running: npm install"
@@ -198,6 +257,7 @@ if [[ "$PLATFORM" == "all" || "$PLATFORM" == "android" ]]; then
   echo "2. Click: 'Create New Release'"
   echo "3. Click: 'Add from Library' (select the build that was just submitted)"
   echo "4. Add release notes describing what's new in version ${NEW_VERSION}"
+  echo "   📋 See RELEASENOTES.md for details about version ${NEW_VERSION}"
   echo "5. Click: 'Review Release'"
   echo "6. Click: 'Start Rollout to Production'"
   echo ""
@@ -212,6 +272,7 @@ if [[ "$PLATFORM" == "all" || "$PLATFORM" == "ios" ]]; then
   echo "4. Click: '+' Next to iOS App"
   echo "5. Select the new build (version ${NEW_VERSION}) about halfway down the page"
   echo "6. Add 'What's New' release notes"
+  echo "   📋 See RELEASENOTES.md for details about version ${NEW_VERSION}"
   echo "7. Click: 'Save' then 'Submit for Review'"
   echo ""
 fi
@@ -221,4 +282,8 @@ echo -e "${GREEN}✅ Deployment process complete!${NC}"
 echo "======================================"
 echo ""
 echo "Monitor build status at: https://expo.dev/accounts/mattdyor/projects/sparks-app/builds"
+echo ""
+echo -e "${BLUE}📋 Release Notes:${NC}"
+echo "   Check RELEASENOTES.md for details about version ${NEW_VERSION}"
+echo "   File location: $(pwd)/RELEASENOTES.md"
 echo ""
