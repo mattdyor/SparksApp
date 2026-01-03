@@ -32,6 +32,7 @@ All agent instructions and development guides are in `CONTEXT/GENERAL/`:
 2. **NEVER use AsyncStorage directly** - Always use `useSparkStore`
 3. **ALWAYS follow SETTINGSDESIGN.md** - Settings pages must be consistent
 4. **ALWAYS include SettingsFeedbackSection** - Required in all settings pages
+5. **Codespaces Detection** - If `CODESPACE_NAME` or `GITHUB_CODESPACE` environment variables are set, DO NOT suggest installing tools that aren't available in Codespaces (e.g., Xcode, Android Studio, GUI applications). Use web-based previews instead.
 
 ## 🔗 Full Instructions
 

@@ -59,8 +59,7 @@ Use a pre-configured cloud environment to add sparks via the codebase without an
       Player that is up, an ASCII art hangman structure, the number of letters presented as
       _, and all of the letters of the alphabet in little pill boxes. As the player pushes
       a letter, if it is present in the word draw it in, and if not draw the next piece of
-      the hangman. Make the Spark Settings page just have the basic CONTEXT/GENERAL/SETTINGSDESIGN.md
-      with feedback and ratings and a cancel button.
+      the hangman. Start by reviewing instructions in the AGENT.md file in the top directory.
       ```
 3.  **Preview Your Change:** Use the VS Code task **Start Expo Web** (recommended) to start the Expo web server and preview the app.
 

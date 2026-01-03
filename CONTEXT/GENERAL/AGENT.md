@@ -40,9 +40,20 @@ Everything is a "Spark". When adding a new feature, ask: "Is this a Spark?"
 
 ## 🛠️ **Deployment & Builds**
 
-### **1. Local Development**
+### **1. Codespaces Detection**
+When working in GitHub Codespaces, detect the environment using:
+*   **Environment Variables**: Check for `CODESPACE_NAME` or `GITHUB_CODESPACE`
+*   **Detection Command**: `[ -n "$CODESPACE_NAME" ] || [ -n "$GITHUB_CODESPACE" ]`
+*   **Restrictions**: DO NOT suggest installing tools unavailable in Codespaces:
+    *   ❌ Xcode (use web preview instead)
+    *   ❌ Android Studio (use web preview instead)
+    *   ❌ Native iOS/Android simulators (use `npx expo start --web` instead)
+    *   ❌ GUI applications that require local installation
+*   **Allowed**: Web-based previews, CLI tools, npm packages, Expo web server
+
+### **2. Local Development**
 *   **Command**: `npx expo start`
-*   **Simulator**: `npx expo run:ios` (requires Xcode)
+*   **Simulator**: `npx expo run:ios` (requires Xcode - only suggest if NOT in Codespaces)
 
 ### **2. Production Builds**
 *   **Reference**: `CONTEXT/GENERAL/LOCAL_IOS_PRODUCTION_BUILD.md`
@@ -82,6 +93,7 @@ Everything is a "Spark". When adding a new feature, ask: "Is this a Spark?"
 *   **Expo Go vs Dev Build**: Some features (Notifications, Background Tasks) **do not work** in Expo Go. Always verify if a Dev Build is needed.
 *   **Directory Check**: Always ensure you are in the root (`/Users/mattdyor/SparksApp`) before running commands.
 *   **Gemini API**: **ALWAYS use `GeminiService`** from `src/services/GeminiService.ts` for any Gemini API calls. Never make direct fetch calls to Gemini API or use different model versions. The service handles the correct model (`gemini-2.5-flash`), API version, and error handling.
+*   **Codespaces Environment**: When running in GitHub Codespaces, detect using `CODESPACE_NAME` or `GITHUB_CODESPACE` environment variables. **DO NOT suggest installing tools that aren't available in Codespaces** (e.g., Xcode, Android Studio, or other GUI applications). Use web-based previews and avoid suggesting native build tools that require local installation.
 
 ---
 

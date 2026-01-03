@@ -8,7 +8,7 @@ This document tracks new features, sparks, and major work items between releases
 - **Goal Tracker**: Track how many times you do something over a year versus a target. Supports multiple goals, displays cumulative charts showing actual, target, and forecast lines, includes a "+1" button to add entries, and allows editing/deleting entries.
 
 ### Major Work Items
-- (Add major work items here as they're completed)
+- **Trip Story Enhancements**: Improved image selection experience with single-column layout for better photo visibility, and added pinch-to-zoom functionality in photo details with pan support when zoomed. Reset zoom button moved to header for better accessibility.
 
 ---
 
