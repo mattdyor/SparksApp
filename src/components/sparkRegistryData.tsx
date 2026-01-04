@@ -23,6 +23,7 @@ import SongSaverSpark from "../sparks/SongSaverSpark";
 import SparkSpark from "../sparks/SparkSpark";
 import { MinuteMinderSpark } from "../sparks/MinuteMinderSpark";
 import { BuzzyBingoSpark } from "../sparks/BuzzyBingoSpark";
+import HangmanSpark from "../sparks/HangmanSpark";
 import { CardScoreSpark } from "../sparks/CardScoreSpark";
 import { GolfWisdomSpark } from "../sparks/GolfWisdomSpark";
 import WeightTrackerSpark from "../sparks/WeightTrackerSpark";
@@ -312,6 +313,18 @@ export const sparkRegistry: Record<string, BaseSpark> = {
       properties: ["AI"],
     },
     component: BuzzyBingoSpark as React.ComponentType<any>,
+  },
+  "hangman": {
+    metadata: {
+      id: "hangman",
+      title: "Hangman",
+      description: "Classic hangman party game for 2-4 players",
+      icon: "🔤",
+      category: "game",
+      createdAt: new Date().toISOString(),
+      rating: 4.2,
+    },
+    component: HangmanSpark as React.ComponentType<any>,
   },
   memory: {
     metadata: {
