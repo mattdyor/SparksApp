@@ -5,7 +5,13 @@ echo "🚀 Starting publish workflow..."
 
 # check if gh is installed
 if ! command -v gh &> /dev/null; then
-    echo "Error: GitHub CLI (gh) is not installed."
+    echo "❌ Error: GitHub CLI (gh) is not installed."
+    exit 1
+fi
+
+# check if gh is authenticated
+if ! gh auth status &> /dev/null; then
+    echo "❌ Error: GitHub CLI is not authenticated. Please run 'gh auth login'."
     exit 1
 fi
 
@@ -32,15 +38,30 @@ else
     MESSAGE=$(git log -1 --pretty=%s)
 fi
 
+# Determine current branch
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+
+if [ "$BRANCH" = "main" ] || [ "$BRANCH" = "master" ]; then
+    echo "⚠️ Warning: You are on the $BRANCH branch."
+    echo "It is highly recommended to create a feature branch before publishing."
+    echo "Example: git checkout -b my-new-feature"
+    # Don't exit here, as some users might have push access to main, 
+    # but the instructions say they shouldn't.
+fi
+
 # Push changes
-echo "⬆️ Pushing changes..."
-git push || true
+echo "⬆️ Pushing changes to remote 'origin'..."
+# Ensure upstream is set so gh pr create knows where to look
+if git push -u origin "$BRANCH"; then
+    echo "✅ Changes pushed successfully."
+else
+    echo "❌ Error: Failed to push changes to origin."
+    echo "Make sure you have write access to the fork."
+    exit 1
+fi
 
 # Create PR
 echo "🔀 Creating Pull Request..."
-
-# Determine current branch
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
 
 # Helper: parse owner/repo from a remote URL
 parse_owner_repo() {
@@ -67,14 +88,16 @@ FORK_OWNER=$(echo "$ORIGIN_REPO" | cut -d'/' -f1)
 # Build head ref as owner:branch
 HEAD_REF="$FORK_OWNER:$BRANCH"
 
-# Attempt to create PR against upstream explicitly to avoid requiring a default gh repo
+echo "📝 Creating PR from $HEAD_REF to $UPSTREAM_REPO:main"
+
+# Attempt to create PR
 # Use the custom message for title and body
-if gh pr create --repo "$UPSTREAM_REPO" --base main --head "$HEAD_REF" --title "$MESSAGE" --body "Automated PR created from Codespaces via Sparks Publish workflow."; then
-    echo "✅ Pull Request created."
+if gh pr create --repo "$UPSTREAM_REPO" --base main --head "$HEAD_REF" --title "$MESSAGE" --body "Automated PR created via Sparks Publish workflow."; then
+    echo "✅ Pull Request created successfully!"
 else
-    echo "⚠️ Could not create PR (it may already exist or there was an error)."
-    echo "You can create a PR manually with:"
-    echo "  gh pr create --repo $UPSTREAM_REPO --base main --head $HEAD_REF --fill"
+    echo "⚠️ Failed to create PR via CLI."
+    echo "This often happens if a PR already exists or if there's a permission issue."
+    echo "You can try creating it manually at: https://github.com/$UPSTREAM_REPO/compare"
 fi
 
 echo "🎉 Publish complete!"
