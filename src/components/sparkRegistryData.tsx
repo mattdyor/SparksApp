@@ -498,18 +498,21 @@ export const sparkRegistry: Record<string, BaseSpark> = {
       rating: 4.5,
     },
     component: GoalTrackerSpark,
-  },  hangman: {
+  },
+  hangman: {
     metadata: {
       id: "hangman",
       title: "Hangman",
-      description: "Classic word guessing game for 2-4 players with turn-based gameplay",
+      description:
+        "Classic word guessing game for 2-4 players with turn-based gameplay",
       icon: "",
       category: "game",
       createdAt: "2025-01-05T00:00:00.000Z",
       rating: 4.5,
     },
     component: HangmanSpark,
-  },};
+  },
+};
 
 export const getSparkById = (id: string): BaseSpark | undefined => {
   return sparkRegistry[id];
