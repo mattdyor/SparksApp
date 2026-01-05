@@ -90,7 +90,7 @@
         "NSMicrophoneUsageDescription": "Use the microphone to record sounds for the Sound Board spark.",
         "NSSpeechRecognitionUsageDescription": "Spanish Flashcards and Amigo sparks uses speech synthesis for language Spanish.",
         "AVAudioSessionCategoryPlayback": true,
-        "AVAudioSessionCategoryPlayAndRecord": false,
+        "AVAudioSessionCategoryPlayAndRecord": true,
         "ITSAppUsesNonExemptEncryption": false,
         "CFBundleURLTypes": [
           {

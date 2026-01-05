@@ -13,7 +13,7 @@ import {
   Keyboard,
   Image,
 } from "react-native";
-import { Video, ResizeMode } from "expo-av";
+import { Video, ResizeMode, AVPlaybackStatus, VideoFullscreenUpdate } from "expo-av";
 
 import { PanGestureHandler, State } from "react-native-gesture-handler";
 import { useSparkStore } from "../store";
@@ -619,1009 +619,882 @@ const RoundSummaryScreen: React.FC<{
   getBumpsForHole,
   colors,
 }) => {
-  console.log("RoundSummaryScreen props:", {
-    onReturnToRound: !!onReturnToRound,
-    onEndRound: !!onEndRound,
-  });
+    console.log("RoundSummaryScreen props:", {
+      onReturnToRound: !!onReturnToRound,
+      onEndRound: !!onEndRound,
+    });
 
 
-  const hasFireShot = (holeNumber: number) => {
-    const holeScore = (round.holeScores || []).find(
-      (hs) => hs.holeNumber === holeNumber
-    );
-    if (!holeScore) return false;
-    return holeScore.shots.some((shot) => shot.direction === "fire");
-  };
-
-  const hasPoorShot = (holeNumber: number) => {
-    const holeScore = (round.holeScores || []).find(
-      (hs) => hs.holeNumber === holeNumber
-    );
-    if (!holeScore) return false;
-    return holeScore.shots.some((shot) => shot.poorShot === true);
-  };
-
-  // Calculate cumulative scores over par
-  const getCumulativeScores = () => {
-    const scores = [];
-    let grossCumulative = 0;
-    let netCumulative = 0;
-
-    for (let holeNumber = 1; holeNumber <= 18; holeNumber++) {
-      const hole = (course.holes || []).find((h) => h.number === holeNumber);
+    const hasFireShot = (holeNumber: number) => {
       const holeScore = (round.holeScores || []).find(
         (hs) => hs.holeNumber === holeNumber
       );
+      if (!holeScore) return false;
+      return holeScore.shots.some((shot) => shot.direction === "fire");
+    };
 
-      if (hole && holeScore) {
-        const grossOverPar = holeScore.totalScore - hole.par;
-        const bumps = handicap !== undefined ? getBumpsForHole(hole) : 0;
-        const netOverPar = grossOverPar - bumps;
+    const hasPoorShot = (holeNumber: number) => {
+      const holeScore = (round.holeScores || []).find(
+        (hs) => hs.holeNumber === holeNumber
+      );
+      if (!holeScore) return false;
+      return holeScore.shots.some((shot) => shot.poorShot === true);
+    };
 
-        grossCumulative += grossOverPar;
-        netCumulative += netOverPar;
+    // Calculate cumulative scores over par
+    const getCumulativeScores = () => {
+      const scores = [];
+      let grossCumulative = 0;
+      let netCumulative = 0;
 
-        scores.push({
-          hole: holeNumber,
-          gross: grossCumulative,
-          net: netCumulative,
-          par: hole.par,
-          score: holeScore.totalScore,
-          bumps,
-        });
-      } else {
-        scores.push({
-          hole: holeNumber,
-          gross: null,
-          net: null,
-          par: hole?.par || 0,
-          score: 0,
-          bumps: 0,
-        });
+      for (let holeNumber = 1; holeNumber <= 18; holeNumber++) {
+        const hole = (course.holes || []).find((h) => h.number === holeNumber);
+        const holeScore = (round.holeScores || []).find(
+          (hs) => hs.holeNumber === holeNumber
+        );
+
+        if (hole && holeScore) {
+          const grossOverPar = holeScore.totalScore - hole.par;
+          const bumps = handicap !== undefined ? getBumpsForHole(hole) : 0;
+          const netOverPar = grossOverPar - bumps;
+
+          grossCumulative += grossOverPar;
+          netCumulative += netOverPar;
+
+          scores.push({
+            hole: holeNumber,
+            gross: grossCumulative,
+            net: netCumulative,
+            par: hole.par,
+            score: holeScore.totalScore,
+            bumps,
+          });
+        } else {
+          scores.push({
+            hole: holeNumber,
+            gross: null,
+            net: null,
+            par: hole?.par || 0,
+            score: 0,
+            bumps: 0,
+          });
+        }
       }
-    }
 
-    return scores;
-  };
+      return scores;
+    };
 
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    header: {
-      padding: 20,
-      paddingBottom: 10,
-      alignItems: "center",
-    },
-    title: {
-      fontSize: 28,
-      fontWeight: "bold",
-      color: colors.text,
-      marginBottom: 8,
-    },
-    subtitle: {
-      fontSize: 16,
-      color: colors.textSecondary,
-      textAlign: "center",
-    },
-    incompleteText: {
-      fontSize: 14,
-      color: colors.primary,
-      textAlign: "center",
-      marginTop: 4,
-      fontWeight: "500",
-    },
-    scorecard: {
-      backgroundColor: colors.surface,
-      margin: 20,
-      borderRadius: 12,
-      padding: 16,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    scorecardHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 16,
-      paddingBottom: 12,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    courseName: {
-      fontSize: 20,
-      fontWeight: "600",
-      color: colors.text,
-    },
-    totalScore: {
-      fontSize: 24,
-      fontWeight: "bold",
-      color: colors.primary,
-    },
-    holesGrid: {
-      gap: 8,
-    },
-    frontNine: {
-      backgroundColor: "#E3F2FD", // Light blue for front 9
-      borderRadius: 8,
-      padding: 8,
-      marginBottom: 8,
-    },
-    backNine: {
-      backgroundColor: "#E8F5E8", // Light green for back 9
-      borderRadius: 8,
-      padding: 8,
-    },
-    frontNineTitle: {
-      fontSize: 16,
-      fontWeight: "600",
-      color: colors.text,
-      textAlign: "center",
-      marginBottom: 8,
-    },
-    backNineTitle: {
-      fontSize: 16,
-      fontWeight: "600",
-      color: colors.text,
-      textAlign: "center",
-      marginBottom: 8,
-    },
-    holesRow: {
-      flexDirection: "row",
-      gap: 8,
-      marginBottom: 8,
-    },
-    holesRowLast: {
-      flexDirection: "row",
-      gap: 8,
-    },
-    holeCard: {
-      width: "18%", // Fixed width instead of flex
-      aspectRatio: 1,
-      backgroundColor: colors.background,
-      borderRadius: 8,
-      alignItems: "center",
-      justifyContent: "center",
-      borderWidth: 1,
-      borderColor: colors.border,
-      position: "relative",
-    },
-    holeNumber: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      marginBottom: 2,
-    },
-    holeScore: {
-      fontSize: 16,
-      fontWeight: "bold",
-    },
-    holePar: {
-      fontSize: 10,
-      color: colors.textSecondary,
-    },
-    bumpIndicator: {
-      position: "absolute",
-      top: 4,
-      right: 4,
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: colors.primary,
-    },
-    bumpIndicators: {
-      position: "absolute",
-      top: 4,
-      right: 4,
-      flexDirection: "row",
-      gap: 2,
-    },
-    bumpDot: {
-      width: 6,
-      height: 6,
-      borderRadius: 3,
-      backgroundColor: colors.primary,
-    },
-    topActionButtons: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      paddingHorizontal: 20,
-      paddingTop: 20,
-      paddingBottom: 10,
-      gap: 10,
-    },
-    bottomActionButtons: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      paddingHorizontal: 20,
-      paddingTop: 10,
-      paddingBottom: 20,
-      gap: 10,
-    },
-    returnToRoundButton: {
-      flex: 1,
-      backgroundColor: colors.primary,
-      paddingVertical: 14,
-      paddingHorizontal: 20,
-      borderRadius: 25, // Pill-shaped
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    returnToRoundButtonText: {
-      color: colors.background,
-      fontSize: 16,
-      fontWeight: "600",
-    },
-    endRoundButton: {
-      flex: 1,
-      backgroundColor: colors.error || "#ff4444",
-      paddingVertical: 14,
-      paddingHorizontal: 20,
-      borderRadius: 25, // Pill-shaped
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    endRoundButtonText: {
-      color: colors.background,
-      fontSize: 16,
-      fontWeight: "600",
-    },
-    closeButton: {
-      position: "absolute",
-      top: 20,
-      right: 20,
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    closeButtonText: {
-      fontSize: 18,
-      fontWeight: "bold",
-      color: colors.text,
-    },
-    statsContainer: {
-      flexDirection: "row",
-      justifyContent: "space-around",
-      margin: 20,
-      paddingVertical: 16,
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    statItem: {
-      alignItems: "center",
-    },
-    statValue: {
-      fontSize: 24,
-      fontWeight: "bold",
-      color: colors.text,
-    },
-    statLabel: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      marginTop: 4,
-    },
-    buttons: {
-      padding: 20,
-      gap: 12,
-    },
-    button: {
-      paddingVertical: 16,
-      paddingHorizontal: 20,
-      borderRadius: 12,
-      alignItems: "center",
-    },
-    primaryButton: {
-      backgroundColor: colors.primary,
-    },
-    secondaryButton: {
-      backgroundColor: colors.surface,
-      borderWidth: 2,
-      borderColor: colors.primary,
-    },
-    buttonText: {
-      fontSize: 16,
-      fontWeight: "600",
-    },
-    primaryButtonText: {
-      color: colors.background,
-    },
-    secondaryButtonText: {
-      color: colors.primary,
-    },
-    // Graph styles
-    graphContainer: {
-      margin: 20,
-      padding: 16,
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    graphTitle: {
-      fontSize: 16,
-      fontWeight: "600",
-      color: colors.text,
-      marginBottom: 12,
-      textAlign: "center",
-    },
-    graph: {
-      height: 220,
-      width: 300,
-      position: "relative",
-      paddingHorizontal: 8,
-      alignSelf: "center",
-    },
-    graphLine: {
-      position: "absolute",
-      height: 2,
-      backgroundColor: colors.primary,
-    },
-    graphLineNet: {
-      position: "absolute",
-      height: 2,
-      backgroundColor: "#4CAF50",
-    },
-    graphPoint: {
-      position: "absolute",
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: colors.primary,
-    },
-    graphPointNet: {
-      position: "absolute",
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      backgroundColor: "#4CAF50",
-    },
-    graphPointPositive: {
-      backgroundColor: "#F44336",
-    },
-    graphPointNegative: {
-      backgroundColor: "#4CAF50",
-    },
-    graphPointZero: {
-      backgroundColor: "#2196F3",
-    },
-    graphZeroLine: {
-      position: "absolute",
-      left: 8,
-      right: 8,
-      height: 3,
-      backgroundColor: colors.border,
-      top: 100, // Center of 200px graph
-    },
-    customChart: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-    },
-    graphDataPoint: {
-      position: "absolute",
-      width: 12,
-      height: 12,
-      borderRadius: 6,
-      zIndex: 2,
-    },
-    graphFireEmoji: {
-      position: "absolute",
-      fontSize: 16,
-      zIndex: 3,
-    },
-    graphLabels: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      marginTop: 8,
-      paddingHorizontal: 8,
-    },
-    graphLabel: {
-      fontSize: 10,
-      color: colors.textSecondary,
-      textAlign: "center",
-    },
-    graphLegend: {
-      flexDirection: "row",
-      justifyContent: "center",
-      marginTop: 8,
-      gap: 16,
-    },
-    legendItem: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 4,
-    },
-    legendColor: {
-      width: 12,
-      height: 12,
-      borderRadius: 2,
-    },
-    legendText: {
-      fontSize: 12,
-      color: colors.textSecondary,
-    },
-    clubBreakdown: {
-      margin: 20,
-      padding: 16,
-      backgroundColor: colors.surface,
-      borderRadius: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    clubBreakdownTitle: {
-      fontSize: 18,
-      fontWeight: "bold",
-      color: colors.text,
-      marginBottom: 12,
-    },
-    clubRow: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      paddingVertical: 4,
-    },
-    clubName: {
-      fontSize: 14,
-      fontWeight: "600",
-      color: colors.text,
-      flex: 1,
-    },
-    clubStats: {
-      fontSize: 14,
-      color: colors.textSecondary,
-      textAlign: "right",
-      flex: 2,
-    },
-  });
+    const styles = StyleSheet.create({
+      container: {
+        flex: 1,
+        backgroundColor: colors.background,
+      },
+      header: {
+        padding: 20,
+        paddingBottom: 10,
+        alignItems: "center",
+      },
+      title: {
+        fontSize: 28,
+        fontWeight: "bold",
+        color: colors.text,
+        marginBottom: 8,
+      },
+      subtitle: {
+        fontSize: 16,
+        color: colors.textSecondary,
+        textAlign: "center",
+      },
+      incompleteText: {
+        fontSize: 14,
+        color: colors.primary,
+        textAlign: "center",
+        marginTop: 4,
+        fontWeight: "500",
+      },
+      scorecard: {
+        backgroundColor: colors.surface,
+        margin: 20,
+        borderRadius: 12,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+      },
+      scorecardHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 16,
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border,
+      },
+      courseName: {
+        fontSize: 20,
+        fontWeight: "600",
+        color: colors.text,
+      },
+      totalScore: {
+        fontSize: 24,
+        fontWeight: "bold",
+        color: colors.primary,
+      },
+      holesGrid: {
+        gap: 8,
+      },
+      frontNine: {
+        backgroundColor: "#E3F2FD", // Light blue for front 9
+        borderRadius: 8,
+        padding: 8,
+        marginBottom: 8,
+      },
+      backNine: {
+        backgroundColor: "#E8F5E8", // Light green for back 9
+        borderRadius: 8,
+        padding: 8,
+      },
+      frontNineTitle: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: colors.text,
+        textAlign: "center",
+        marginBottom: 8,
+      },
+      backNineTitle: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: colors.text,
+        textAlign: "center",
+        marginBottom: 8,
+      },
+      holesRow: {
+        flexDirection: "row",
+        gap: 8,
+        marginBottom: 8,
+      },
+      holesRowLast: {
+        flexDirection: "row",
+        gap: 8,
+      },
+      holeCard: {
+        width: "18%", // Fixed width instead of flex
+        aspectRatio: 1,
+        backgroundColor: colors.background,
+        borderRadius: 8,
+        alignItems: "center",
+        justifyContent: "center",
+        borderWidth: 1,
+        borderColor: colors.border,
+        position: "relative",
+      },
+      holeNumber: {
+        fontSize: 12,
+        color: colors.textSecondary,
+        marginBottom: 2,
+      },
+      holeScore: {
+        fontSize: 16,
+        fontWeight: "bold",
+      },
+      holePar: {
+        fontSize: 10,
+        color: colors.textSecondary,
+      },
+      bumpIndicator: {
+        position: "absolute",
+        top: 4,
+        right: 4,
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: colors.primary,
+      },
+      bumpIndicators: {
+        position: "absolute",
+        top: 4,
+        right: 4,
+        flexDirection: "row",
+        gap: 2,
+      },
+      bumpDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: colors.primary,
+      },
+      topActionButtons: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        paddingHorizontal: 20,
+        paddingTop: 20,
+        paddingBottom: 10,
+        gap: 10,
+      },
+      bottomActionButtons: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        paddingHorizontal: 20,
+        paddingTop: 10,
+        paddingBottom: 20,
+        gap: 10,
+      },
+      returnToRoundButton: {
+        flex: 1,
+        backgroundColor: colors.primary,
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 25, // Pill-shaped
+        alignItems: "center",
+        justifyContent: "center",
+      },
+      returnToRoundButtonText: {
+        color: colors.background,
+        fontSize: 16,
+        fontWeight: "600",
+      },
+      endRoundButton: {
+        flex: 1,
+        backgroundColor: colors.error || "#ff4444",
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 25, // Pill-shaped
+        alignItems: "center",
+        justifyContent: "center",
+      },
+      endRoundButtonText: {
+        color: colors.background,
+        fontSize: 16,
+        fontWeight: "600",
+      },
+      closeButton: {
+        position: "absolute",
+        top: 20,
+        right: 20,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.border,
+        alignItems: "center",
+        justifyContent: "center",
+      },
+      closeButtonText: {
+        fontSize: 18,
+        fontWeight: "bold",
+        color: colors.text,
+      },
+      statsContainer: {
+        flexDirection: "row",
+        justifyContent: "space-around",
+        margin: 20,
+        paddingVertical: 16,
+        backgroundColor: colors.surface,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: colors.border,
+      },
+      statItem: {
+        alignItems: "center",
+      },
+      statValue: {
+        fontSize: 24,
+        fontWeight: "bold",
+        color: colors.text,
+      },
+      statLabel: {
+        fontSize: 12,
+        color: colors.textSecondary,
+        marginTop: 4,
+      },
+      buttons: {
+        padding: 20,
+        gap: 12,
+      },
+      button: {
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        borderRadius: 12,
+        alignItems: "center",
+      },
+      primaryButton: {
+        backgroundColor: colors.primary,
+      },
+      secondaryButton: {
+        backgroundColor: colors.surface,
+        borderWidth: 2,
+        borderColor: colors.primary,
+      },
+      buttonText: {
+        fontSize: 16,
+        fontWeight: "600",
+      },
+      primaryButtonText: {
+        color: colors.background,
+      },
+      secondaryButtonText: {
+        color: colors.primary,
+      },
+      // Graph styles
+      graphContainer: {
+        margin: 20,
+        padding: 16,
+        backgroundColor: colors.surface,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: colors.border,
+      },
+      graphTitle: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: colors.text,
+        marginBottom: 12,
+        textAlign: "center",
+      },
+      graph: {
+        height: 220,
+        width: 300,
+        position: "relative",
+        paddingHorizontal: 8,
+        alignSelf: "center",
+      },
+      graphLine: {
+        position: "absolute",
+        height: 2,
+        backgroundColor: colors.primary,
+      },
+      graphLineNet: {
+        position: "absolute",
+        height: 2,
+        backgroundColor: "#4CAF50",
+      },
+      graphPoint: {
+        position: "absolute",
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: colors.primary,
+      },
+      graphPointNet: {
+        position: "absolute",
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: "#4CAF50",
+      },
+      graphPointPositive: {
+        backgroundColor: "#F44336",
+      },
+      graphPointNegative: {
+        backgroundColor: "#4CAF50",
+      },
+      graphPointZero: {
+        backgroundColor: "#2196F3",
+      },
+      graphZeroLine: {
+        position: "absolute",
+        left: 8,
+        right: 8,
+        height: 3,
+        backgroundColor: colors.border,
+        top: 100, // Center of 200px graph
+      },
+      customChart: {
+        position: "absolute",
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+      },
+      graphDataPoint: {
+        position: "absolute",
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        zIndex: 2,
+      },
+      graphFireEmoji: {
+        position: "absolute",
+        fontSize: 16,
+        zIndex: 3,
+      },
+      graphLabels: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        marginTop: 8,
+        paddingHorizontal: 8,
+      },
+      graphLabel: {
+        fontSize: 10,
+        color: colors.textSecondary,
+        textAlign: "center",
+      },
+      graphLegend: {
+        flexDirection: "row",
+        justifyContent: "center",
+        marginTop: 8,
+        gap: 16,
+      },
+      legendItem: {
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 4,
+      },
+      legendColor: {
+        width: 12,
+        height: 12,
+        borderRadius: 2,
+      },
+      legendText: {
+        fontSize: 12,
+        color: colors.textSecondary,
+      },
+      clubBreakdown: {
+        margin: 20,
+        padding: 16,
+        backgroundColor: colors.surface,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: colors.border,
+      },
+      clubBreakdownTitle: {
+        fontSize: 18,
+        fontWeight: "bold",
+        color: colors.text,
+        marginBottom: 12,
+      },
+      clubRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingVertical: 4,
+      },
+      clubName: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: colors.text,
+        flex: 1,
+      },
+      clubStats: {
+        fontSize: 14,
+        color: colors.textSecondary,
+        textAlign: "right",
+        flex: 2,
+      },
+    });
 
-  // Calculate current total score for incomplete rounds
-  const currentTotalScore = (round.holeScores || []).reduce(
-    (sum, hs) => sum + hs.totalScore,
-    0
-  );
-  const currentTotalPar = (round.holeScores || []).reduce(
-    (sum, hs) => sum + hs.par,
-    0
-  );
-  const netScore = currentTotalScore - currentTotalPar;
-  const underParHoles = (round.holeScores || []).filter(
-    (hs) => hs.totalScore < hs.par
-  ).length;
-  const parHoles = (round.holeScores || []).filter(
-    (hs) => hs.totalScore === hs.par
-  ).length;
-  const overParHoles = (round.holeScores || []).filter(
-    (hs) => hs.totalScore > hs.par
-  ).length;
+    // Calculate current total score for incomplete rounds
+    const currentTotalScore = (round.holeScores || []).reduce(
+      (sum, hs) => sum + hs.totalScore,
+      0
+    );
+    const currentTotalPar = (round.holeScores || []).reduce(
+      (sum, hs) => sum + hs.par,
+      0
+    );
+    const netScore = currentTotalScore - currentTotalPar;
+    const underParHoles = (round.holeScores || []).filter(
+      (hs) => hs.totalScore < hs.par
+    ).length;
+    const parHoles = (round.holeScores || []).filter(
+      (hs) => hs.totalScore === hs.par
+    ).length;
+    const overParHoles = (round.holeScores || []).filter(
+      (hs) => hs.totalScore > hs.par
+    ).length;
 
-  // Calculate club breakdown
-  const clubBreakdown = React.useMemo(() => {
-    const clubStats: {
-      [club: string]: {
-        total: number;
-        fire: number;
-        poop: number;
-        teeShot: number;
-        fireTeeShot: number;
-        poopTeeShot: number;
-      };
-    } = {};
+    // Calculate club breakdown
+    const clubBreakdown = React.useMemo(() => {
+      const clubStats: {
+        [club: string]: {
+          total: number;
+          fire: number;
+          poop: number;
+          teeShot: number;
+          fireTeeShot: number;
+          poopTeeShot: number;
+        };
+      } = {};
 
-    (round.holeScores || []).forEach((holeScore) => {
-      const shots = holeScore.shots || [];
+      (round.holeScores || []).forEach((holeScore) => {
+        const shots = holeScore.shots || [];
 
-      shots.forEach((shot, index) => {
-        if (!shot.club) return;
+        shots.forEach((shot, index) => {
+          if (!shot.club) return;
 
-        const club = shot.club;
-        const isTeeShot = index === 0; // First shot of the hole
-        const isFire = shot.direction === "fire";
-        const isPoop = shot.poorShot === true;
+          const club = shot.club;
+          const isTeeShot = index === 0; // First shot of the hole
+          const isFire = shot.direction === "fire";
+          const isPoop = shot.poorShot === true;
 
-        if (!clubStats[club]) {
-          clubStats[club] = {
-            total: 0,
-            fire: 0,
-            poop: 0,
-            teeShot: 0,
-            fireTeeShot: 0,
-            poopTeeShot: 0,
-          };
-        }
+          if (!clubStats[club]) {
+            clubStats[club] = {
+              total: 0,
+              fire: 0,
+              poop: 0,
+              teeShot: 0,
+              fireTeeShot: 0,
+              poopTeeShot: 0,
+            };
+          }
 
-        clubStats[club].total++;
-        if (isFire) clubStats[club].fire++;
-        if (isPoop) clubStats[club].poop++;
+          clubStats[club].total++;
+          if (isFire) clubStats[club].fire++;
+          if (isPoop) clubStats[club].poop++;
 
-        if (isTeeShot) {
-          clubStats[club].teeShot++;
-          if (isFire) clubStats[club].fireTeeShot++;
-          if (isPoop) clubStats[club].poopTeeShot++;
-        }
+          if (isTeeShot) {
+            clubStats[club].teeShot++;
+            if (isFire) clubStats[club].fireTeeShot++;
+            if (isPoop) clubStats[club].poopTeeShot++;
+          }
+        });
       });
-    });
 
-    // Sort clubs by type (Driver first, then irons, then wedges, etc.)
-    const clubOrder = [
-      "Driver",
-      "3-Wood",
-      "5-Wood",
-      "7-Wood",
-      "1-Iron",
-      "2-Iron",
-      "3-Iron",
-      "4-Iron",
-      "5-Iron",
-      "6-Iron",
-      "7-Iron",
-      "8-Iron",
-      "9-Iron",
-      "PW",
-      "Gap Wedge",
-      "SW",
-      "LW",
-      "Putter",
-    ];
+      // Sort clubs by type (Driver first, then irons, then wedges, etc.)
+      const clubOrder = [
+        "Driver",
+        "3-Wood",
+        "5-Wood",
+        "7-Wood",
+        "1-Iron",
+        "2-Iron",
+        "3-Iron",
+        "4-Iron",
+        "5-Iron",
+        "6-Iron",
+        "7-Iron",
+        "8-Iron",
+        "9-Iron",
+        "PW",
+        "Gap Wedge",
+        "SW",
+        "LW",
+        "Putter",
+      ];
 
-    return Object.entries(clubStats).sort(([a], [b]) => {
-      const aIndex = clubOrder.indexOf(a);
-      const bIndex = clubOrder.indexOf(b);
-      if (aIndex === -1 && bIndex === -1) return a.localeCompare(b);
-      if (aIndex === -1) return 1;
-      if (bIndex === -1) return -1;
-      return aIndex - bIndex;
-    });
-  }, [round.holeScores]);
+      return Object.entries(clubStats).sort(([a], [b]) => {
+        const aIndex = clubOrder.indexOf(a);
+        const bIndex = clubOrder.indexOf(b);
+        if (aIndex === -1 && bIndex === -1) return a.localeCompare(b);
+        if (aIndex === -1) return 1;
+        if (bIndex === -1) return -1;
+        return aIndex - bIndex;
+      });
+    }, [round.holeScores]);
 
-  return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      {/* Top Action Buttons */}
-      <View style={styles.topActionButtons}>
-        {onReturnToRound && (
-          <TouchableOpacity
-            style={styles.returnToRoundButton}
-            onPress={onReturnToRound}
-          >
-            <Text style={styles.returnToRoundButtonText}>Continue</Text>
-          </TouchableOpacity>
-        )}
-        {onEndRound && (
-          <TouchableOpacity style={styles.endRoundButton} onPress={onEndRound}>
-            <Text style={styles.endRoundButtonText}>End Round</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      <View style={styles.header}>
-        <Text style={styles.title}>Round Summary</Text>
-        <Text style={styles.subtitle}>
-          {course.name} • {formatDate(round.completedAt || round.startedAt, 'short')}
-        </Text>
-        {!round.isComplete && (
-          <Text style={styles.incompleteText}>
-            Through {round.holeScores?.length || 0} holes
-          </Text>
-        )}
-      </View>
-
-      {/* Scorecard */}
-      <View style={styles.scorecard}>
-        <View style={styles.scorecardHeader}>
-          <Text style={styles.courseName}>Scorecard</Text>
-          <Text style={styles.totalScore}>
-            {currentTotalScore} (
-            {netScore > 0 ? `+${netScore}` : netScore === 0 ? "E" : netScore})
-          </Text>
+    return (
+      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        {/* Top Action Buttons */}
+        <View style={styles.topActionButtons}>
+          {onReturnToRound && (
+            <TouchableOpacity
+              style={styles.returnToRoundButton}
+              onPress={onReturnToRound}
+            >
+              <Text style={styles.returnToRoundButtonText}>Continue</Text>
+            </TouchableOpacity>
+          )}
+          {onEndRound && (
+            <TouchableOpacity style={styles.endRoundButton} onPress={onEndRound}>
+              <Text style={styles.endRoundButtonText}>End Round</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
-        <View style={styles.holesGrid}>
-          {/* Front 9 */}
-          <View style={styles.frontNine}>
-            <Text style={styles.frontNineTitle}>Front 9</Text>
-
-            {/* Row 1: Holes 1-4 */}
-            <View style={styles.holesRow}>
-              {[1, 2, 3, 4].map((holeNumber) => {
-                const hole = (course.holes || []).find(
-                  (h) => h.number === holeNumber
-                );
-                if (!hole) return null;
-                const holeScore = (round.holeScores || []).find(
-                  (hs) => hs.holeNumber === hole.number
-                );
-                const score = holeScore?.totalScore || 0;
-                const bumps =
-                  handicap !== undefined ? getBumpsForHole(hole) : 0;
-
-                return (
-                  <TouchableOpacity
-                    key={hole.number}
-                    style={styles.holeCard}
-                    onPress={() => onHolePress?.(hole.number)}
-                    disabled={!onHolePress}
-                  >
-                    {bumps > 0 && (
-                      <View style={styles.bumpIndicators}>
-                        {Array.from({ length: bumps }, (_, i) => (
-                          <View
-                            key={`${hole.number}-bump-${i}`}
-                            style={styles.bumpDot}
-                          />
-                        ))}
-                      </View>
-                    )}
-                    <Text style={styles.holeNumber}>{hole.number}</Text>
-                    <Text
-                      style={[
-                        styles.holeScore,
-                        {
-                          color:
-                            score > 0
-                              ? getScoreColor(score, hole.par)
-                              : colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {score > 0
-                        ? `${score}${hasFireShot(hole.number) ? " 🔥" : ""}${
-                            hasPoorShot(hole.number) ? " 💩" : ""
-                          }`
-                        : "-"}
-                    </Text>
-                    <Text style={styles.holePar}>Par {hole.par}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Row 2: Holes 5-9 */}
-            <View style={styles.holesRowLast}>
-              {[5, 6, 7, 8, 9].map((holeNumber) => {
-                const hole = (course.holes || []).find(
-                  (h) => h.number === holeNumber
-                );
-                if (!hole) return null;
-                const holeScore = (round.holeScores || []).find(
-                  (hs) => hs.holeNumber === hole.number
-                );
-                const score = holeScore?.totalScore || 0;
-                const bumps =
-                  handicap !== undefined ? getBumpsForHole(hole) : 0;
-
-                return (
-                  <TouchableOpacity
-                    key={hole.number}
-                    style={styles.holeCard}
-                    onPress={() => onHolePress?.(hole.number)}
-                    disabled={!onHolePress}
-                  >
-                    {bumps > 0 && (
-                      <View style={styles.bumpIndicators}>
-                        {Array.from({ length: bumps }, (_, i) => (
-                          <View
-                            key={`${hole.number}-bump-${i}`}
-                            style={styles.bumpDot}
-                          />
-                        ))}
-                      </View>
-                    )}
-                    <Text style={styles.holeNumber}>{hole.number}</Text>
-                    <Text
-                      style={[
-                        styles.holeScore,
-                        {
-                          color:
-                            score > 0
-                              ? getScoreColor(score, hole.par)
-                              : colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {score > 0
-                        ? `${score}${hasFireShot(hole.number) ? " 🔥" : ""}${
-                            hasPoorShot(hole.number) ? " 💩" : ""
-                          }`
-                        : "-"}
-                    </Text>
-                    <Text style={styles.holePar}>Par {hole.par}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Back 9 */}
-          <View style={styles.backNine}>
-            <Text style={styles.backNineTitle}>Back 9</Text>
-
-            {/* Row 3: Holes 10-13 */}
-            <View style={styles.holesRow}>
-              {[10, 11, 12, 13].map((holeNumber) => {
-                const hole = (course.holes || []).find(
-                  (h) => h.number === holeNumber
-                );
-                if (!hole) return null;
-                const holeScore = (round.holeScores || []).find(
-                  (hs) => hs.holeNumber === hole.number
-                );
-                const score = holeScore?.totalScore || 0;
-                const bumps =
-                  handicap !== undefined ? getBumpsForHole(hole) : 0;
-
-                return (
-                  <TouchableOpacity
-                    key={hole.number}
-                    style={styles.holeCard}
-                    onPress={() => onHolePress?.(hole.number)}
-                    disabled={!onHolePress}
-                  >
-                    {bumps > 0 && (
-                      <View style={styles.bumpIndicators}>
-                        {Array.from({ length: bumps }, (_, i) => (
-                          <View
-                            key={`${hole.number}-bump-${i}`}
-                            style={styles.bumpDot}
-                          />
-                        ))}
-                      </View>
-                    )}
-                    <Text style={styles.holeNumber}>{hole.number}</Text>
-                    <Text
-                      style={[
-                        styles.holeScore,
-                        {
-                          color:
-                            score > 0
-                              ? getScoreColor(score, hole.par)
-                              : colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {score > 0
-                        ? `${score}${hasFireShot(hole.number) ? " 🔥" : ""}${
-                            hasPoorShot(hole.number) ? " 💩" : ""
-                          }`
-                        : "-"}
-                    </Text>
-                    <Text style={styles.holePar}>Par {hole.par}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Row 4: Holes 14-18 */}
-            <View style={styles.holesRowLast}>
-              {[14, 15, 16, 17, 18].map((holeNumber) => {
-                const hole = (course.holes || []).find(
-                  (h) => h.number === holeNumber
-                );
-                if (!hole) return null;
-                const holeScore = (round.holeScores || []).find(
-                  (hs) => hs.holeNumber === hole.number
-                );
-                const score = holeScore?.totalScore || 0;
-                const bumps =
-                  handicap !== undefined ? getBumpsForHole(hole) : 0;
-
-                return (
-                  <TouchableOpacity
-                    key={hole.number}
-                    style={styles.holeCard}
-                    onPress={() => onHolePress?.(hole.number)}
-                    disabled={!onHolePress}
-                  >
-                    {bumps > 0 && (
-                      <View style={styles.bumpIndicators}>
-                        {Array.from({ length: bumps }, (_, i) => (
-                          <View
-                            key={`${hole.number}-bump-${i}`}
-                            style={styles.bumpDot}
-                          />
-                        ))}
-                      </View>
-                    )}
-                    <Text style={styles.holeNumber}>{hole.number}</Text>
-                    <Text
-                      style={[
-                        styles.holeScore,
-                        {
-                          color:
-                            score > 0
-                              ? getScoreColor(score, hole.par)
-                              : colors.textSecondary,
-                        },
-                      ]}
-                    >
-                      {score > 0
-                        ? `${score}${hasFireShot(hole.number) ? " 🔥" : ""}${
-                            hasPoorShot(hole.number) ? " 💩" : ""
-                          }`
-                        : "-"}
-                    </Text>
-                    <Text style={styles.holePar}>Par {hole.par}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
+        <View style={styles.header}>
+          <Text style={styles.title}>Round Summary</Text>
+          <Text style={styles.subtitle}>
+            {course.name} • {formatDate(round.completedAt || round.startedAt, 'short')}
+          </Text>
+          {!round.isComplete && (
+            <Text style={styles.incompleteText}>
+              Through {round.holeScores?.length || 0} holes
+            </Text>
+          )}
         </View>
-      </View>
 
-      {/* Score Graphs */}
-      {(() => {
-        const scores = getCumulativeScores();
-        if (scores.length === 0) {
-          return (
-            <View style={styles.graphContainer}>
-              <Text style={styles.graphTitle}>Cumulative Shots Over Par</Text>
-              <View style={styles.graph}>
-                <Text
-                  style={{
-                    textAlign: "center",
-                    color: colors.text,
-                    marginTop: 40,
-                  }}
-                >
-                  Complete some holes to see your score progression
-                </Text>
-              </View>
-            </View>
-          );
-        }
+        {/* Scorecard */}
+        <View style={styles.scorecard}>
+          <View style={styles.scorecardHeader}>
+            <Text style={styles.courseName}>Scorecard</Text>
+            <Text style={styles.totalScore}>
+              {currentTotalScore} (
+              {netScore > 0 ? `+${netScore}` : netScore === 0 ? "E" : netScore})
+            </Text>
+          </View>
 
-        const maxValue = Math.max(
-          ...scores.map((s) => Math.max(s.gross || 0, s.net || 0))
-        );
-        const minValue = Math.min(
-          ...scores.map((s) => Math.min(s.gross || 0, s.net || 0))
-        );
-        const range = maxValue - minValue;
-        const graphHeight = 100;
+          <View style={styles.holesGrid}>
+            {/* Front 9 */}
+            <View style={styles.frontNine}>
+              <Text style={styles.frontNineTitle}>Front 9</Text>
 
-        // Define validScores for both graphs
-        const validGrossScores = scores.filter((s) => s.gross !== null);
-        const validNetScores = scores.filter((s) => s.net !== null);
-
-        return (
-          <View>
-            {/* Gross Score Graph */}
-            <View style={styles.graphContainer}>
-              <Text style={styles.graphTitle}>Cumulative Shots Over Par</Text>
-              <View style={styles.graph}>
-                {(() => {
-                  const validScores = validGrossScores;
-                  if (validScores.length < 2) {
-                    return (
-                      <Text
-                        style={{
-                          textAlign: "center",
-                          color: colors.text,
-                          marginTop: 40,
-                        }}
-                      >
-                        Complete at least 2 holes to see score progression
-                      </Text>
-                    );
-                  }
-
-                  // Prepare data for LineChart
-                  const chartData = validScores.map((score, index) => {
-                    const holeHasFire = round.holeScores?.some(
-                      (hs) =>
-                        hs.holeNumber === score.hole &&
-                        hs.shots?.some((shot) => shot.direction === "fire")
-                    );
-                    const holeHasPoorShot = round.holeScores?.some(
-                      (hs) =>
-                        hs.holeNumber === score.hole &&
-                        hs.shots?.some((shot) => shot.poorShot === true)
-                    );
-
-                    return {
-                      value: score.gross,
-                      label: score.hole.toString(),
-                      dataPointText:
-                        score.gross > 0
-                          ? `+${score.gross}`
-                          : score.gross.toString(),
-                      dataPointColor: colors.primary,
-                      dataPointRadius: 6,
-                      holeHasFire,
-                      holeHasPoorShot,
-                      customDataPoint:
-                        holeHasFire || holeHasPoorShot ? (
-                          <View style={{ alignItems: "center" }}>
-                            <Text style={{ fontSize: 12, marginBottom: 2 }}>
-                              {holeHasFire ? "🔥" : ""}
-                              {holeHasPoorShot ? "💩" : ""}
-                            </Text>
-                            <View
-                              style={{
-                                width: 8,
-                                height: 8,
-                                borderRadius: 4,
-                                backgroundColor: colors.primary,
-                              }}
-                            />
-                          </View>
-                        ) : undefined,
-                    };
-                  });
+              {/* Row 1: Holes 1-4 */}
+              <View style={styles.holesRow}>
+                {[1, 2, 3, 4].map((holeNumber) => {
+                  const hole = (course.holes || []).find(
+                    (h) => h.number === holeNumber
+                  );
+                  if (!hole) return null;
+                  const holeScore = (round.holeScores || []).find(
+                    (hs) => hs.holeNumber === hole.number
+                  );
+                  const score = holeScore?.totalScore || 0;
+                  const bumps =
+                    handicap !== undefined ? getBumpsForHole(hole) : 0;
 
                   return (
-                    <View style={styles.graph}>
-                      {/* Zero line */}
-                      <View style={[styles.graphZeroLine, { top: 100 }]} />
-
-                      {/* Custom line chart - dots only */}
-                      <View style={styles.customChart}>
-                        {chartData.map((point, index) => {
-                          const x = index * (280 / (chartData.length - 1));
-                          const y = 100 - point.value * 20; // Scale factor of 20
-
-                          return (
-                            <View key={`point-${index}`}>
-                              {/* Data point */}
-                              <View
-                                style={[
-                                  styles.graphDataPoint,
-                                  {
-                                    left: x - 6,
-                                    top: y - 6,
-                                    backgroundColor: colors.primary,
-                                  },
-                                ]}
-                              />
-                              {/* Fire and poop emojis if applicable */}
-                              {point.customDataPoint && (
-                                <Text
-                                  style={[
-                                    styles.graphFireEmoji,
-                                    {
-                                      left: x - 8,
-                                      top: y - 20,
-                                    },
-                                  ]}
-                                >
-                                  {point.holeHasFire ? "🔥" : ""}
-                                  {point.holeHasPoorShot ? "💩" : ""}
-                                </Text>
-                              )}
-                            </View>
-                          );
-                        })}
-                      </View>
-                    </View>
+                    <TouchableOpacity
+                      key={hole.number}
+                      style={styles.holeCard}
+                      onPress={() => onHolePress?.(hole.number)}
+                      disabled={!onHolePress}
+                    >
+                      {bumps > 0 && (
+                        <View style={styles.bumpIndicators}>
+                          {Array.from({ length: bumps }, (_, i) => (
+                            <View
+                              key={`${hole.number}-bump-${i}`}
+                              style={styles.bumpDot}
+                            />
+                          ))}
+                        </View>
+                      )}
+                      <Text style={styles.holeNumber}>{hole.number}</Text>
+                      <Text
+                        style={[
+                          styles.holeScore,
+                          {
+                            color:
+                              score > 0
+                                ? getScoreColor(score, hole.par)
+                                : colors.textSecondary,
+                          },
+                        ]}
+                      >
+                        {score > 0
+                          ? `${score}${hasFireShot(hole.number) ? " 🔥" : ""}${hasPoorShot(hole.number) ? " 💩" : ""
+                          }`
+                          : "-"}
+                      </Text>
+                      <Text style={styles.holePar}>Par {hole.par}</Text>
+                    </TouchableOpacity>
                   );
-                })()}
+                })}
               </View>
-              <View style={styles.graphLabels}>
-                {validGrossScores.map((score, index) => (
-                  <Text key={`gross-${score.hole}`} style={styles.graphLabel}>
-                    {score.hole}
-                  </Text>
-                ))}
+
+              {/* Row 2: Holes 5-9 */}
+              <View style={styles.holesRowLast}>
+                {[5, 6, 7, 8, 9].map((holeNumber) => {
+                  const hole = (course.holes || []).find(
+                    (h) => h.number === holeNumber
+                  );
+                  if (!hole) return null;
+                  const holeScore = (round.holeScores || []).find(
+                    (hs) => hs.holeNumber === hole.number
+                  );
+                  const score = holeScore?.totalScore || 0;
+                  const bumps =
+                    handicap !== undefined ? getBumpsForHole(hole) : 0;
+
+                  return (
+                    <TouchableOpacity
+                      key={hole.number}
+                      style={styles.holeCard}
+                      onPress={() => onHolePress?.(hole.number)}
+                      disabled={!onHolePress}
+                    >
+                      {bumps > 0 && (
+                        <View style={styles.bumpIndicators}>
+                          {Array.from({ length: bumps }, (_, i) => (
+                            <View
+                              key={`${hole.number}-bump-${i}`}
+                              style={styles.bumpDot}
+                            />
+                          ))}
+                        </View>
+                      )}
+                      <Text style={styles.holeNumber}>{hole.number}</Text>
+                      <Text
+                        style={[
+                          styles.holeScore,
+                          {
+                            color:
+                              score > 0
+                                ? getScoreColor(score, hole.par)
+                                : colors.textSecondary,
+                          },
+                        ]}
+                      >
+                        {score > 0
+                          ? `${score}${hasFireShot(hole.number) ? " 🔥" : ""}${hasPoorShot(hole.number) ? " 💩" : ""
+                          }`
+                          : "-"}
+                      </Text>
+                      <Text style={styles.holePar}>Par {hole.par}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
             </View>
 
-            {/* Net Score Graph */}
-            {handicap !== undefined && (
+            {/* Back 9 */}
+            <View style={styles.backNine}>
+              <Text style={styles.backNineTitle}>Back 9</Text>
+
+              {/* Row 3: Holes 10-13 */}
+              <View style={styles.holesRow}>
+                {[10, 11, 12, 13].map((holeNumber) => {
+                  const hole = (course.holes || []).find(
+                    (h) => h.number === holeNumber
+                  );
+                  if (!hole) return null;
+                  const holeScore = (round.holeScores || []).find(
+                    (hs) => hs.holeNumber === hole.number
+                  );
+                  const score = holeScore?.totalScore || 0;
+                  const bumps =
+                    handicap !== undefined ? getBumpsForHole(hole) : 0;
+
+                  return (
+                    <TouchableOpacity
+                      key={hole.number}
+                      style={styles.holeCard}
+                      onPress={() => onHolePress?.(hole.number)}
+                      disabled={!onHolePress}
+                    >
+                      {bumps > 0 && (
+                        <View style={styles.bumpIndicators}>
+                          {Array.from({ length: bumps }, (_, i) => (
+                            <View
+                              key={`${hole.number}-bump-${i}`}
+                              style={styles.bumpDot}
+                            />
+                          ))}
+                        </View>
+                      )}
+                      <Text style={styles.holeNumber}>{hole.number}</Text>
+                      <Text
+                        style={[
+                          styles.holeScore,
+                          {
+                            color:
+                              score > 0
+                                ? getScoreColor(score, hole.par)
+                                : colors.textSecondary,
+                          },
+                        ]}
+                      >
+                        {score > 0
+                          ? `${score}${hasFireShot(hole.number) ? " 🔥" : ""}${hasPoorShot(hole.number) ? " 💩" : ""
+                          }`
+                          : "-"}
+                      </Text>
+                      <Text style={styles.holePar}>Par {hole.par}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Row 4: Holes 14-18 */}
+              <View style={styles.holesRowLast}>
+                {[14, 15, 16, 17, 18].map((holeNumber) => {
+                  const hole = (course.holes || []).find(
+                    (h) => h.number === holeNumber
+                  );
+                  if (!hole) return null;
+                  const holeScore = (round.holeScores || []).find(
+                    (hs) => hs.holeNumber === hole.number
+                  );
+                  const score = holeScore?.totalScore || 0;
+                  const bumps =
+                    handicap !== undefined ? getBumpsForHole(hole) : 0;
+
+                  return (
+                    <TouchableOpacity
+                      key={hole.number}
+                      style={styles.holeCard}
+                      onPress={() => onHolePress?.(hole.number)}
+                      disabled={!onHolePress}
+                    >
+                      {bumps > 0 && (
+                        <View style={styles.bumpIndicators}>
+                          {Array.from({ length: bumps }, (_, i) => (
+                            <View
+                              key={`${hole.number}-bump-${i}`}
+                              style={styles.bumpDot}
+                            />
+                          ))}
+                        </View>
+                      )}
+                      <Text style={styles.holeNumber}>{hole.number}</Text>
+                      <Text
+                        style={[
+                          styles.holeScore,
+                          {
+                            color:
+                              score > 0
+                                ? getScoreColor(score, hole.par)
+                                : colors.textSecondary,
+                          },
+                        ]}
+                      >
+                        {score > 0
+                          ? `${score}${hasFireShot(hole.number) ? " 🔥" : ""}${hasPoorShot(hole.number) ? " 💩" : ""
+                          }`
+                          : "-"}
+                      </Text>
+                      <Text style={styles.holePar}>Par {hole.par}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Score Graphs */}
+        {(() => {
+          const scores = getCumulativeScores();
+          if (scores.length === 0) {
+            return (
               <View style={styles.graphContainer}>
-                <Text style={styles.graphTitle}>
-                  Cumulative Shots Over Net Par
-                </Text>
+                <Text style={styles.graphTitle}>Cumulative Shots Over Par</Text>
+                <View style={styles.graph}>
+                  <Text
+                    style={{
+                      textAlign: "center",
+                      color: colors.text,
+                      marginTop: 40,
+                    }}
+                  >
+                    Complete some holes to see your score progression
+                  </Text>
+                </View>
+              </View>
+            );
+          }
+
+          const maxValue = Math.max(
+            ...scores.map((s) => Math.max(s.gross || 0, s.net || 0))
+          );
+          const minValue = Math.min(
+            ...scores.map((s) => Math.min(s.gross || 0, s.net || 0))
+          );
+          const range = maxValue - minValue;
+          const graphHeight = 100;
+
+          // Define validScores for both graphs
+          const validGrossScores = scores.filter((s) => s.gross !== null);
+          const validNetScores = scores.filter((s) => s.net !== null);
+
+          return (
+            <View>
+              {/* Gross Score Graph */}
+              <View style={styles.graphContainer}>
+                <Text style={styles.graphTitle}>Cumulative Shots Over Par</Text>
                 <View style={styles.graph}>
                   {(() => {
-                    const validScores = validNetScores;
+                    const validScores = validGrossScores;
                     if (validScores.length < 2) {
                       return (
                         <Text
@@ -1631,7 +1504,7 @@ const RoundSummaryScreen: React.FC<{
                             marginTop: 40,
                           }}
                         >
-                          Complete at least 2 holes to see net score progression
+                          Complete at least 2 holes to see score progression
                         </Text>
                       );
                     }
@@ -1650,13 +1523,13 @@ const RoundSummaryScreen: React.FC<{
                       );
 
                       return {
-                        value: score.net,
+                        value: score.gross,
                         label: score.hole.toString(),
                         dataPointText:
-                          score.net > 0
-                            ? `+${score.net}`
-                            : score.net.toString(),
-                        dataPointColor: "#4CAF50",
+                          score.gross > 0
+                            ? `+${score.gross}`
+                            : score.gross.toString(),
+                        dataPointColor: colors.primary,
                         dataPointRadius: 6,
                         holeHasFire,
                         holeHasPoorShot,
@@ -1672,7 +1545,7 @@ const RoundSummaryScreen: React.FC<{
                                   width: 8,
                                   height: 8,
                                   borderRadius: 4,
-                                  backgroundColor: "#4CAF50",
+                                  backgroundColor: colors.primary,
                                 }}
                               />
                             </View>
@@ -1692,7 +1565,7 @@ const RoundSummaryScreen: React.FC<{
                             const y = 100 - point.value * 20; // Scale factor of 20
 
                             return (
-                              <View key={`net-point-${index}`}>
+                              <View key={`point-${index}`}>
                                 {/* Data point */}
                                 <View
                                   style={[
@@ -1700,7 +1573,7 @@ const RoundSummaryScreen: React.FC<{
                                     {
                                       left: x - 6,
                                       top: y - 6,
-                                      backgroundColor: "#4CAF50",
+                                      backgroundColor: colors.primary,
                                     },
                                   ]}
                                 />
@@ -1728,93 +1601,216 @@ const RoundSummaryScreen: React.FC<{
                   })()}
                 </View>
                 <View style={styles.graphLabels}>
-                  {validNetScores.map((score, index) => (
-                    <Text key={`net-${score.hole}`} style={styles.graphLabel}>
+                  {validGrossScores.map((score, index) => (
+                    <Text key={`gross-${score.hole}`} style={styles.graphLabel}>
                       {score.hole}
                     </Text>
                   ))}
                 </View>
               </View>
-            )}
-          </View>
-        );
-      })()}
 
-      {/* Statistics */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{round.totalScore}</Text>
-          <Text style={styles.statLabel}>Total</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text
-            style={[
-              styles.statValue,
-              { color: getScoreColor(round.totalScore, round.totalPar) },
-            ]}
-          >
-            {netScore > 0 ? `+${netScore}` : netScore === 0 ? "E" : netScore}
-          </Text>
-          <Text style={styles.statLabel}>Net</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: "#4CAF50" }]}>
-            {underParHoles}
-          </Text>
-          <Text style={styles.statLabel}>Under Par</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: "#2196F3" }]}>
-            {parHoles}
-          </Text>
-          <Text style={styles.statLabel}>Par</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={[styles.statValue, { color: "#FF9800" }]}>
-            {overParHoles}
-          </Text>
-          <Text style={styles.statLabel}>Over Par</Text>
-        </View>
-      </View>
+              {/* Net Score Graph */}
+              {handicap !== undefined && (
+                <View style={styles.graphContainer}>
+                  <Text style={styles.graphTitle}>
+                    Cumulative Shots Over Net Par
+                  </Text>
+                  <View style={styles.graph}>
+                    {(() => {
+                      const validScores = validNetScores;
+                      if (validScores.length < 2) {
+                        return (
+                          <Text
+                            style={{
+                              textAlign: "center",
+                              color: colors.text,
+                              marginTop: 40,
+                            }}
+                          >
+                            Complete at least 2 holes to see net score progression
+                          </Text>
+                        );
+                      }
 
-      {/* Bottom Action Buttons */}
-      <View style={styles.bottomActionButtons}>
-        {onReturnToRound && (
-          <TouchableOpacity
-            style={styles.returnToRoundButton}
-            onPress={onReturnToRound}
-          >
-            <Text style={styles.returnToRoundButtonText}>Continue Round</Text>
-          </TouchableOpacity>
-        )}
-        {onEndRound && (
-          <TouchableOpacity style={styles.endRoundButton} onPress={onEndRound}>
-            <Text style={styles.endRoundButtonText}>End Round</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+                      // Prepare data for LineChart
+                      const chartData = validScores.map((score, index) => {
+                        const holeHasFire = round.holeScores?.some(
+                          (hs) =>
+                            hs.holeNumber === score.hole &&
+                            hs.shots?.some((shot) => shot.direction === "fire")
+                        );
+                        const holeHasPoorShot = round.holeScores?.some(
+                          (hs) =>
+                            hs.holeNumber === score.hole &&
+                            hs.shots?.some((shot) => shot.poorShot === true)
+                        );
 
-      {/* Club Breakdown */}
-      {clubBreakdown.length > 0 && (
-        <View style={styles.clubBreakdown}>
-          <Text style={styles.clubBreakdownTitle}>Club Breakdown</Text>
-          {clubBreakdown.map(([club, stats]) => (
-            <View key={club} style={styles.clubRow}>
-              <Text style={styles.clubName}>{club}:</Text>
-              <Text style={styles.clubStats}>
-                {stats.total} ({stats.teeShot} tee shot)
-                {stats.fire > 0 && `, ${stats.fire} 🔥`}
-                {stats.poop > 0 && `, ${stats.poop} 💩`}
-                {stats.fireTeeShot > 0 && ` (${stats.fireTeeShot} tee shot)`}
-                {stats.poopTeeShot > 0 && ` (${stats.poopTeeShot} tee shot)`}
-              </Text>
+                        return {
+                          value: score.net,
+                          label: score.hole.toString(),
+                          dataPointText:
+                            score.net > 0
+                              ? `+${score.net}`
+                              : score.net.toString(),
+                          dataPointColor: "#4CAF50",
+                          dataPointRadius: 6,
+                          holeHasFire,
+                          holeHasPoorShot,
+                          customDataPoint:
+                            holeHasFire || holeHasPoorShot ? (
+                              <View style={{ alignItems: "center" }}>
+                                <Text style={{ fontSize: 12, marginBottom: 2 }}>
+                                  {holeHasFire ? "🔥" : ""}
+                                  {holeHasPoorShot ? "💩" : ""}
+                                </Text>
+                                <View
+                                  style={{
+                                    width: 8,
+                                    height: 8,
+                                    borderRadius: 4,
+                                    backgroundColor: "#4CAF50",
+                                  }}
+                                />
+                              </View>
+                            ) : undefined,
+                        };
+                      });
+
+                      return (
+                        <View style={styles.graph}>
+                          {/* Zero line */}
+                          <View style={[styles.graphZeroLine, { top: 100 }]} />
+
+                          {/* Custom line chart - dots only */}
+                          <View style={styles.customChart}>
+                            {chartData.map((point, index) => {
+                              const x = index * (280 / (chartData.length - 1));
+                              const y = 100 - point.value * 20; // Scale factor of 20
+
+                              return (
+                                <View key={`net-point-${index}`}>
+                                  {/* Data point */}
+                                  <View
+                                    style={[
+                                      styles.graphDataPoint,
+                                      {
+                                        left: x - 6,
+                                        top: y - 6,
+                                        backgroundColor: "#4CAF50",
+                                      },
+                                    ]}
+                                  />
+                                  {/* Fire and poop emojis if applicable */}
+                                  {point.customDataPoint && (
+                                    <Text
+                                      style={[
+                                        styles.graphFireEmoji,
+                                        {
+                                          left: x - 8,
+                                          top: y - 20,
+                                        },
+                                      ]}
+                                    >
+                                      {point.holeHasFire ? "🔥" : ""}
+                                      {point.holeHasPoorShot ? "💩" : ""}
+                                    </Text>
+                                  )}
+                                </View>
+                              );
+                            })}
+                          </View>
+                        </View>
+                      );
+                    })()}
+                  </View>
+                  <View style={styles.graphLabels}>
+                    {validNetScores.map((score, index) => (
+                      <Text key={`net-${score.hole}`} style={styles.graphLabel}>
+                        {score.hole}
+                      </Text>
+                    ))}
+                  </View>
+                </View>
+              )}
             </View>
-          ))}
+          );
+        })()}
+
+        {/* Statistics */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{round.totalScore}</Text>
+            <Text style={styles.statLabel}>Total</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text
+              style={[
+                styles.statValue,
+                { color: getScoreColor(round.totalScore, round.totalPar) },
+              ]}
+            >
+              {netScore > 0 ? `+${netScore}` : netScore === 0 ? "E" : netScore}
+            </Text>
+            <Text style={styles.statLabel}>Net</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: "#4CAF50" }]}>
+              {underParHoles}
+            </Text>
+            <Text style={styles.statLabel}>Under Par</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: "#2196F3" }]}>
+              {parHoles}
+            </Text>
+            <Text style={styles.statLabel}>Par</Text>
+          </View>
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: "#FF9800" }]}>
+              {overParHoles}
+            </Text>
+            <Text style={styles.statLabel}>Over Par</Text>
+          </View>
         </View>
-      )}
-    </ScrollView>
-  );
-};
+
+        {/* Bottom Action Buttons */}
+        <View style={styles.bottomActionButtons}>
+          {onReturnToRound && (
+            <TouchableOpacity
+              style={styles.returnToRoundButton}
+              onPress={onReturnToRound}
+            >
+              <Text style={styles.returnToRoundButtonText}>Continue Round</Text>
+            </TouchableOpacity>
+          )}
+          {onEndRound && (
+            <TouchableOpacity style={styles.endRoundButton} onPress={onEndRound}>
+              <Text style={styles.endRoundButtonText}>End Round</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Club Breakdown */}
+        {clubBreakdown.length > 0 && (
+          <View style={styles.clubBreakdown}>
+            <Text style={styles.clubBreakdownTitle}>Club Breakdown</Text>
+            {clubBreakdown.map(([club, stats]) => (
+              <View key={club} style={styles.clubRow}>
+                <Text style={styles.clubName}>{club}:</Text>
+                <Text style={styles.clubStats}>
+                  {stats.total} ({stats.teeShot} tee shot)
+                  {stats.fire > 0 && `, ${stats.fire} 🔥`}
+                  {stats.poop > 0 && `, ${stats.poop} 💩`}
+                  {stats.fireTeeShot > 0 && ` (${stats.fireTeeShot} tee shot)`}
+                  {stats.poopTeeShot > 0 && ` (${stats.poopTeeShot} tee shot)`}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+      </ScrollView>
+    );
+  };
 
 // Course Edit Modal
 
@@ -1850,1064 +1846,1061 @@ const GolfBrainSettings: React.FC<{
   colors,
   initialFocus,
 }) => {
-  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
-  const [newClubName, setNewClubName] = useState("");
-  const [showAllRounds, setShowAllRounds] = useState(false);
+    const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+    const [newClubName, setNewClubName] = useState("");
+    const [showAllRounds, setShowAllRounds] = useState(false);
 
-  const scrollRef = React.useRef<any>(null);
-  const coursesRef = React.useRef<any>(null);
-  const [focusedSection, setFocusedSection] = useState<string | null>(null);
+    const scrollRef = React.useRef<any>(null);
+    const coursesRef = React.useRef<any>(null);
+    const [focusedSection, setFocusedSection] = useState<string | null>(null);
 
-  // Local state for settings changes
-  const [localSettings, setLocalSettings] = useState<GolfBrainData["settings"]>(
-    data.settings
-  );
-  const [hasChanges, setHasChanges] = useState(false);
-
-  useEffect(() => {
-    if (initialFocus === "courses") {
-      // Scroll the settings to the courses section and briefly highlight it
-      setTimeout(() => {
-        try {
-          if (
-            scrollRef.current &&
-            typeof scrollRef.current.scrollTo === "function"
-          ) {
-            // Try scrolling to a large offset to ensure courses section is visible
-            scrollRef.current.scrollTo({ y: 800, animated: true });
-          }
-        } catch (e) {
-          // ignore
-        }
-        setFocusedSection("courses");
-        setTimeout(() => setFocusedSection(null), 2500);
-      }, 120);
-    } else if (initialFocus === "createCourse") {
-      // If parent intended to create a course immediately, open the Create Course modal if available
-      // This component doesn't directly control the parent modal, so we'll expose a highlight
-      setTimeout(() => {
-        scrollRef.current?.scrollTo({ y: 800, animated: true });
-        setFocusedSection("courses");
-        setTimeout(() => setFocusedSection(null), 2500);
-      }, 120);
-    }
-  }, [initialFocus]);
-
-  const handleEditCourse = (course: Course) => {
-    setEditingCourse(course);
-  };
-
-  const handleDeleteCourse = (courseId: string) => {
-    Alert.alert(
-      "Delete Course",
-      "Are you sure you want to delete this course? This will also delete all associated round data.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            onDeleteCourse(courseId);
-            HapticFeedback.light();
-          },
-        },
-      ]
+    // Local state for settings changes
+    const [localSettings, setLocalSettings] = useState<GolfBrainData["settings"]>(
+      data.settings
     );
-  };
+    const [hasChanges, setHasChanges] = useState(false);
 
-  const handleSaveSettings = () => {
-    onUpdateSettings(localSettings);
-    setHasChanges(false);
-    onClose();
-  };
+    useEffect(() => {
+      if (initialFocus === "courses") {
+        // Scroll the settings to the courses section and briefly highlight it
+        setTimeout(() => {
+          try {
+            if (
+              scrollRef.current &&
+              typeof scrollRef.current.scrollTo === "function"
+            ) {
+              // Try scrolling to a large offset to ensure courses section is visible
+              scrollRef.current.scrollTo({ y: 800, animated: true });
+            }
+          } catch (e) {
+            // ignore
+          }
+          setFocusedSection("courses");
+          setTimeout(() => setFocusedSection(null), 2500);
+        }, 120);
+      } else if (initialFocus === "createCourse") {
+        // If parent intended to create a course immediately, open the Create Course modal if available
+        // This component doesn't directly control the parent modal, so we'll expose a highlight
+        setTimeout(() => {
+          scrollRef.current?.scrollTo({ y: 800, animated: true });
+          setFocusedSection("courses");
+          setTimeout(() => setFocusedSection(null), 2500);
+        }, 120);
+      }
+    }, [initialFocus]);
 
-  const handleCancelSettings = () => {
-    if (hasChanges) {
+    const handleEditCourse = (course: Course) => {
+      setEditingCourse(course);
+    };
+
+    const handleDeleteCourse = (courseId: string) => {
       Alert.alert(
-        "Discard Changes",
-        "You have unsaved changes. Are you sure you want to discard them?",
+        "Delete Course",
+        "Are you sure you want to delete this course? This will also delete all associated round data.",
         [
-          { text: "Keep Editing", style: "cancel" },
+          { text: "Cancel", style: "cancel" },
           {
-            text: "Discard",
+            text: "Delete",
             style: "destructive",
             onPress: () => {
-              setLocalSettings(data.settings);
-              setHasChanges(false);
-              onClose();
+              onDeleteCourse(courseId);
+              HapticFeedback.light();
             },
           },
         ]
       );
-    } else {
+    };
+
+    const handleSaveSettings = () => {
+      onUpdateSettings(localSettings);
+      setHasChanges(false);
       onClose();
-    }
-  };
+    };
 
-  // Rounds management functions
-  // Deduplicate rounds by ID to prevent duplicate display
-  const deduplicatedRounds = (data.rounds || []).filter(
-    (round, index, self) => index === self.findIndex((r) => r.id === round.id)
-  );
+    const handleCancelSettings = () => {
+      if (hasChanges) {
+        Alert.alert(
+          "Discard Changes",
+          "You have unsaved changes. Are you sure you want to discard them?",
+          [
+            { text: "Keep Editing", style: "cancel" },
+            {
+              text: "Discard",
+              style: "destructive",
+              onPress: () => {
+                setLocalSettings(data.settings);
+                setHasChanges(false);
+                onClose();
+              },
+            },
+          ]
+        );
+      } else {
+        onClose();
+      }
+    };
 
-  const sortedRounds = deduplicatedRounds.sort(
-    (a, b) => (b.completedAt || b.startedAt) - (a.completedAt || a.startedAt)
-  );
-
-  const displayedRounds = showAllRounds
-    ? sortedRounds
-    : sortedRounds.slice(0, 10);
-
-  const handleShowMoreRounds = () => {
-    setShowAllRounds(true);
-  };
-
-  const handleEditRound = (round: Round) => {
-    Alert.alert(
-      "Edit Round",
-      "Editing this round will make it active again. You cannot start a new round until this one is completed. Continue?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Edit Round",
-          onPress: () => {
-            // This will be handled by the parent component
-            onEditRound?.(round);
-          },
-        },
-      ]
+    // Rounds management functions
+    // Deduplicate rounds by ID to prevent duplicate display
+    const deduplicatedRounds = (data.rounds || []).filter(
+      (round, index, self) => index === self.findIndex((r) => r.id === round.id)
     );
-  };
 
-  const handleDeleteRound = (round: Round) => {
-    const course = courses.find((c) => c.id === round.courseId);
-    Alert.alert(
-      "Delete Round",
-      `Are you sure you want to delete this round from ${
-        course?.name || "Unknown Course"
-      }? This action cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            onDeleteRound?.(round.id);
-          },
-        },
-      ]
+    const sortedRounds = deduplicatedRounds.sort(
+      (a, b) => (b.completedAt || b.startedAt) - (a.completedAt || a.startedAt)
     );
-  };
+
+    const displayedRounds = showAllRounds
+      ? sortedRounds
+      : sortedRounds.slice(0, 10);
+
+    const handleShowMoreRounds = () => {
+      setShowAllRounds(true);
+    };
+
+    const handleEditRound = (round: Round) => {
+      Alert.alert(
+        "Edit Round",
+        "Editing this round will make it active again. You cannot start a new round until this one is completed. Continue?",
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Edit Round",
+            onPress: () => {
+              // This will be handled by the parent component
+              onEditRound?.(round);
+            },
+          },
+        ]
+      );
+    };
+
+    const handleDeleteRound = (round: Round) => {
+      const course = courses.find((c) => c.id === round.courseId);
+      Alert.alert(
+        "Delete Round",
+        `Are you sure you want to delete this round from ${course?.name || "Unknown Course"
+        }? This action cannot be undone.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: () => {
+              onDeleteRound?.(round.id);
+            },
+          },
+        ]
+      );
+    };
 
 
-  const updateLocalSetting = (
-    key: keyof GolfBrainData["settings"],
-    value: any
-  ) => {
-    setLocalSettings((prev) => ({ ...prev, [key]: value }));
-    setHasChanges(true);
-  };
+    const updateLocalSetting = (
+      key: keyof GolfBrainData["settings"],
+      value: any
+    ) => {
+      setLocalSettings((prev) => ({ ...prev, [key]: value }));
+      setHasChanges(true);
+    };
 
-  const handleAddClub = () => {
-    const clubs = localSettings.clubs || DEFAULT_CLUBS;
-    if (newClubName.trim() && !clubs.includes(newClubName.trim())) {
-      updateLocalSetting("clubs", [...clubs, newClubName.trim()]);
-      setNewClubName("");
-      HapticFeedback.light();
-    }
-  };
+    const handleAddClub = () => {
+      const clubs = localSettings.clubs || DEFAULT_CLUBS;
+      if (newClubName.trim() && !clubs.includes(newClubName.trim())) {
+        updateLocalSetting("clubs", [...clubs, newClubName.trim()]);
+        setNewClubName("");
+        HapticFeedback.light();
+      }
+    };
 
-  const styles = StyleSheet.create({
-    courseCard: {
-      backgroundColor: colors.surface,
-      padding: 16,
-      borderRadius: 12,
-      marginBottom: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    courseName: {
-      fontSize: 18,
-      fontWeight: "600",
-      color: colors.text,
-      marginBottom: 4,
-    },
-    courseInfo: {
-      fontSize: 14,
-      color: colors.textSecondary,
-      marginBottom: 12,
-    },
-    courseActions: {
-      flexDirection: "row",
-      gap: 8,
-    },
-    actionButton: {
-      flex: 1,
-      paddingVertical: 8,
-      paddingHorizontal: 12,
-      borderRadius: 6,
-      alignItems: "center",
-    },
-    editButton: {
-      backgroundColor: colors.primary,
-    },
-    deleteButton: {
-      backgroundColor: colors.error || "#ff4444",
-    },
-    actionButtonText: {
-      fontSize: 14,
-      fontWeight: "600",
-    },
-    editButtonText: {
-      color: colors.background,
-    },
-    deleteButtonText: {
-      color: colors.background,
-    },
-    handicapContainer: {
-      marginBottom: 16,
-    },
-    handicapInput: {
-      backgroundColor: colors.background,
-      borderColor: colors.border,
-      borderWidth: 1,
-      borderRadius: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 12,
-      fontSize: 16,
-      color: colors.text,
-      marginBottom: 8,
-    },
-    handicapHelp: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      fontStyle: "italic",
-    },
-    clubList: {
-      marginBottom: 16,
-    },
-    clubItem: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      paddingVertical: 8,
-      paddingHorizontal: 12,
-      backgroundColor: colors.background,
-      borderRadius: 8,
-      marginBottom: 8,
-    },
-    reorderButton: {
-      paddingHorizontal: 8,
-      paddingVertical: 4,
-      marginRight: 4,
-    },
-    reorderButtonText: {
-      fontSize: 16,
-      color: colors.primary,
-      fontWeight: "bold",
-    },
-    clubName: {
-      fontSize: 16,
-      color: colors.text,
-      flex: 1,
-      marginLeft: 8,
-    },
-    removeClubButton: {
-      backgroundColor: colors.error || "#ff4444",
-      borderRadius: 12,
-      width: 24,
-      height: 24,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    removeClubButtonText: {
-      color: colors.background,
-      fontSize: 16,
-      fontWeight: "bold",
-    },
-    addClubContainer: {
-      flexDirection: "row",
-      gap: 8,
-    },
-    addClubInput: {
-      flex: 1,
-      backgroundColor: colors.background,
-      borderColor: colors.border,
-      borderWidth: 1,
-      borderRadius: 8,
-      padding: 12,
-      fontSize: 16,
-      color: colors.text,
-    },
-    addClubButton: {
-      backgroundColor: colors.primary,
-      borderRadius: 8,
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    addClubButtonText: {
-      color: colors.background,
-      fontSize: 18,
-      fontWeight: "bold",
-    },
-    activeRoundNote: {
-      backgroundColor: "rgba(255, 193, 7, 0.1)",
-      padding: 12,
-      borderRadius: 8,
-      marginBottom: 16,
-      borderWidth: 1,
-      borderColor: "rgba(255, 193, 7, 0.3)",
-    },
-    activeRoundText: {
-      color: "#FFC107",
-      marginBottom: 8,
-      textAlign: "center",
-    },
-    returnToRoundButton: {
-      backgroundColor: "#FFC107",
-      paddingVertical: 8,
-      paddingHorizontal: 16,
-      borderRadius: 6,
-      alignItems: "center",
-    },
-    returnToRoundButtonText: {
-      color: "#000000",
-      fontSize: 14,
-      fontWeight: "600",
-    },
-    activeRoundLabel: {
-      fontSize: 12,
-      color: "#4CAF50",
-      fontWeight: "600",
-      marginTop: 4,
-    },
-    disabledButton: {
-      backgroundColor: "rgba(255, 255, 255, 0.2)",
-      opacity: 0.5,
-    },
-    disabledButtonText: {
-      color: "rgba(255, 255, 255, 0.5)",
-    },
-    noRoundsText: {
-      fontStyle: "italic",
-      textAlign: "center",
-      marginTop: 20,
-    },
-    roundItem: {
-      flexDirection: "column",
-      backgroundColor: "rgba(255, 255, 255, 0.05)",
-      padding: 12,
-      borderRadius: 8,
-      marginBottom: 4,
-    },
-    roundInfo: {
-      marginBottom: 4,
-    },
-    roundCourse: {
-      fontSize: 16,
-      fontWeight: "600",
-      color: "#FFFFFF",
-      marginBottom: 2,
-    },
-    roundId: {
-      fontSize: 12,
-      fontWeight: "500",
-      color: "#AAAAAA",
-      marginBottom: 2,
-    },
-    roundDate: {
-      fontSize: 14,
-      color: "#666666",
-      marginBottom: 4,
-    },
-    roundStats: {
-      fontSize: 12,
-      color: "#AAAAAA",
-      marginBottom: 4,
-    },
-    roundScore: {
-      fontSize: 16,
-      fontWeight: "600",
-      marginBottom: 2,
-    },
-    incompleteText: {
-      fontSize: 12,
-      color: "#2196F3",
-      fontStyle: "italic",
-    },
-    roundActions: {
-      flexDirection: "row",
-      gap: 8,
-    },
-    showMoreButton: {
-      backgroundColor: "rgba(255, 255, 255, 0.1)",
-      padding: 12,
-      borderRadius: 8,
-      alignItems: "center",
-      marginTop: 8,
-    },
-    showMoreText: {
-      color: "#FFFFFF",
-      fontSize: 14,
-      fontWeight: "500",
-    },
-    overParScore: {
-      color: "#FF6B6B",
-    },
-    underParScore: {
-      color: "#4ECDC4",
-    },
-    parScore: {
-      color: "#45B7D1",
-    },
-    viewButton: {
-      backgroundColor: colors.primary,
-    },
-    viewButtonText: {
-      color: "#FFFFFF",
-    },
-    defaultClubCard: {
-      backgroundColor: colors.surface,
-      borderRadius: 8,
-      padding: 12,
-      marginBottom: 12,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    defaultClubTitle: {
-      fontSize: 16,
-      fontWeight: "bold",
-      color: colors.text,
-      marginBottom: 8,
-    },
-    defaultClubRow: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      marginBottom: 8,
-    },
-    defaultClubLabel: {
-      fontSize: 14,
-      color: colors.text,
-      flex: 1,
-    },
-    defaultClubDropdown: {
-      flex: 1,
-      backgroundColor: colors.background,
-      borderRadius: 6,
-      paddingHorizontal: 8,
-      paddingVertical: 6,
-      minHeight: 32,
-      marginLeft: 8,
-    },
-    defaultClubDropdownText: {
-      fontSize: 14,
-      color: colors.text,
-    },
-  });
+    const styles = StyleSheet.create({
+      courseCard: {
+        backgroundColor: colors.surface,
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: colors.border,
+      },
+      courseName: {
+        fontSize: 18,
+        fontWeight: "600",
+        color: colors.text,
+        marginBottom: 4,
+      },
+      courseInfo: {
+        fontSize: 14,
+        color: colors.textSecondary,
+        marginBottom: 12,
+      },
+      courseActions: {
+        flexDirection: "row",
+        gap: 8,
+      },
+      actionButton: {
+        flex: 1,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 6,
+        alignItems: "center",
+      },
+      editButton: {
+        backgroundColor: colors.primary,
+      },
+      deleteButton: {
+        backgroundColor: colors.error || "#ff4444",
+      },
+      actionButtonText: {
+        fontSize: 14,
+        fontWeight: "600",
+      },
+      editButtonText: {
+        color: colors.background,
+      },
+      deleteButtonText: {
+        color: colors.background,
+      },
+      handicapContainer: {
+        marginBottom: 16,
+      },
+      handicapInput: {
+        backgroundColor: colors.background,
+        borderColor: colors.border,
+        borderWidth: 1,
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+        fontSize: 16,
+        color: colors.text,
+        marginBottom: 8,
+      },
+      handicapHelp: {
+        fontSize: 12,
+        color: colors.textSecondary,
+        fontStyle: "italic",
+      },
+      clubList: {
+        marginBottom: 16,
+      },
+      clubItem: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        backgroundColor: colors.background,
+        borderRadius: 8,
+        marginBottom: 8,
+      },
+      reorderButton: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        marginRight: 4,
+      },
+      reorderButtonText: {
+        fontSize: 16,
+        color: colors.primary,
+        fontWeight: "bold",
+      },
+      clubName: {
+        fontSize: 16,
+        color: colors.text,
+        flex: 1,
+        marginLeft: 8,
+      },
+      removeClubButton: {
+        backgroundColor: colors.error || "#ff4444",
+        borderRadius: 12,
+        width: 24,
+        height: 24,
+        alignItems: "center",
+        justifyContent: "center",
+      },
+      removeClubButtonText: {
+        color: colors.background,
+        fontSize: 16,
+        fontWeight: "bold",
+      },
+      addClubContainer: {
+        flexDirection: "row",
+        gap: 8,
+      },
+      addClubInput: {
+        flex: 1,
+        backgroundColor: colors.background,
+        borderColor: colors.border,
+        borderWidth: 1,
+        borderRadius: 8,
+        padding: 12,
+        fontSize: 16,
+        color: colors.text,
+      },
+      addClubButton: {
+        backgroundColor: colors.primary,
+        borderRadius: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        alignItems: "center",
+        justifyContent: "center",
+      },
+      addClubButtonText: {
+        color: colors.background,
+        fontSize: 18,
+        fontWeight: "bold",
+      },
+      activeRoundNote: {
+        backgroundColor: "rgba(255, 193, 7, 0.1)",
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: "rgba(255, 193, 7, 0.3)",
+      },
+      activeRoundText: {
+        color: "#FFC107",
+        marginBottom: 8,
+        textAlign: "center",
+      },
+      returnToRoundButton: {
+        backgroundColor: "#FFC107",
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 6,
+        alignItems: "center",
+      },
+      returnToRoundButtonText: {
+        color: "#000000",
+        fontSize: 14,
+        fontWeight: "600",
+      },
+      activeRoundLabel: {
+        fontSize: 12,
+        color: "#4CAF50",
+        fontWeight: "600",
+        marginTop: 4,
+      },
+      disabledButton: {
+        backgroundColor: "rgba(255, 255, 255, 0.2)",
+        opacity: 0.5,
+      },
+      disabledButtonText: {
+        color: "rgba(255, 255, 255, 0.5)",
+      },
+      noRoundsText: {
+        fontStyle: "italic",
+        textAlign: "center",
+        marginTop: 20,
+      },
+      roundItem: {
+        flexDirection: "column",
+        backgroundColor: "rgba(255, 255, 255, 0.05)",
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 4,
+      },
+      roundInfo: {
+        marginBottom: 4,
+      },
+      roundCourse: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#FFFFFF",
+        marginBottom: 2,
+      },
+      roundId: {
+        fontSize: 12,
+        fontWeight: "500",
+        color: "#AAAAAA",
+        marginBottom: 2,
+      },
+      roundDate: {
+        fontSize: 14,
+        color: "#666666",
+        marginBottom: 4,
+      },
+      roundStats: {
+        fontSize: 12,
+        color: "#AAAAAA",
+        marginBottom: 4,
+      },
+      roundScore: {
+        fontSize: 16,
+        fontWeight: "600",
+        marginBottom: 2,
+      },
+      incompleteText: {
+        fontSize: 12,
+        color: "#2196F3",
+        fontStyle: "italic",
+      },
+      roundActions: {
+        flexDirection: "row",
+        gap: 8,
+      },
+      showMoreButton: {
+        backgroundColor: "rgba(255, 255, 255, 0.1)",
+        padding: 12,
+        borderRadius: 8,
+        alignItems: "center",
+        marginTop: 8,
+      },
+      showMoreText: {
+        color: "#FFFFFF",
+        fontSize: 14,
+        fontWeight: "500",
+      },
+      overParScore: {
+        color: "#FF6B6B",
+      },
+      underParScore: {
+        color: "#4ECDC4",
+      },
+      parScore: {
+        color: "#45B7D1",
+      },
+      viewButton: {
+        backgroundColor: colors.primary,
+      },
+      viewButtonText: {
+        color: "#FFFFFF",
+      },
+      defaultClubCard: {
+        backgroundColor: colors.surface,
+        borderRadius: 8,
+        padding: 12,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: colors.border,
+      },
+      defaultClubTitle: {
+        fontSize: 16,
+        fontWeight: "bold",
+        color: colors.text,
+        marginBottom: 8,
+      },
+      defaultClubRow: {
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 8,
+      },
+      defaultClubLabel: {
+        fontSize: 14,
+        color: colors.text,
+        flex: 1,
+      },
+      defaultClubDropdown: {
+        flex: 1,
+        backgroundColor: colors.background,
+        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 6,
+        minHeight: 32,
+        marginLeft: 8,
+      },
+      defaultClubDropdownText: {
+        fontSize: 14,
+        color: colors.text,
+      },
+    });
 
-  return (
-    <SettingsContainer>
-      <SettingsScrollView>
-        <SettingsHeader
-          title="Golf Brain Settings"
-          subtitle="Manage your golf scoring and course preferences"
-          icon="🏌️‍♂️"
-          sparkId="golf-brain"
-        />
+    return (
+      <SettingsContainer>
+        <SettingsScrollView>
+          <SettingsHeader
+            title="Golf Brain Settings"
+            subtitle="Manage your golf scoring and course preferences"
+            icon="🏌️‍♂️"
+            sparkId="golf-brain"
+          />
 
-        <SettingsFeedbackSection sparkName="Golf Brain" sparkId="golf-brain" />
+          <SettingsFeedbackSection sparkName="Golf Brain" sparkId="golf-brain" />
 
-        <SettingsSection title="Swing Recording">
-          <View style={{ padding: 16 }}>
-            <View style={styles.handicapContainer}>
-              <Text style={{ color: colors.text, marginBottom: 8 }}>
-                Countdown Duration (seconds)
-              </Text>
-              <TextInput
-                style={styles.handicapInput}
-                keyboardType="numeric"
-                value={
-                  localSettings.swingRecording?.countdownSeconds?.toString() ||
-                  "5"
-                }
-                onChangeText={(text) => {
-                  const val = parseInt(text) || 0;
-                  setLocalSettings((prev) => ({
-                    ...prev,
-                    swingRecording: {
-                      ...prev.swingRecording,
-                      countdownSeconds: val,
-                      durationSeconds:
-                        prev.swingRecording?.durationSeconds || 30,
-                    },
-                  }));
-                  setHasChanges(true);
-                }}
-              />
-              <Text style={styles.handicapHelp}>
-                Time before recording starts
-              </Text>
-            </View>
-
-            <View style={styles.handicapContainer}>
-              <Text style={{ color: colors.text, marginBottom: 8 }}>
-                Max Recording Duration (seconds)
-              </Text>
-              <TextInput
-                style={styles.handicapInput}
-                keyboardType="numeric"
-                value={
-                  localSettings.swingRecording?.durationSeconds?.toString() ||
-                  "30"
-                }
-                onChangeText={(text) => {
-                  const val = parseInt(text) || 0;
-                  setLocalSettings((prev) => ({
-                    ...prev,
-                    swingRecording: {
-                      ...prev.swingRecording,
-                      countdownSeconds:
-                        prev.swingRecording?.countdownSeconds || 5,
-                      durationSeconds: val,
-                    },
-                  }));
-                  setHasChanges(true);
-                }}
-              />
-              <Text style={styles.handicapHelp}>
-                Recording automatically stops after this time
-              </Text>
-            </View>
-          </View>
-        </SettingsSection>
-
-        <SettingsSection title="Default Clubs">
-          <View style={{ padding: 16, backgroundColor: "transparent" }}>
-            {/* Par 5 */}
-            <View style={styles.defaultClubCard}>
-              <Text style={styles.defaultClubTitle}>Par 5</Text>
-              <View style={styles.defaultClubRow}>
-                <Text style={styles.defaultClubLabel}>1st shot:</Text>
-                <Dropdown
-                  options={localSettings.clubs || DEFAULT_CLUBS}
-                  selectedValue={
-                    localSettings.defaultClubs?.par5?.shot1 || "[Driver]"
-                  }
-                  onSelect={(value) => {
-                    setLocalSettings((prev) => ({
-                      ...prev,
-                      defaultClubs: {
-                        ...prev.defaultClubs,
-                        par5: { ...prev.defaultClubs?.par5, shot1: value },
-                      },
-                    }));
-                    setHasChanges(true);
-                  }}
-                  style={styles.defaultClubDropdown}
-                  textStyle={styles.defaultClubDropdownText}
-                />
-              </View>
-              <View style={styles.defaultClubRow}>
-                <Text style={styles.defaultClubLabel}>2nd shot:</Text>
-                <Dropdown
-                  options={localSettings.clubs || DEFAULT_CLUBS}
-                  selectedValue={
-                    localSettings.defaultClubs?.par5?.shot2 || "[Irons]"
-                  }
-                  onSelect={(value) => {
-                    setLocalSettings((prev) => ({
-                      ...prev,
-                      defaultClubs: {
-                        ...prev.defaultClubs,
-                        par5: { ...prev.defaultClubs?.par5, shot2: value },
-                      },
-                    }));
-                    setHasChanges(true);
-                  }}
-                  style={styles.defaultClubDropdown}
-                  textStyle={styles.defaultClubDropdownText}
-                />
-              </View>
-              <View style={styles.defaultClubRow}>
-                <Text style={styles.defaultClubLabel}>3rd shot:</Text>
-                <Dropdown
-                  options={localSettings.clubs || DEFAULT_CLUBS}
-                  selectedValue={
-                    localSettings.defaultClubs?.par5?.shot3 || "[Irons]"
-                  }
-                  onSelect={(value) => {
-                    setLocalSettings((prev) => ({
-                      ...prev,
-                      defaultClubs: {
-                        ...prev.defaultClubs,
-                        par5: { ...prev.defaultClubs?.par5, shot3: value },
-                      },
-                    }));
-                    setHasChanges(true);
-                  }}
-                  style={styles.defaultClubDropdown}
-                  textStyle={styles.defaultClubDropdownText}
-                />
-              </View>
-            </View>
-
-            {/* Par 4 */}
-            <View style={styles.defaultClubCard}>
-              <Text style={styles.defaultClubTitle}>Par 4</Text>
-              <View style={styles.defaultClubRow}>
-                <Text style={styles.defaultClubLabel}>1st shot:</Text>
-                <Dropdown
-                  options={localSettings.clubs || DEFAULT_CLUBS}
-                  selectedValue={
-                    localSettings.defaultClubs?.par4?.shot1 || "[Driver]"
-                  }
-                  onSelect={(value) => {
-                    setLocalSettings((prev) => ({
-                      ...prev,
-                      defaultClubs: {
-                        ...prev.defaultClubs,
-                        par4: { ...prev.defaultClubs?.par4, shot1: value },
-                      },
-                    }));
-                    setHasChanges(true);
-                  }}
-                  style={styles.defaultClubDropdown}
-                  textStyle={styles.defaultClubDropdownText}
-                />
-              </View>
-              <View style={styles.defaultClubRow}>
-                <Text style={styles.defaultClubLabel}>2nd shot:</Text>
-                <Dropdown
-                  options={localSettings.clubs || DEFAULT_CLUBS}
-                  selectedValue={
-                    localSettings.defaultClubs?.par4?.shot2 || "[Irons]"
-                  }
-                  onSelect={(value) => {
-                    setLocalSettings((prev) => ({
-                      ...prev,
-                      defaultClubs: {
-                        ...prev.defaultClubs,
-                        par4: { ...prev.defaultClubs?.par4, shot2: value },
-                      },
-                    }));
-                    setHasChanges(true);
-                  }}
-                  style={styles.defaultClubDropdown}
-                  textStyle={styles.defaultClubDropdownText}
-                />
-              </View>
-            </View>
-
-            {/* Par 3 */}
-            <View style={styles.defaultClubCard}>
-              <Text style={styles.defaultClubTitle}>Par 3</Text>
-              <View style={styles.defaultClubRow}>
-                <Text style={styles.defaultClubLabel}>1st shot:</Text>
-                <Dropdown
-                  options={localSettings.clubs || DEFAULT_CLUBS}
-                  selectedValue={
-                    localSettings.defaultClubs?.par3?.shot1 || "[Irons]"
-                  }
-                  onSelect={(value) => {
-                    setLocalSettings((prev) => ({
-                      ...prev,
-                      defaultClubs: {
-                        ...prev.defaultClubs,
-                        par3: { ...prev.defaultClubs?.par3, shot1: value },
-                      },
-                    }));
-                    setHasChanges(true);
-                  }}
-                  style={styles.defaultClubDropdown}
-                  textStyle={styles.defaultClubDropdownText}
-                />
-              </View>
-            </View>
-          </View>
-        </SettingsSection>
-
-        <SettingsSection title="Recent Rounds">
-          <View style={{ padding: 6, backgroundColor: "transparent" }}>
-            {data.currentRound && (
-              <View style={styles.activeRoundNote}>
-                <SettingsText variant="body">
-                  Editing a round is disabled until you end the current round
-                </SettingsText>
-                <TouchableOpacity
-                  style={styles.returnToRoundButton}
-                  onPress={onNavigateToRound}
-                >
-                  <Text style={styles.returnToRoundButtonText}>
-                    Return to Current Round
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {sortedRounds.length === 0 ? (
-              <SettingsText variant="body">No rounds recorded yet</SettingsText>
-            ) : (
-              <>
-                {displayedRounds.map((round, index) => {
-                  const course = courses.find((c) => c.id === round.courseId);
-                  const holesPlayed = (round.holeScores || []).filter(
-                    (hs) => hs.shots.length > 0
-                  ).length;
-                  const totalParPlayed = (round.holeScores || [])
-                    .filter((hs) => hs.shots.length > 0)
-                    .reduce((sum, hs) => sum + hs.par, 0);
-                  const netScore = round.totalScore - totalParPlayed;
-                  const isIncomplete = !round.isComplete;
-                  const isActiveRound = data.currentRound?.id === round.id;
-                  const canEdit = !data.currentRound || isActiveRound;
-
-                  return (
-                    <View key={round.id} style={styles.roundItem}>
-                      <View style={styles.roundInfo}>
-                        <Text style={styles.roundCourse}>
-                          {course?.name || "Unknown Course"}
-                        </Text>
-                        <Text style={styles.roundId}>
-                          Round #{round.id.slice(-6)}
-                        </Text>
-                        <Text style={styles.roundDate}>
-                          {formatDate(round.completedAt || round.startedAt, 'long')}
-                        </Text>
-                        <Text style={styles.roundStats}>
-                          {holesPlayed} holes played
-                          {holesPlayed > 0 &&
-                            ` • ${
-                              netScore > 0
-                                ? `+${netScore} over par`
-                                : netScore < 0
-                                ? `${Math.abs(netScore)} under par`
-                                : "E"
-                            }`}
-                        </Text>
-                      </View>
-
-                      <View style={styles.roundActions}>
-                        <TouchableOpacity
-                          style={[
-                            styles.actionButton,
-                            styles.viewButton,
-                            { flex: 1, marginRight: 8 },
-                          ]}
-                          onPress={() => onViewRound?.(round)}
-                        >
-                          <Text
-                            style={[
-                              styles.actionButtonText,
-                              styles.viewButtonText,
-                            ]}
-                          >
-                            View
-                          </Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                          style={[
-                            styles.actionButton,
-                            styles.deleteButton,
-                            { flex: 1, marginLeft: 8 },
-                            isActiveRound && styles.disabledButton,
-                          ]}
-                          onPress={() => {
-                            console.log("Delete button pressed for round:", {
-                              id: round.id,
-                              courseName: round.courseName,
-                              isActiveRound,
-                            });
-                            if (!isActiveRound && onDeleteRound && round.id) {
-                              onDeleteRound(round.id);
-                            }
-                          }}
-                          disabled={isActiveRound}
-                        >
-                          <Text
-                            style={[
-                              styles.actionButtonText,
-                              styles.deleteButtonText,
-                              isActiveRound && styles.disabledButtonText,
-                            ]}
-                          >
-                            Delete
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  );
-                })}
-
-                {sortedRounds.length > displayedRounds.length && (
-                  <TouchableOpacity
-                    style={styles.showMoreButton}
-                    onPress={handleShowMoreRounds}
-                  >
-                    <Text style={styles.showMoreText}>
-                      Show{" "}
-                      {Math.min(
-                        50,
-                        sortedRounds.length - displayedRounds.length
-                      )}{" "}
-                      more rounds
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </>
-            )}
-          </View>
-        </SettingsSection>
-
-        <SettingsSection title="Handicap">
-          <View style={{ padding: 16, backgroundColor: "transparent" }}>
-            <SettingsText variant="body">
-              Your handicap index for stroke calculations
-            </SettingsText>
-            <View style={styles.handicapContainer}>
-              <TextInput
-                style={styles.handicapInput}
-                placeholder="Enter handicap (0-54)"
-                placeholderTextColor={colors.textSecondary}
-                value={localSettings.handicap?.toString() || ""}
-                onChangeText={(text) => {
-                  const num = parseInt(text);
-                  if (!isNaN(num) && num >= 0 && num <= 54) {
-                    updateLocalSetting("handicap", num);
-                  } else if (text === "") {
-                    updateLocalSetting("handicap", undefined);
-                  }
-                }}
-                keyboardType="numeric"
-                maxLength={2}
-              />
-              <Text style={styles.handicapHelp}>
-                {localSettings.handicap !== undefined
-                  ? localSettings.handicap === 0
-                    ? "No strokes on any hole"
-                    : localSettings.handicap <= 18
-                    ? `You get 1 stroke on holes with difficulty index ≤ ${localSettings.handicap}`
-                    : `You get 1 stroke on all holes, plus an extra stroke on holes with difficulty index ≤ ${
-                        localSettings.handicap - 18
-                      }`
-                  : "Set your handicap to see stroke adjustments"}
-              </Text>
-            </View>
-          </View>
-        </SettingsSection>
-
-        <SettingsSection title="Clubs">
-          <View style={{ padding: 16, backgroundColor: "transparent" }}>
-            <View style={styles.clubList}>
-              {(localSettings.clubs || DEFAULT_CLUBS).map((club, index) => {
-                const clubs = localSettings.clubs || DEFAULT_CLUBS;
-                const canMoveUp = index > 0;
-                const canMoveDown = index < clubs.length - 1;
-
-                return (
-                  <View key={index} style={styles.clubItem}>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        flex: 1,
-                      }}
-                    >
-                      <TouchableOpacity
-                        style={[
-                          styles.reorderButton,
-                          !canMoveUp && { opacity: 0.3 },
-                        ]}
-                        onPress={() => {
-                          if (canMoveUp) {
-                            const newClubs = [...clubs];
-                            [newClubs[index - 1], newClubs[index]] = [
-                              newClubs[index],
-                              newClubs[index - 1],
-                            ];
-                            updateLocalSetting("clubs", newClubs);
-                            HapticFeedback.light();
-                          }
-                        }}
-                        disabled={!canMoveUp}
-                      >
-                        <Text style={styles.reorderButtonText}>↑</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        style={[
-                          styles.reorderButton,
-                          !canMoveDown && { opacity: 0.3 },
-                        ]}
-                        onPress={() => {
-                          if (canMoveDown) {
-                            const newClubs = [...clubs];
-                            [newClubs[index], newClubs[index + 1]] = [
-                              newClubs[index + 1],
-                              newClubs[index],
-                            ];
-                            updateLocalSetting("clubs", newClubs);
-                            HapticFeedback.light();
-                          }
-                        }}
-                        disabled={!canMoveDown}
-                      >
-                        <Text style={styles.reorderButtonText}>↓</Text>
-                      </TouchableOpacity>
-                      <Text style={styles.clubName}>{club}</Text>
-                    </View>
-                    <TouchableOpacity
-                      style={styles.removeClubButton}
-                      onPress={() => {
-                        const newClubs = clubs.filter((_, i) => i !== index);
-                        updateLocalSetting("clubs", newClubs);
-                      }}
-                    >
-                      <Text style={styles.removeClubButtonText}>×</Text>
-                    </TouchableOpacity>
-                  </View>
-                );
-              })}
-            </View>
-            <View style={styles.addClubContainer}>
-              <TextInput
-                style={styles.addClubInput}
-                placeholder="Add new club (use [Name] for groups)..."
-                placeholderTextColor={colors.textSecondary}
-                value={newClubName}
-                onChangeText={setNewClubName}
-                onSubmitEditing={handleAddClub}
-              />
-              <TouchableOpacity
-                style={styles.addClubButton}
-                onPress={handleAddClub}
-              >
-                <Text style={styles.addClubButtonText}>+</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </SettingsSection>
-
-        <SettingsSection title="Courses">
-          {courses.length === 0 ? (
-            <View style={{ padding: 16, backgroundColor: "transparent" }}>
-              <SettingsText variant="body">
-                No courses created yet. Create your first course to get started!
-              </SettingsText>
-            </View>
-          ) : (
-            courses.map((course) => (
-              <View key={course.id} style={styles.courseCard}>
-                <Text style={styles.courseName}>{course.name}</Text>
-                <Text style={styles.courseInfo}>
-                  {course.holes.length} holes • Created{" "}
-                  {new Date(course.createdAt).toLocaleDateString()}
+          <SettingsSection title="Swing Recording">
+            <View style={{ padding: 16 }}>
+              <View style={styles.handicapContainer}>
+                <Text style={{ color: colors.text, marginBottom: 8 }}>
+                  Countdown Duration (seconds)
                 </Text>
-                <View style={styles.courseActions}>
+                <TextInput
+                  style={styles.handicapInput}
+                  keyboardType="numeric"
+                  value={
+                    localSettings.swingRecording?.countdownSeconds?.toString() ||
+                    "5"
+                  }
+                  onChangeText={(text) => {
+                    const val = parseInt(text) || 0;
+                    setLocalSettings((prev) => ({
+                      ...prev,
+                      swingRecording: {
+                        ...prev.swingRecording,
+                        countdownSeconds: val,
+                        durationSeconds:
+                          prev.swingRecording?.durationSeconds || 30,
+                      },
+                    }));
+                    setHasChanges(true);
+                  }}
+                />
+                <Text style={styles.handicapHelp}>
+                  Time before recording starts
+                </Text>
+              </View>
+
+              <View style={styles.handicapContainer}>
+                <Text style={{ color: colors.text, marginBottom: 8 }}>
+                  Max Recording Duration (seconds)
+                </Text>
+                <TextInput
+                  style={styles.handicapInput}
+                  keyboardType="numeric"
+                  value={
+                    localSettings.swingRecording?.durationSeconds?.toString() ||
+                    "30"
+                  }
+                  onChangeText={(text) => {
+                    const val = parseInt(text) || 0;
+                    setLocalSettings((prev) => ({
+                      ...prev,
+                      swingRecording: {
+                        ...prev.swingRecording,
+                        countdownSeconds:
+                          prev.swingRecording?.countdownSeconds || 5,
+                        durationSeconds: val,
+                      },
+                    }));
+                    setHasChanges(true);
+                  }}
+                />
+                <Text style={styles.handicapHelp}>
+                  Recording automatically stops after this time
+                </Text>
+              </View>
+            </View>
+          </SettingsSection>
+
+          <SettingsSection title="Default Clubs">
+            <View style={{ padding: 16, backgroundColor: "transparent" }}>
+              {/* Par 5 */}
+              <View style={styles.defaultClubCard}>
+                <Text style={styles.defaultClubTitle}>Par 5</Text>
+                <View style={styles.defaultClubRow}>
+                  <Text style={styles.defaultClubLabel}>1st shot:</Text>
+                  <Dropdown
+                    options={localSettings.clubs || DEFAULT_CLUBS}
+                    selectedValue={
+                      localSettings.defaultClubs?.par5?.shot1 || "[Driver]"
+                    }
+                    onSelect={(value) => {
+                      setLocalSettings((prev) => ({
+                        ...prev,
+                        defaultClubs: {
+                          ...prev.defaultClubs,
+                          par5: { ...prev.defaultClubs?.par5, shot1: value },
+                        },
+                      }));
+                      setHasChanges(true);
+                    }}
+                    style={styles.defaultClubDropdown}
+                    textStyle={styles.defaultClubDropdownText}
+                  />
+                </View>
+                <View style={styles.defaultClubRow}>
+                  <Text style={styles.defaultClubLabel}>2nd shot:</Text>
+                  <Dropdown
+                    options={localSettings.clubs || DEFAULT_CLUBS}
+                    selectedValue={
+                      localSettings.defaultClubs?.par5?.shot2 || "[Irons]"
+                    }
+                    onSelect={(value) => {
+                      setLocalSettings((prev) => ({
+                        ...prev,
+                        defaultClubs: {
+                          ...prev.defaultClubs,
+                          par5: { ...prev.defaultClubs?.par5, shot2: value },
+                        },
+                      }));
+                      setHasChanges(true);
+                    }}
+                    style={styles.defaultClubDropdown}
+                    textStyle={styles.defaultClubDropdownText}
+                  />
+                </View>
+                <View style={styles.defaultClubRow}>
+                  <Text style={styles.defaultClubLabel}>3rd shot:</Text>
+                  <Dropdown
+                    options={localSettings.clubs || DEFAULT_CLUBS}
+                    selectedValue={
+                      localSettings.defaultClubs?.par5?.shot3 || "[Irons]"
+                    }
+                    onSelect={(value) => {
+                      setLocalSettings((prev) => ({
+                        ...prev,
+                        defaultClubs: {
+                          ...prev.defaultClubs,
+                          par5: { ...prev.defaultClubs?.par5, shot3: value },
+                        },
+                      }));
+                      setHasChanges(true);
+                    }}
+                    style={styles.defaultClubDropdown}
+                    textStyle={styles.defaultClubDropdownText}
+                  />
+                </View>
+              </View>
+
+              {/* Par 4 */}
+              <View style={styles.defaultClubCard}>
+                <Text style={styles.defaultClubTitle}>Par 4</Text>
+                <View style={styles.defaultClubRow}>
+                  <Text style={styles.defaultClubLabel}>1st shot:</Text>
+                  <Dropdown
+                    options={localSettings.clubs || DEFAULT_CLUBS}
+                    selectedValue={
+                      localSettings.defaultClubs?.par4?.shot1 || "[Driver]"
+                    }
+                    onSelect={(value) => {
+                      setLocalSettings((prev) => ({
+                        ...prev,
+                        defaultClubs: {
+                          ...prev.defaultClubs,
+                          par4: { ...prev.defaultClubs?.par4, shot1: value },
+                        },
+                      }));
+                      setHasChanges(true);
+                    }}
+                    style={styles.defaultClubDropdown}
+                    textStyle={styles.defaultClubDropdownText}
+                  />
+                </View>
+                <View style={styles.defaultClubRow}>
+                  <Text style={styles.defaultClubLabel}>2nd shot:</Text>
+                  <Dropdown
+                    options={localSettings.clubs || DEFAULT_CLUBS}
+                    selectedValue={
+                      localSettings.defaultClubs?.par4?.shot2 || "[Irons]"
+                    }
+                    onSelect={(value) => {
+                      setLocalSettings((prev) => ({
+                        ...prev,
+                        defaultClubs: {
+                          ...prev.defaultClubs,
+                          par4: { ...prev.defaultClubs?.par4, shot2: value },
+                        },
+                      }));
+                      setHasChanges(true);
+                    }}
+                    style={styles.defaultClubDropdown}
+                    textStyle={styles.defaultClubDropdownText}
+                  />
+                </View>
+              </View>
+
+              {/* Par 3 */}
+              <View style={styles.defaultClubCard}>
+                <Text style={styles.defaultClubTitle}>Par 3</Text>
+                <View style={styles.defaultClubRow}>
+                  <Text style={styles.defaultClubLabel}>1st shot:</Text>
+                  <Dropdown
+                    options={localSettings.clubs || DEFAULT_CLUBS}
+                    selectedValue={
+                      localSettings.defaultClubs?.par3?.shot1 || "[Irons]"
+                    }
+                    onSelect={(value) => {
+                      setLocalSettings((prev) => ({
+                        ...prev,
+                        defaultClubs: {
+                          ...prev.defaultClubs,
+                          par3: { ...prev.defaultClubs?.par3, shot1: value },
+                        },
+                      }));
+                      setHasChanges(true);
+                    }}
+                    style={styles.defaultClubDropdown}
+                    textStyle={styles.defaultClubDropdownText}
+                  />
+                </View>
+              </View>
+            </View>
+          </SettingsSection>
+
+          <SettingsSection title="Recent Rounds">
+            <View style={{ padding: 6, backgroundColor: "transparent" }}>
+              {data.currentRound && (
+                <View style={styles.activeRoundNote}>
+                  <SettingsText variant="body">
+                    Editing a round is disabled until you end the current round
+                  </SettingsText>
                   <TouchableOpacity
-                    style={[styles.actionButton, styles.editButton]}
-                    onPress={() => handleEditCourse(course)}
+                    style={styles.returnToRoundButton}
+                    onPress={onNavigateToRound}
                   >
-                    <Text
-                      style={[styles.actionButtonText, styles.editButtonText]}
-                    >
-                      Edit
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.actionButton, styles.deleteButton]}
-                    onPress={() => handleDeleteCourse(course.id)}
-                  >
-                    <Text
-                      style={[styles.actionButtonText, styles.deleteButtonText]}
-                    >
-                      Delete
+                    <Text style={styles.returnToRoundButtonText}>
+                      Return to Current Round
                     </Text>
                   </TouchableOpacity>
                 </View>
-              </View>
-            ))
-          )}
-        </SettingsSection>
+              )}
 
-        <SettingsSection title="Reset Data">
-          <View style={{ padding: 16, backgroundColor: "transparent" }}>
-            <View style={{ marginBottom: 16 }}>
+              {sortedRounds.length === 0 ? (
+                <SettingsText variant="body">No rounds recorded yet</SettingsText>
+              ) : (
+                <>
+                  {displayedRounds.map((round, index) => {
+                    const course = courses.find((c) => c.id === round.courseId);
+                    const holesPlayed = (round.holeScores || []).filter(
+                      (hs) => hs.shots.length > 0
+                    ).length;
+                    const totalParPlayed = (round.holeScores || [])
+                      .filter((hs) => hs.shots.length > 0)
+                      .reduce((sum, hs) => sum + hs.par, 0);
+                    const netScore = round.totalScore - totalParPlayed;
+                    const isIncomplete = !round.isComplete;
+                    const isActiveRound = data.currentRound?.id === round.id;
+                    const canEdit = !data.currentRound || isActiveRound;
+
+                    return (
+                      <View key={round.id} style={styles.roundItem}>
+                        <View style={styles.roundInfo}>
+                          <Text style={styles.roundCourse}>
+                            {course?.name || "Unknown Course"}
+                          </Text>
+                          <Text style={styles.roundId}>
+                            Round #{round.id.slice(-6)}
+                          </Text>
+                          <Text style={styles.roundDate}>
+                            {formatDate(round.completedAt || round.startedAt, 'long')}
+                          </Text>
+                          <Text style={styles.roundStats}>
+                            {holesPlayed} holes played
+                            {holesPlayed > 0 &&
+                              ` • ${netScore > 0
+                                ? `+${netScore} over par`
+                                : netScore < 0
+                                  ? `${Math.abs(netScore)} under par`
+                                  : "E"
+                              }`}
+                          </Text>
+                        </View>
+
+                        <View style={styles.roundActions}>
+                          <TouchableOpacity
+                            style={[
+                              styles.actionButton,
+                              styles.viewButton,
+                              { flex: 1, marginRight: 8 },
+                            ]}
+                            onPress={() => onViewRound?.(round)}
+                          >
+                            <Text
+                              style={[
+                                styles.actionButtonText,
+                                styles.viewButtonText,
+                              ]}
+                            >
+                              View
+                            </Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[
+                              styles.actionButton,
+                              styles.deleteButton,
+                              { flex: 1, marginLeft: 8 },
+                              isActiveRound && styles.disabledButton,
+                            ]}
+                            onPress={() => {
+                              console.log("Delete button pressed for round:", {
+                                id: round.id,
+                                courseName: round.courseName,
+                                isActiveRound,
+                              });
+                              if (!isActiveRound && onDeleteRound && round.id) {
+                                onDeleteRound(round.id);
+                              }
+                            }}
+                            disabled={isActiveRound}
+                          >
+                            <Text
+                              style={[
+                                styles.actionButtonText,
+                                styles.deleteButtonText,
+                                isActiveRound && styles.disabledButtonText,
+                              ]}
+                            >
+                              Delete
+                            </Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
+                    );
+                  })}
+
+                  {sortedRounds.length > displayedRounds.length && (
+                    <TouchableOpacity
+                      style={styles.showMoreButton}
+                      onPress={handleShowMoreRounds}
+                    >
+                      <Text style={styles.showMoreText}>
+                        Show{" "}
+                        {Math.min(
+                          50,
+                          sortedRounds.length - displayedRounds.length
+                        )}{" "}
+                        more rounds
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                </>
+              )}
+            </View>
+          </SettingsSection>
+
+          <SettingsSection title="Handicap">
+            <View style={{ padding: 16, backgroundColor: "transparent" }}>
               <SettingsText variant="body">
-                This will delete all your rounds, courses (except defaults), and
-                reset all settings to default values. This action cannot be
-                undone.
+                Your handicap index for stroke calculations
+              </SettingsText>
+              <View style={styles.handicapContainer}>
+                <TextInput
+                  style={styles.handicapInput}
+                  placeholder="Enter handicap (0-54)"
+                  placeholderTextColor={colors.textSecondary}
+                  value={localSettings.handicap?.toString() || ""}
+                  onChangeText={(text) => {
+                    const num = parseInt(text);
+                    if (!isNaN(num) && num >= 0 && num <= 54) {
+                      updateLocalSetting("handicap", num);
+                    } else if (text === "") {
+                      updateLocalSetting("handicap", undefined);
+                    }
+                  }}
+                  keyboardType="numeric"
+                  maxLength={2}
+                />
+                <Text style={styles.handicapHelp}>
+                  {localSettings.handicap !== undefined
+                    ? localSettings.handicap === 0
+                      ? "No strokes on any hole"
+                      : localSettings.handicap <= 18
+                        ? `You get 1 stroke on holes with difficulty index ≤ ${localSettings.handicap}`
+                        : `You get 1 stroke on all holes, plus an extra stroke on holes with difficulty index ≤ ${localSettings.handicap - 18
+                        }`
+                    : "Set your handicap to see stroke adjustments"}
+                </Text>
+              </View>
+            </View>
+          </SettingsSection>
+
+          <SettingsSection title="Clubs">
+            <View style={{ padding: 16, backgroundColor: "transparent" }}>
+              <View style={styles.clubList}>
+                {(localSettings.clubs || DEFAULT_CLUBS).map((club, index) => {
+                  const clubs = localSettings.clubs || DEFAULT_CLUBS;
+                  const canMoveUp = index > 0;
+                  const canMoveDown = index < clubs.length - 1;
+
+                  return (
+                    <View key={index} style={styles.clubItem}>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          flex: 1,
+                        }}
+                      >
+                        <TouchableOpacity
+                          style={[
+                            styles.reorderButton,
+                            !canMoveUp && { opacity: 0.3 },
+                          ]}
+                          onPress={() => {
+                            if (canMoveUp) {
+                              const newClubs = [...clubs];
+                              [newClubs[index - 1], newClubs[index]] = [
+                                newClubs[index],
+                                newClubs[index - 1],
+                              ];
+                              updateLocalSetting("clubs", newClubs);
+                              HapticFeedback.light();
+                            }
+                          }}
+                          disabled={!canMoveUp}
+                        >
+                          <Text style={styles.reorderButtonText}>↑</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={[
+                            styles.reorderButton,
+                            !canMoveDown && { opacity: 0.3 },
+                          ]}
+                          onPress={() => {
+                            if (canMoveDown) {
+                              const newClubs = [...clubs];
+                              [newClubs[index], newClubs[index + 1]] = [
+                                newClubs[index + 1],
+                                newClubs[index],
+                              ];
+                              updateLocalSetting("clubs", newClubs);
+                              HapticFeedback.light();
+                            }
+                          }}
+                          disabled={!canMoveDown}
+                        >
+                          <Text style={styles.reorderButtonText}>↓</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.clubName}>{club}</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.removeClubButton}
+                        onPress={() => {
+                          const newClubs = clubs.filter((_, i) => i !== index);
+                          updateLocalSetting("clubs", newClubs);
+                        }}
+                      >
+                        <Text style={styles.removeClubButtonText}>×</Text>
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+              <View style={styles.addClubContainer}>
+                <TextInput
+                  style={styles.addClubInput}
+                  placeholder="Add new club (use [Name] for groups)..."
+                  placeholderTextColor={colors.textSecondary}
+                  value={newClubName}
+                  onChangeText={setNewClubName}
+                  onSubmitEditing={handleAddClub}
+                />
+                <TouchableOpacity
+                  style={styles.addClubButton}
+                  onPress={handleAddClub}
+                >
+                  <Text style={styles.addClubButtonText}>+</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </SettingsSection>
+
+          <SettingsSection title="Courses">
+            {courses.length === 0 ? (
+              <View style={{ padding: 16, backgroundColor: "transparent" }}>
+                <SettingsText variant="body">
+                  No courses created yet. Create your first course to get started!
+                </SettingsText>
+              </View>
+            ) : (
+              courses.map((course) => (
+                <View key={course.id} style={styles.courseCard}>
+                  <Text style={styles.courseName}>{course.name}</Text>
+                  <Text style={styles.courseInfo}>
+                    {course.holes.length} holes • Created{" "}
+                    {new Date(course.createdAt).toLocaleDateString()}
+                  </Text>
+                  <View style={styles.courseActions}>
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.editButton]}
+                      onPress={() => handleEditCourse(course)}
+                    >
+                      <Text
+                        style={[styles.actionButtonText, styles.editButtonText]}
+                      >
+                        Edit
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.deleteButton]}
+                      onPress={() => handleDeleteCourse(course.id)}
+                    >
+                      <Text
+                        style={[styles.actionButtonText, styles.deleteButtonText]}
+                      >
+                        Delete
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
+          </SettingsSection>
+
+          <SettingsSection title="Reset Data">
+            <View style={{ padding: 16, backgroundColor: "transparent" }}>
+              <View style={{ marginBottom: 16 }}>
+                <SettingsText variant="body">
+                  This will delete all your rounds, courses (except defaults), and
+                  reset all settings to default values. This action cannot be
+                  undone.
+                </SettingsText>
+              </View>
+              {onResetData && (
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: colors.error || "#f44336",
+                    paddingVertical: 12,
+                    paddingHorizontal: 20,
+                    borderRadius: 8,
+                    alignItems: "center",
+                  }}
+                  onPress={() => {
+                    Alert.alert(
+                      "Reset All Data?",
+                      "This will permanently delete all your rounds, custom courses, and reset settings. This cannot be undone.",
+                      [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Reset",
+                          style: "destructive",
+                          onPress: () => {
+                            onResetData();
+                            HapticFeedback.light();
+                          },
+                        },
+                      ]
+                    );
+                  }}
+                >
+                  <Text
+                    style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}
+                  >
+                    Reset All Data
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </SettingsSection>
+
+          <SettingsSection title="About">
+            <View style={{ padding: 16, backgroundColor: "transparent" }}>
+              <SettingsText variant="body">
+                Golf Brain helps you record detailed golf rounds with shot-by-shot
+                tracking.{"\n"}
+                Track courses, scores, and analyze your performance over time.
               </SettingsText>
             </View>
-            {onResetData && (
-              <TouchableOpacity
-                style={{
-                  backgroundColor: colors.error || "#f44336",
-                  paddingVertical: 12,
-                  paddingHorizontal: 20,
-                  borderRadius: 8,
-                  alignItems: "center",
-                }}
-                onPress={() => {
-                  Alert.alert(
-                    "Reset All Data?",
-                    "This will permanently delete all your rounds, custom courses, and reset settings. This cannot be undone.",
-                    [
-                      { text: "Cancel", style: "cancel" },
-                      {
-                        text: "Reset",
-                        style: "destructive",
-                        onPress: () => {
-                          onResetData();
-                          HapticFeedback.light();
-                        },
-                      },
-                    ]
-                  );
-                }}
-              >
-                <Text
-                  style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}
-                >
-                  Reset All Data
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </SettingsSection>
+          </SettingsSection>
 
-        <SettingsSection title="About">
-          <View style={{ padding: 16, backgroundColor: "transparent" }}>
-            <SettingsText variant="body">
-              Golf Brain helps you record detailed golf rounds with shot-by-shot
-              tracking.{"\n"}
-              Track courses, scores, and analyze your performance over time.
-            </SettingsText>
+          <View style={GolfBrainSettingsStyles.saveCancelContainer}>
+            <SaveCancelButtons
+              onSave={handleSaveSettings}
+              onCancel={handleCancelSettings}
+              saveDisabled={!hasChanges}
+            />
           </View>
-        </SettingsSection>
+        </SettingsScrollView>
 
-        <View style={GolfBrainSettingsStyles.saveCancelContainer}>
-          <SaveCancelButtons
-            onSave={handleSaveSettings}
-            onCancel={handleCancelSettings}
-            saveDisabled={!hasChanges}
+        {editingCourse && (
+          <EditCourseModal
+            visible={editingCourse !== null}
+            onClose={() => setEditingCourse(null)}
+            course={editingCourse}
+            onUpdateCourse={onUpdateCourse}
+            colors={colors}
           />
-        </View>
-      </SettingsScrollView>
-
-      {editingCourse && (
-        <EditCourseModal
-          visible={editingCourse !== null}
-          onClose={() => setEditingCourse(null)}
-          course={editingCourse}
-          onUpdateCourse={onUpdateCourse}
-          colors={colors}
-        />
-      )}
-    </SettingsContainer>
-  );
-};
+        )}
+      </SettingsContainer>
+    );
+  };
 
 // GolfBrainSettings Styles
 const GolfBrainSettingsStyles = StyleSheet.create({
@@ -3058,210 +3051,210 @@ const OutcomeGrid: React.FC<{
   onFlameAnimation,
   onPoopAnimation,
 }) => {
-  const outcomes = [
-    ["left\nlong", "left", "left\nshort"],
-    ["long", "good", "short"],
-    ["right\nlong", "right", "right\nshort"],
-  ];
+    const outcomes = [
+      ["left\nlong", "left", "left\nshort"],
+      ["long", "good", "short"],
+      ["right\nlong", "right", "right\nshort"],
+    ];
 
-  // Map display labels to stored values
-  const getOutcomeValue = (displayLabel: string) => {
-    const mapping: { [key: string]: string } = {
-      "left\nlong": "left and long",
-      long: "long",
-      "right\nlong": "right and long",
-      left: "left",
-      good: "good",
-      right: "right",
-      "left\nshort": "left and short",
-      short: "short",
-      "right\nshort": "right and short",
+    // Map display labels to stored values
+    const getOutcomeValue = (displayLabel: string) => {
+      const mapping: { [key: string]: string } = {
+        "left\nlong": "left and long",
+        long: "long",
+        "right\nlong": "right and long",
+        left: "left",
+        good: "good",
+        right: "right",
+        "left\nshort": "left and short",
+        short: "short",
+        "right\nshort": "right and short",
+      };
+      return mapping[displayLabel] || displayLabel;
     };
-    return mapping[displayLabel] || displayLabel;
-  };
 
-  const getDisplayLabel = (value: string) => {
-    const mapping: { [key: string]: string } = {
-      "left and long": "left\nlong",
-      long: "long",
-      "right and long": "right\nlong",
-      left: "left",
-      good: "good",
-      right: "right",
-      "left and short": "left\nshort",
-      short: "short",
-      "right and short": "right\nshort",
+    const getDisplayLabel = (value: string) => {
+      const mapping: { [key: string]: string } = {
+        "left and long": "left\nlong",
+        long: "long",
+        "right and long": "right\nlong",
+        left: "left",
+        good: "good",
+        right: "right",
+        "left and short": "left\nshort",
+        short: "short",
+        "right and short": "right\nshort",
+      };
+      return mapping[value] || value;
     };
-    return mapping[value] || value;
-  };
 
-  const maxCount = Math.max(...Object.values(historicalData), 1);
+    const maxCount = Math.max(...Object.values(historicalData), 1);
 
-  const getOpacity = (outcome: string) => {
-    const count = historicalData[outcome] || 0;
-    return Math.max(0.2, count / maxCount);
-  };
+    const getOpacity = (outcome: string) => {
+      const count = historicalData[outcome] || 0;
+      return Math.max(0.2, count / maxCount);
+    };
 
-  const styles = StyleSheet.create({
-    container: {
-      marginBottom: 16,
-    },
-    title: {
-      fontSize: 16,
-      fontWeight: "600",
-      color: colors.text,
-      marginBottom: 0,
-    },
-    grid: {
-      flexDirection: "row",
-      alignSelf: "center", // Center horizontally
-      width: "90%", // Use percentage to span most of screen width
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    row: {
-      flex: 1,
-    },
-    cell: {
-      height: 40,
-      borderRadius: 0, // No border radius for touching cells
-      justifyContent: "center",
-      alignItems: "center",
-      borderRightWidth: 1,
-      borderBottomWidth: 1,
-      borderColor: colors.border,
-    },
-    cellText: {
-      fontSize: 8,
-      fontWeight: "500",
-      textAlign: "center",
-      lineHeight: 10,
-    },
-  });
+    const styles = StyleSheet.create({
+      container: {
+        marginBottom: 16,
+      },
+      title: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: colors.text,
+        marginBottom: 0,
+      },
+      grid: {
+        flexDirection: "row",
+        alignSelf: "center", // Center horizontally
+        width: "90%", // Use percentage to span most of screen width
+        borderWidth: 1,
+        borderColor: colors.border,
+      },
+      row: {
+        flex: 1,
+      },
+      cell: {
+        height: 40,
+        borderRadius: 0, // No border radius for touching cells
+        justifyContent: "center",
+        alignItems: "center",
+        borderRightWidth: 1,
+        borderBottomWidth: 1,
+        borderColor: colors.border,
+      },
+      cellText: {
+        fontSize: 8,
+        fontWeight: "500",
+        textAlign: "center",
+        lineHeight: 10,
+      },
+    });
 
-  return (
-    <View style={styles.container}>
-      {/* <Text style={styles.title}>
+    return (
+      <View style={styles.container}>
+        {/* <Text style={styles.title}>
         {shotType === 'iron' ? `Shot ${shotNumber}` : `Putt ${shotNumber}`} - Select Outcome
       </Text> */}
-      <View
-        style={[
-          styles.grid,
-          showError && {
-            borderColor: colors.error || "#ff4444",
-            borderWidth: 2,
-            borderRadius: 8,
-          },
-        ]}
-      >
-        {outcomes.map((row, rowIndex) => (
-          <View key={rowIndex} style={styles.row}>
-            {row.map((outcome) => {
-              const outcomeValue = getOutcomeValue(outcome);
-              const count = historicalData[outcomeValue] || 0;
-              const isSelected =
-                selectedOutcome === outcomeValue ||
-                (selectedOutcome === "fire" && outcome === "good");
-              const isGood = outcomeValue === "good";
+        <View
+          style={[
+            styles.grid,
+            showError && {
+              borderColor: colors.error || "#ff4444",
+              borderWidth: 2,
+              borderRadius: 8,
+            },
+          ]}
+        >
+          {outcomes.map((row, rowIndex) => (
+            <View key={rowIndex} style={styles.row}>
+              {row.map((outcome) => {
+                const outcomeValue = getOutcomeValue(outcome);
+                const count = historicalData[outcomeValue] || 0;
+                const isSelected =
+                  selectedOutcome === outcomeValue ||
+                  (selectedOutcome === "fire" && outcome === "good");
+                const isGood = outcomeValue === "good";
 
-              // Determine cell color based on position
-              const getCellColor = () => {
-                if (isSelected) {
-                  // Check if fire is selected (special case for good cell)
-                  if (selectedOutcome === "fire" && outcome === "good") {
-                    return "#FF8C00"; // Burnt orange for fire
+                // Determine cell color based on position
+                const getCellColor = () => {
+                  if (isSelected) {
+                    // Check if fire is selected (special case for good cell)
+                    if (selectedOutcome === "fire" && outcome === "good") {
+                      return "#FF8C00"; // Burnt orange for fire
+                    }
+                    // Check if good is selected
+                    if (selectedOutcome === "good" && outcomeValue === "good") {
+                      return "#228B22"; // Dark green for good
+                    }
+                    return colors.primary; // Default selection color
                   }
-                  // Check if good is selected
-                  if (selectedOutcome === "good" && outcomeValue === "good") {
-                    return "#228B22"; // Dark green for good
+                  if (isGood) return "#E8F5E8"; // Light green for center when not selected
+
+                  // Corner cells (bad outcomes) - light red
+                  if (
+                    outcomeValue === "left and long" ||
+                    outcomeValue === "right and long" ||
+                    outcomeValue === "left and short" ||
+                    outcomeValue === "right and short"
+                  ) {
+                    return "#FFE8E8"; // Light red
                   }
-                  return colors.primary; // Default selection color
-                }
-                if (isGood) return "#E8F5E8"; // Light green for center when not selected
 
-                // Corner cells (bad outcomes) - light red
-                if (
-                  outcomeValue === "left and long" ||
-                  outcomeValue === "right and long" ||
-                  outcomeValue === "left and short" ||
-                  outcomeValue === "right and short"
-                ) {
-                  return "#FFE8E8"; // Light red
-                }
+                  // Outer central cells (okay outcomes) - no background color
+                  if (
+                    outcomeValue === "left" ||
+                    outcomeValue === "right" ||
+                    outcomeValue === "long" ||
+                    outcomeValue === "short"
+                  ) {
+                    return "transparent"; // No background color
+                  }
 
-                // Outer central cells (okay outcomes) - no background color
-                if (
-                  outcomeValue === "left" ||
-                  outcomeValue === "right" ||
-                  outcomeValue === "long" ||
-                  outcomeValue === "short"
-                ) {
-                  return "transparent"; // No background color
-                }
+                  // Penalty outcome - black background for all cells
+                  if (outcomeValue === "penalty") {
+                    return "#000000"; // Black background
+                  }
 
-                // Penalty outcome - black background for all cells
-                if (outcomeValue === "penalty") {
-                  return "#000000"; // Black background
-                }
+                  return colors.surface; // Default
+                };
 
-                return colors.surface; // Default
-              };
-
-              return (
-                <TouchableOpacity
-                  key={outcome}
-                  style={[
-                    styles.cell,
-                    {
-                      backgroundColor:
-                        isSelected && isPoorShot ? "#D2B48C" : getCellColor(), // Light brown for poor shots
-                      borderColor: isSelected ? colors.primary : colors.border,
-                    },
-                  ]}
-                  onPress={() => onSelect(outcomeValue)}
-                  onLongPress={
-                    isGood
-                      ? () => {
+                return (
+                  <TouchableOpacity
+                    key={outcome}
+                    style={[
+                      styles.cell,
+                      {
+                        backgroundColor:
+                          isSelected && isPoorShot ? "#D2B48C" : getCellColor(), // Light brown for poor shots
+                        borderColor: isSelected ? colors.primary : colors.border,
+                      },
+                    ]}
+                    onPress={() => onSelect(outcomeValue)}
+                    onLongPress={
+                      isGood
+                        ? () => {
                           onSelect("fire");
                           onFlameAnimation?.();
                         }
-                      : () => {
+                        : () => {
                           onPoopSelect?.(outcomeValue);
                           onPoopAnimation?.();
                         }
-                  }
-                >
-                  <Text
-                    style={[
-                      styles.cellText,
-                      {
-                        color: isSelected ? colors.background : colors.text,
-                        fontWeight: isSelected ? "600" : "500",
-                      },
-                      outcomeValue === "penalty" && { color: "#FFFFFF" },
-                    ]}
+                    }
                   >
-                    {outcome === "good"
-                      ? selectedOutcome === "fire"
-                        ? "🔥"
-                        : "good"
-                      : outcomeValue === "penalty"
-                      ? outcome === "good"
-                        ? "PENALTY"
-                        : ""
-                      : isSelected && isPoorShot
-                      ? `${outcome} 💩`
-                      : outcome}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        ))}
+                    <Text
+                      style={[
+                        styles.cellText,
+                        {
+                          color: isSelected ? colors.background : colors.text,
+                          fontWeight: isSelected ? "600" : "500",
+                        },
+                        outcomeValue === "penalty" && { color: "#FFFFFF" },
+                      ]}
+                    >
+                      {outcome === "good"
+                        ? selectedOutcome === "fire"
+                          ? "🔥"
+                          : "good"
+                        : outcomeValue === "penalty"
+                          ? outcome === "good"
+                            ? "PENALTY"
+                            : ""
+                          : isSelected && isPoorShot
+                            ? `${outcome} 💩`
+                            : outcome}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          ))}
+        </View>
       </View>
-    </View>
-  );
-};
+    );
+  };
 
 // Historical Outcome Grid Component
 const HistoricalOutcomeGrid: React.FC<{
@@ -3505,12 +3498,12 @@ const HandicapOnboardingModal: React.FC<{
       visible={visible}
       transparent
       animationType="slide"
-      onRequestClose={() => {}}
+      onRequestClose={() => { }}
     >
       <TouchableOpacity
         style={styles.modalOverlay}
         activeOpacity={1}
-        onPress={() => {}} // Prevent closing by tapping outside
+        onPress={() => { }} // Prevent closing by tapping outside
       >
         <TouchableOpacity
           style={styles.modalContent}
@@ -3535,7 +3528,7 @@ const HandicapOnboardingModal: React.FC<{
               onPress={onClose}
             >
               <Text style={[styles.buttonText, styles.cancelButtonText]}>
-                Exit Golf Brain ✕
+                Close ✕
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -3758,6 +3751,9 @@ const HoleDetailScreen = React.forwardRef<
     const scrollViewRef = useRef<ScrollView>(null);
     const clubDropdownRef = useRef<{ open: () => void }>(null);
     const [showClubDropdown, setShowClubDropdown] = useState(false);
+    const [playbackRate, setPlaybackRate] = useState(1.0);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const shotVideoRef = useRef<Video>(null);
 
     const expectedShots = hole ? Math.max(0, hole.par - 2) : 0; // par 3 = 1, par 4 = 2, par 5 = 3
     console.log("Expected shots calculation:", {
@@ -3834,9 +3830,10 @@ const HoleDetailScreen = React.forwardRef<
       },
     }));
 
-    // Reset dropdown visibility when shot changes
     useEffect(() => {
       setShowClubDropdown(false);
+      setPlaybackRate(1.0);
+      setIsPlaying(false);
     }, [currentShotIndex]);
 
     // Open dropdown modal when dropdown becomes visible (after "Other" is clicked)
@@ -3918,8 +3915,7 @@ const HoleDetailScreen = React.forwardRef<
             (_, index) => {
               const club = getDefaultClub(index);
               console.log(
-                `Creating shot ${index + 1} for par ${
-                  hole?.par
+                `Creating shot ${index + 1} for par ${hole?.par
                 } hole with club: ${club}`
               );
               return {
@@ -3979,8 +3975,7 @@ const HoleDetailScreen = React.forwardRef<
 
               const club = getDefaultClub(index);
               console.log(
-                `Adding club ${club} to existing shot ${index + 1} for par ${
-                  hole?.par
+                `Adding club ${club} to existing shot ${index + 1} for par ${hole?.par
                 } hole`
               );
               updatedShot.club = club;
@@ -5342,9 +5337,8 @@ const HoleDetailScreen = React.forwardRef<
             {handicap !== undefined && (
               <Text style={styles.bumpInfo}>
                 {getBumpsForHole(hole) > 0
-                  ? `You get ${getBumpsForHole(hole)} stroke${
-                      getBumpsForHole(hole) === 1 ? "" : "s"
-                    } on this hole`
+                  ? `You get ${getBumpsForHole(hole)} stroke${getBumpsForHole(hole) === 1 ? "" : "s"
+                  } on this hole`
                   : "No strokes on this hole"}
               </Text>
             )}
@@ -5363,8 +5357,8 @@ const HoleDetailScreen = React.forwardRef<
                 {netScore > 0
                   ? `+${netScore}`
                   : netScore === 0
-                  ? "E"
-                  : netScore}
+                    ? "E"
+                    : netScore}
               </Text>
             </View>
           </View>
@@ -5601,6 +5595,127 @@ const HoleDetailScreen = React.forwardRef<
                       </Text>
                     </View>
 
+                    {/* Record Swing Component - Moved to top per user request */}
+                    {shotInfo.isShot && (
+                      <View style={{ marginBottom: 12, marginTop: 4 }}>
+                        {shotInfo.shot.videoUri ? (
+                          <View style={styles.videoContainer}>
+                            <Video
+                              ref={shotVideoRef}
+                              source={{ uri: shotInfo.shot.videoUri }}
+                              style={styles.videoPlayer}
+                              useNativeControls
+                              resizeMode={ResizeMode.CONTAIN}
+                              isLooping
+                              rate={playbackRate}
+                              shouldCorrectPitch={false}
+                              onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
+                                if (status.isLoaded) {
+                                  setIsPlaying(status.isPlaying);
+                                }
+                              }}
+                              onFullscreenUpdate={(event) => {
+                                if (
+                                  event.fullscreenUpdate ===
+                                  VideoFullscreenUpdate.PLAYER_DID_DISMISS
+                                ) {
+                                  if (shotVideoRef.current) {
+                                    shotVideoRef.current.pauseAsync();
+                                  }
+                                }
+                              }}
+                            />
+                            <View
+                              style={{
+                                flexDirection: "row",
+                                justifyContent: "center",
+                                alignItems: "center",
+                                gap: 12,
+                                marginTop: 12,
+                                marginBottom: 4,
+                              }}
+                            >
+                              {[1.0, 0.5, 0.25].map((rate) => (
+                                <TouchableOpacity
+                                  key={rate}
+                                  style={{
+                                    paddingHorizontal: 16,
+                                    paddingVertical: 8,
+                                    borderRadius: 20,
+                                    backgroundColor: "rgba(0, 0, 0, 0.8)",
+                                    justifyContent: "center",
+                                    alignItems: "center",
+                                    borderWidth: 1,
+                                    borderColor: "rgba(255, 255, 255, 0.3)",
+                                    minWidth: 70,
+                                  }}
+                                  onPress={async () => {
+                                    setPlaybackRate(rate);
+                                    if (shotVideoRef.current) {
+                                      await shotVideoRef.current.playAsync();
+                                      await shotVideoRef.current.presentFullscreenPlayer();
+                                    }
+                                    HapticFeedback.light();
+                                  }}
+                                >
+                                  <Text
+                                    style={{
+                                      color: "#FFFFFF",
+                                      fontSize: 14,
+                                      fontWeight: "bold",
+                                    }}
+                                  >
+                                    {rate === 1.0 ? "1x" : `${rate}x`}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))}
+                            </View>
+                            <TouchableOpacity
+                              style={styles.reRecordButton}
+                              onPress={() => {
+                                Alert.alert(
+                                  "Re-record Swing",
+                                  "This will delete the current recording. Are you sure?",
+                                  [
+                                    { text: "Cancel", style: "cancel" },
+                                    {
+                                      text: "Delete",
+                                      style: "destructive",
+                                      onPress: () =>
+                                        updateShot(
+                                          shotInfo.shot.id,
+                                          "shot",
+                                          "videoUri",
+                                          undefined
+                                        ),
+                                    },
+                                  ]
+                                );
+                              }}
+                            >
+                              <Text style={styles.reRecordButtonText}>
+                                Re-record Swing
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        ) : (
+                          <RecordSwing
+                            holeNumber={currentHole}
+                            shotNumber={shotInfo.shotNumber}
+                            club={shotInfo.shot.club || "Unknown"}
+                            countdownSeconds={
+                              data.settings.swingRecording.countdownSeconds
+                            }
+                            durationSeconds={
+                              data.settings.swingRecording.durationSeconds
+                            }
+                            colors={colors}
+                            onRecordingComplete={handleRecordingComplete}
+                          />
+                        )}
+                      </View>
+                    )}
+
                     <View style={styles.shotFields}>
                       <View
                         style={[
@@ -5825,63 +5940,8 @@ const HoleDetailScreen = React.forwardRef<
                       />
                     </View>
 
-                    {/* Record Swing Component */}
-                    {1 == 1 && (
-                      <View style={{ marginBottom: 6 }}>
-                        {shotInfo.shot.videoUri ? (
-                          <View style={styles.videoContainer}>
-                            <Video
-                              source={{ uri: shotInfo.shot.videoUri }}
-                              style={styles.videoPlayer}
-                              useNativeControls
-                              resizeMode={ResizeMode.CONTAIN}
-                              isLooping
-                            />
-                            <TouchableOpacity
-                              style={styles.reRecordButton}
-                              onPress={() => {
-                                Alert.alert(
-                                  "Re-record Swing",
-                                  "This will delete the current recording. Are you sure?",
-                                  [
-                                    { text: "Cancel", style: "cancel" },
-                                    {
-                                      text: "Delete",
-                                      style: "destructive",
-                                      onPress: () =>
-                                        updateShot(
-                                          shotInfo.shot.id,
-                                          "shot",
-                                          "videoUri",
-                                          undefined
-                                        ),
-                                    },
-                                  ]
-                                );
-                              }}
-                            >
-                              <Text style={styles.reRecordButtonText}>
-                                Re-record Swing
-                              </Text>
-                            </TouchableOpacity>
-                          </View>
-                        ) : (
-                          <RecordSwing
-                            holeNumber={currentHole}
-                            shotNumber={shotInfo.shotNumber}
-                            club={shotInfo.shot.club || "Unknown"}
-                            countdownSeconds={
-                              data.settings.swingRecording.countdownSeconds
-                            }
-                            durationSeconds={
-                              data.settings.swingRecording.durationSeconds
-                            }
-                            colors={colors}
-                            onRecordingComplete={handleRecordingComplete}
-                          />
-                        )}
-                      </View>
-                    )}
+
+
                     {/* OB/Water buttons - Moved to bottom */}
                     {shotInfo.isShot && (
                       <View
@@ -6216,7 +6276,7 @@ const HoleDetailScreen = React.forwardRef<
                 style={[
                   styles.shotButton,
                   currentShotIndex === (shots || []).length + index &&
-                    styles.activeShotButton,
+                  styles.activeShotButton,
                 ]}
                 onPress={() =>
                   setCurrentShotIndex((shots || []).length + index)
@@ -6226,7 +6286,7 @@ const HoleDetailScreen = React.forwardRef<
                   style={[
                     styles.shotButtonText,
                     currentShotIndex === (shots || []).length + index &&
-                      styles.activeShotButtonText,
+                    styles.activeShotButtonText,
                   ]}
                 >
                   p{index + 1}
@@ -6288,13 +6348,13 @@ const HoleDetailScreen = React.forwardRef<
                   const canGoNext = currentShotIndex < allShots.length - 1;
                   return !canGoNext && currentHole < 18
                     ? {
-                        backgroundColor: colors.primary,
-                        borderColor: colors.primary,
-                      }
+                      backgroundColor: colors.primary,
+                      borderColor: colors.primary,
+                    }
                     : {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.border,
-                      };
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    };
                 })(),
               ]}
               onPress={currentHole < 18 ? handleCompleteHole : undefined}
@@ -6358,971 +6418,16 @@ export const GolfBrainSpark: React.FC<
   openCourseSelectionSignal,
   settingsInitialTab,
 }) => {
-  const { getSparkData, setSparkData } = useSparkStore();
-  const { colors } = useTheme();
+    const getSparkData = useSparkStore(state => state.getSparkData);
+    const setSparkData = useSparkStore(state => state.setSparkData);
+    const { colors } = useTheme();
 
-  const [infoBanner, setInfoBanner] = useState<string | null>(null);
-  const [internalShowSettings, setInternalShowSettings] = useState(false);
+    const [dataLoaded, setDataLoaded] = useState(false);
 
-  const [data, setData] = useState<GolfBrainData>({
-    courses: [DEFAULT_COURSE, DEFAULT_COURSE_BACK9],
-    rounds: [],
-    settings: {
-      showHints: true,
-      autoAdvance: false,
-      clubs: DEFAULT_CLUBS,
-      defaultClubs: {
-        par5: {
-          shot1: "Driver",
-          shot2: "7-Iron",
-          shot3: "9-Iron",
-        },
-        par4: {
-          shot1: "Driver",
-          shot2: "9-Iron",
-        },
-        par3: {
-          shot1: "7-Iron",
-        },
-      },
-      swingRecording: {
-        countdownSeconds: 5,
-        durationSeconds: 30,
-      },
-    },
-  });
+    const [infoBanner, setInfoBanner] = useState<string | null>(null);
+    const [internalShowSettings, setInternalShowSettings] = useState(false);
 
-  const [currentScreen, setCurrentScreen] = useState<
-    "course-selection" | "hole-detail" | "round-summary"
-  >("course-selection");
-  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [currentHole, setCurrentHole] = useState(1);
-  const [currentRound, setCurrentRound] = useState<Round | null>(null);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [showHandicapOnboarding, setShowHandicapOnboarding] = useState(false);
-  const [roundEnded, setRoundEnded] = useState(false);
-  const [flameAnimation, setFlameAnimation] = useState<{
-    visible: boolean;
-    flames: Array<{
-      id: string;
-      x: number;
-      y: number;
-      rotation: number;
-      scale: number;
-      targetY: number;
-      translateY: Animated.Value;
-    }>;
-  }>({
-    visible: false,
-    flames: [],
-  });
-
-  const [poopAnimation, setPoopAnimation] = useState<{
-    visible: boolean;
-    poops: Array<{
-      id: string;
-      x: number;
-      y: number;
-      rotation: number;
-      scale: number;
-      targetY: number;
-      translateY: Animated.Value;
-    }>;
-  }>({
-    visible: false,
-    poops: [],
-  });
-
-  // React to parent signal to open Course Selection for a new round
-  useEffect(() => {
-    if (
-      typeof openCourseSelectionSignal === "number" &&
-      openCourseSelectionSignal > 0
-    ) {
-      setCurrentScreen("course-selection");
-      setSelectedCourse(null);
-      setShowCreateModal(false);
-      HapticFeedback.light();
-
-      // Show a transient confirmation banner so it's obvious the + worked
-      setInfoBanner("Start New Round — choose a course");
-      setTimeout(() => setInfoBanner(null), 2800);
-    }
-  }, [openCourseSelectionSignal]);
-
-  // Load saved data on mount
-  useEffect(() => {
-    const savedData = getSparkData("golf-brain") as GolfBrainData;
-    if (savedData) {
-      // Ensure default courses are always available
-      const hasDefaultCourse = savedData.courses?.some(
-        (course: Course) => course.id === DEFAULT_COURSE.id
-      );
-      const hasDefaultBack9Course = savedData.courses?.some(
-        (course: Course) => course.id === DEFAULT_COURSE_BACK9.id
-      );
-
-      let courses = savedData.courses || [];
-      if (!hasDefaultCourse) {
-        courses = [DEFAULT_COURSE, ...courses];
-      }
-      if (!hasDefaultBack9Course) {
-        courses = [DEFAULT_COURSE_BACK9, ...courses];
-      }
-
-      const mergedData = {
-        ...savedData,
-        courses,
-        rounds: savedData.rounds || [],
-        settings: {
-          showHints: savedData.settings?.showHints ?? true,
-          autoAdvance: savedData.settings?.autoAdvance ?? false,
-          clubs: savedData.settings?.clubs ?? DEFAULT_CLUBS,
-          handicap: savedData.settings?.handicap,
-          defaultClubs: savedData.settings?.defaultClubs ?? {
-            par5: {
-              shot1: "Driver",
-              shot2: "7-Iron",
-              shot3: "9-Iron",
-            },
-            par4: {
-              shot1: "Driver",
-              shot2: "9-Iron",
-            },
-            par3: {
-              shot1: "7-Iron",
-            },
-          },
-          swingRecording: savedData.settings?.swingRecording ?? {
-            countdownSeconds: 5,
-            durationSeconds: 30,
-          },
-        },
-      };
-      setData(mergedData);
-      if (savedData.currentRound) {
-        setCurrentRound(savedData.currentRound);
-        setSelectedCourse(
-          savedData.courses.find(
-            (c) => c.id === savedData.currentRound?.courseId
-          ) || null
-        );
-        setCurrentScreen("hole-detail");
-      }
-    }
-  }, [getSparkData]);
-
-  // Handle screen navigation based on data state
-  useEffect(() => {
-    // If no courses exist, go to course selection
-    if (data.courses && data.courses.length === 0) {
-      setCurrentScreen("course-selection");
-      return;
-    }
-
-    // Check for rounds in progress
-    const inProgressRound = data.rounds?.find((round) => !round.isComplete);
-    if (inProgressRound && data.courses) {
-      const course = data.courses.find(
-        (c) => c.id === inProgressRound.courseId
-      );
-      if (course) {
-        setSelectedCourse(course);
-        setCurrentRound(inProgressRound);
-        setData((prev) => ({
-          ...prev,
-          currentRound: inProgressRound,
-        }));
-        setCurrentScreen("hole-detail");
-        return;
-      }
-    }
-
-    // Default to course selection if we have courses but no active round
-    if (
-      data.courses &&
-      data.courses.length > 0 &&
-      currentScreen === "hole-detail" &&
-      !selectedCourse
-    ) {
-      setCurrentScreen("course-selection");
-    }
-  }, [data.courses, data.rounds, currentScreen, selectedCourse]);
-
-  // Show handicap onboarding when no handicap is set
-  useEffect(() => {
-    if (
-      currentScreen === "hole-detail" &&
-      data.settings.handicap === undefined &&
-      !showSettings
-    ) {
-      setShowHandicapOnboarding(true);
-    } else if (
-      data.settings.handicap !== undefined ||
-      currentScreen !== "hole-detail"
-    ) {
-      setShowHandicapOnboarding(false);
-    }
-  }, [data.settings.handicap, showSettings, currentScreen]);
-
-  // Save data whenever it changes
-  useEffect(() => {
-    setSparkData("golf-brain", data);
-    onStateChange?.({
-      courseCount: data.courses?.length || 0,
-      roundCount: data.rounds?.length || 0,
-    });
-  }, [data]); // Removed setSparkData and onStateChange from dependencies
-
-  const handleSelectCourse = (course: Course) => {
-    setSelectedCourse(course);
-    setCurrentHole(1);
-    setRoundEnded(false); // Reset round ended state when starting new round
-
-    // Create new round
-    const newRound: Round = {
-      id: Date.now().toString() + Math.random().toString(36).substring(2),
-      courseId: course.id,
-      courseName: course.name,
-      holeScores: [],
-      totalScore: 0,
-      totalPar: (course.holes || []).reduce((sum, hole) => sum + hole.par, 0),
-      startedAt: Date.now(),
-      isComplete: false,
-    };
-
-    setCurrentRound(newRound);
-    setData((prev) => ({
-      ...prev,
-      currentRound: newRound,
-    }));
-    setCurrentScreen("hole-detail");
-    HapticFeedback.light();
-  };
-
-  const handleCreateCourse = (courseData: Omit<Course, "id" | "createdAt">) => {
-    const newCourse: Course = {
-      ...courseData,
-      id: Date.now().toString() + Math.random().toString(36).substring(2),
-      createdAt: Date.now(),
-    };
-
-    setData((prev) => ({
-      ...prev,
-      courses: [...(prev.courses || []), newCourse],
-    }));
-
-    HapticFeedback.success();
-  };
-
-  const handleCompleteHole = (holeScore: HoleScore) => {
-    if (!currentRound || !selectedCourse) return;
-
-    const updatedRound = {
-      ...currentRound,
-      holeScores: [
-        ...currentRound.holeScores.filter(
-          (h) => h.holeNumber !== holeScore.holeNumber
-        ),
-        holeScore,
-      ],
-      totalScore:
-        currentRound.holeScores
-          .filter((h) => h.holeNumber !== holeScore.holeNumber)
-          .reduce((sum, h) => sum + h.totalScore, 0) + holeScore.totalScore,
-    };
-
-    setCurrentRound(updatedRound);
-    setData((prev) => ({
-      ...prev,
-      currentRound: updatedRound,
-    }));
-
-    // Note: Round completion is now handled by handleEndRound() when "End Round" is clicked
-    // This prevents duplicate rounds from being created
-
-    // Move to next hole if not hole 18
-    if (holeScore.holeNumber < 18) {
-      const nextHole = holeScore.holeNumber + 1;
-      setCurrentHole(nextHole);
-
-      // Clear any temporary data for the next hole to ensure it starts fresh
-      setTempHoleData((prev) => {
-        const updated = { ...prev };
-        delete updated[nextHole];
-        return updated;
-      });
-    }
-
-    HapticFeedback.success();
-  };
-
-  const handleNextHole = () => {
-    if (currentHole < 18) {
-      // Save current hole data before navigating
-      if (holeDetailRef.current) {
-        holeDetailRef.current.saveCurrentData();
-      }
-      const nextHole = currentHole + 1;
-      setCurrentHole(nextHole);
-
-      // Clear any temporary data for the next hole to ensure it starts fresh
-      setTempHoleData((prev) => {
-        const updated = { ...prev };
-        delete updated[nextHole];
-        return updated;
-      });
-    }
-  };
-
-  const handlePreviousHole = () => {
-    if (currentHole > 1) {
-      // Save current hole data before navigating
-      if (holeDetailRef.current) {
-        holeDetailRef.current.saveCurrentData();
-      }
-      setCurrentHole((prev) => prev - 1);
-    }
-  };
-
-  const handleShowHistory = () => {
-    setShowHistoryModal(true);
-  };
-
-  // Store temporary hole data for navigation
-  const [tempHoleData, setTempHoleData] = useState<
-    Record<number, { shots: Shot[]; putts: Shot[] }>
-  >({});
-  const holeDetailRef = useRef<{ saveCurrentData: () => void }>(null);
-
-  const handleSaveHoleData = (
-    holeNumber: number,
-    shots: Shot[],
-    putts: Shot[]
-  ) => {
-    console.log("handleSaveHoleData called:", {
-      holeNumber,
-      shots: shots || [],
-      putts: putts || [],
-      shotsCount: (shots || []).length,
-      puttsCount: (putts || []).length,
-      currentRound: currentRound?.id,
-    });
-
-    // Save to temporary storage for navigation
-    setTempHoleData((prev) => ({
-      ...prev,
-      [holeNumber]: { shots: shots, putts },
-    }));
-
-    // Also save to permanent database if we have a current round
-    if (currentRound) {
-      const totalShots = (shots || []).length + (putts || []).length;
-
-      // Only save holes that have shots
-      if (totalShots > 0) {
-        const holeScore: HoleScore = {
-          holeNumber,
-          courseId: currentRound.courseId,
-          shots: [...(shots || []), ...(putts || [])],
-          totalScore: totalShots,
-          par:
-            selectedCourse?.holes.find((h) => h.number === holeNumber)?.par ||
-            4,
-          netScore:
-            totalShots -
-            (selectedCourse?.holes.find((h) => h.number === holeNumber)?.par ||
-              4),
-          completedAt: Date.now(),
-        };
-
-        console.log("Saving hole score to permanent database:", holeScore);
-
-        // Update the current round with this hole's data
-        setData((prev) => {
-          const updatedRounds = (prev.rounds || []).map((round) =>
-            round.id === currentRound.id
-              ? {
-                  ...round,
-                  holeScores: [
-                    ...(round.holeScores || []).filter(
-                      (hs) => hs.holeNumber !== holeNumber
-                    ),
-                    holeScore,
-                  ],
-                }
-              : round
-          );
-
-          const updatedCurrentRound = {
-            ...currentRound,
-            holeScores: [
-              ...(currentRound.holeScores || []).filter(
-                (hs) => hs.holeNumber !== holeNumber
-              ),
-              holeScore,
-            ],
-          };
-
-          console.log("Updating current round with hole data:", {
-            holeNumber,
-            updatedHoleScores: updatedCurrentRound.holeScores.length,
-            currentRoundId: currentRound.id,
-          });
-
-          return {
-            ...prev,
-            rounds: updatedRounds,
-            currentRound: updatedCurrentRound,
-          };
-        });
-
-        // Also update local currentRound state to stay in sync
-        setCurrentRound((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            holeScores: [
-              ...(prev.holeScores || []).filter(
-                (hs) => hs.holeNumber !== holeNumber
-              ),
-              holeScore,
-            ],
-          };
-        });
-      } else {
-        // Remove empty hole from database
-        console.log("Removing empty hole from database:", holeNumber);
-
-        setData((prev) => {
-          const updatedRounds = (prev.rounds || []).map((round) =>
-            round.id === currentRound.id
-              ? {
-                  ...round,
-                  holeScores: (round.holeScores || []).filter(
-                    (hs) => hs.holeNumber !== holeNumber
-                  ),
-                }
-              : round
-          );
-
-          return {
-            ...prev,
-            rounds: updatedRounds,
-            currentRound: {
-              ...currentRound,
-              holeScores: (currentRound.holeScores || []).filter(
-                (hs) => hs.holeNumber !== holeNumber
-              ),
-            },
-          };
-        });
-
-        // Also update local currentRound state to stay in sync
-        setCurrentRound((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            holeScores: (prev.holeScores || []).filter(
-              (hs) => hs.holeNumber !== holeNumber
-            ),
-          };
-        });
-      }
-    }
-  };
-
-  const handleLoadHoleData = (holeNumber: number) => {
-    console.log("handleLoadHoleData called for hole:", holeNumber);
-    console.log("tempHoleData:", tempHoleData);
-
-    // First check temporary storage (for current session)
-    if (tempHoleData[holeNumber]) {
-      const tempData = tempHoleData[holeNumber];
-      console.log("Found temp data for hole", holeNumber, ":", tempData);
-      // Migrate putts in temporary storage if needed
-      const migratedPutts = (tempData.putts || []).map((putt) => ({
-        ...putt,
-        puttDistance:
-          putt.puttDistance || (putt as any).feet
-            ? (putt as any).feet < 4
-              ? ("<4ft" as const)
-              : (putt as any).feet <= 10
-              ? ("5-10ft" as const)
-              : ("10+ft" as const)
-            : undefined,
-      })) as Shot[];
-      const result = {
-        ...tempData,
-        shots: tempData.shots || [],
-        putts: migratedPutts,
-      };
-      console.log("Returning temp data:", result);
-      return result;
-    }
-
-    // Then check permanent database (for previously saved data)
-    if (currentRound) {
-      const existingHoleScore = (currentRound.holeScores || []).find(
-        (hs) => hs.holeNumber === holeNumber
-      );
-      if (existingHoleScore) {
-        const shots = (existingHoleScore.shots || []).filter(
-          (shot) => shot.type === "shot"
-        );
-        const putts = (existingHoleScore.shots || [])
-          .filter((shot) => shot.type === "putt")
-          .map((putt) => ({
-            ...putt,
-            // Migrate old 'feet' field to 'puttDistance' if needed
-            puttDistance:
-              putt.puttDistance || (putt as any).feet
-                ? (putt as any).feet < 4
-                  ? ("<4ft" as const)
-                  : (putt as any).feet <= 10
-                  ? ("5-10ft" as const)
-                  : ("10+ft" as const)
-                : undefined,
-          })) as Shot[];
-        return { shots: shots, putts };
-      }
-    }
-
-    console.log("No data found for hole", holeNumber, "returning null");
-    return null;
-  };
-
-  const handleUpdateTodaysDistance = (
-    holeNumber: number,
-    distance: number | undefined
-  ) => {
-    if (!selectedCourse) return;
-
-    // Update the course's hole todaysDistance
-    const updatedCourse = {
-      ...selectedCourse,
-      holes: selectedCourse.holes.map((hole) =>
-        hole.number === holeNumber
-          ? { ...hole, todaysDistance: distance }
-          : hole
-      ),
-    };
-
-    // Update the course in the data
-    const updatedData = {
-      ...data,
-      courses: (data.courses || []).map((course) =>
-        course.id === selectedCourse.id ? updatedCourse : course
-      ),
-    };
-
-    setSparkData("golf-brain", updatedData);
-    setSelectedCourse(updatedCourse);
-  };
-
-  const handleSetHandicap = (handicap: number) => {
-    setData((prev) => ({
-      ...prev,
-      settings: {
-        ...prev.settings,
-        handicap,
-        swingRecording: prev.settings.swingRecording || {
-          countdownSeconds: 5,
-          durationSeconds: 30,
-        },
-      },
-    }));
-    setShowHandicapOnboarding(false);
-    HapticFeedback.light();
-  };
-
-  const handleEditRound = (round: Round) => {
-    console.log("handleEditRound called with round:", {
-      id: round.id,
-      courseId: round.courseId,
-      courseName: round.courseName,
-    });
-
-    // Check if there's an active round
-    if (data.currentRound && data.currentRound.id !== round.id) {
-      console.log("Active round in progress, showing alert");
-      Alert.alert(
-        "Active Round in Progress",
-        "You must end your current round before editing another round.",
-        [{ text: "OK", style: "default" }]
-      );
-      return;
-    }
-
-    console.log("Setting round as current and navigating to round summary");
-    // Set the round as current and navigate to round summary
-    setData((prev) => ({
-      ...prev,
-      currentRound: round,
-    }));
-    // Also update local currentRound state for consistency
-    setCurrentRound(round);
-    const course = data.courses.find((c) => c.id === round.courseId);
-    console.log("Found course for round:", {
-      courseId: round.courseId,
-      course: course?.name || "Not found",
-    });
-    setSelectedCourse(course || null);
-    setCurrentScreen("round-summary");
-    console.log("Navigation state set:", {
-      currentScreen: "round-summary",
-      selectedCourse: course?.name,
-      currentRound: round.id,
-    });
-    // Close settings when navigating to round summary
-    if (onCloseSettings) {
-      onCloseSettings();
-    }
-  };
-
-  const handleViewRound = (round: Round) => {
-    // For active rounds, just navigate to round summary without changing current round
-    setCurrentRound(round);
-    setData((prev) => ({
-      ...prev,
-      currentRound: round,
-    }));
-    setSelectedCourse(
-      data.courses.find((c) => c.id === round.courseId) || null
-    );
-    setCurrentScreen("round-summary");
-    // Close settings when navigating to round summary
-    if (onCloseSettings) {
-      onCloseSettings();
-    }
-  };
-
-  const handleDeleteRound = (roundId: string) => {
-    console.log("handleDeleteRound called with roundId:", roundId);
-    console.log(
-      "Current rounds before deletion:",
-      (data.rounds || []).map((r) => ({ id: r.id, courseName: r.courseName }))
-    );
-
-    // Safety check - if roundId is undefined or empty, don't delete anything
-    if (!roundId) {
-      console.error("handleDeleteRound called with empty roundId");
-      return;
-    }
-
-    setData((prev) => {
-      const filteredRounds = (prev.rounds || []).filter((round) => {
-        const shouldKeep = round.id !== roundId;
-        console.log(
-          `Round ${round.id} ${
-            shouldKeep ? "kept" : "deleted"
-          } (comparing with ${roundId})`
-        );
-        return shouldKeep;
-      });
-      console.log(
-        "Rounds after filtering:",
-        filteredRounds.map((r) => ({ id: r.id, courseName: r.courseName }))
-      );
-
-      return {
-        ...prev,
-        rounds: filteredRounds,
-        // If we're deleting the current round, clear it
-        currentRound:
-          prev.currentRound?.id === roundId ? undefined : prev.currentRound,
-      };
-    });
-    // Also clear local currentRound state if we're deleting the current round
-    if (currentRound?.id === roundId) {
-      setCurrentRound(null);
-    }
-  };
-
-  const handleEndRound = () => {
-    console.log(
-      "End Round clicked - saving current hole and going to round summary"
-    );
-
-    if (currentRound) {
-      console.log("Saving current hole and going to round summary:", {
-        id: currentRound.id,
-        courseName: currentRound.courseName,
-      });
-
-      // Save current hole data FIRST
-      try {
-        if (holeDetailRef.current) {
-          console.log("Calling saveCurrentData from holeDetailRef");
-          holeDetailRef.current.saveCurrentData();
-        } else {
-          console.log(
-            "holeDetailRef.current is null - cannot save current data"
-          );
-        }
-      } catch (error) {
-        console.error("Error calling saveCurrentData:", error);
-      }
-
-      // Go to round summary with round still active
-      setCurrentScreen("round-summary");
-    } else {
-      console.log("No current round to save");
-      setCurrentScreen("round-summary");
-    }
-  };
-
-  const handleHolePress = (holeNumber: number) => {
-    setCurrentHole(holeNumber);
-    setCurrentScreen("hole-detail");
-  };
-
-  const handleActuallyEndRound = () => {
-    console.log(
-      "Actually ending round - marking as complete and going to settings"
-    );
-
-    if (currentRound) {
-      // Create the completed round
-      const completedRound = {
-        ...currentRound,
-        completedAt: Date.now(),
-        isComplete: true,
-      };
-      console.log("Saving completed round:", completedRound);
-
-      // Save the completed round to the rounds array
-      setData((prev) => {
-        const newRounds = [...(prev.rounds || []), completedRound];
-        console.log(
-          "Rounds after adding completed round:",
-          newRounds.map((r) => ({ id: r.id, courseName: r.courseName }))
-        );
-
-        return {
-          ...prev,
-          rounds: newRounds,
-          currentRound: undefined, // Clear the active round
-        };
-      });
-
-      // Clear the current round
-      setCurrentRound(null);
-      setCurrentScreen("course-selection");
-    }
-  };
-
-  const handleReturnToRound = () => {
-    console.log("Continue clicked - going back to hole detail");
-    setCurrentScreen("hole-detail");
-  };
-
-  const handleViewSummary = () => {
-    console.log(
-      "View summary clicked - saving current hole and going to round summary"
-    );
-
-    // Save current hole data first
-    try {
-      if (holeDetailRef.current) {
-        console.log("Calling saveCurrentData from holeDetailRef");
-        holeDetailRef.current.saveCurrentData();
-      } else {
-        console.log("holeDetailRef.current is null - cannot save current data");
-      }
-    } catch (error) {
-      console.error("Error calling saveCurrentData:", error);
-    }
-
-    setCurrentScreen("round-summary");
-  };
-
-  const triggerFlameAnimation = () => {
-    // Create multiple flame emojis starting from bottom, animating to top
-    const flames = Array.from({ length: 8 }, (_, i) => {
-      const startY = 600 + Math.random() * 200; // Start from bottom of screen
-      const targetY = Math.random() * 200 + 50; // Target position near top
-      const translateY = new Animated.Value(startY);
-
-      // Start the animation
-      Animated.timing(translateY, {
-        toValue: targetY,
-        duration: 2000 + Math.random() * 1000, // Random duration between 2-3 seconds
-        useNativeDriver: true,
-      }).start();
-
-      return {
-        id: `flame-${i}-${Date.now()}`,
-        x: Math.random() * 300 + 50, // Random x position
-        y: startY,
-        rotation: 0, // No rotation - normal orientation
-        scale: Math.random() * 0.6 + 0.8, // Random scale between 0.8 and 1.4
-        targetY: targetY,
-        translateY: translateY,
-      };
-    });
-
-    setFlameAnimation({
-      visible: true,
-      flames,
-    });
-
-    // Hide animation after 3 seconds
-    setTimeout(() => {
-      setFlameAnimation({
-        visible: false,
-        flames: [],
-      });
-    }, 3000);
-  };
-
-  const triggerPoopAnimation = () => {
-    // Create multiple poop emojis starting from top, animating down
-    const poops = Array.from({ length: 6 }, (_, i) => {
-      const startY = -100 - Math.random() * 100; // Start from above screen
-      const targetY = 600 + Math.random() * 200; // Target position near bottom
-      const translateY = new Animated.Value(startY);
-
-      // Start the animation
-      Animated.timing(translateY, {
-        toValue: targetY,
-        duration: 1500 + Math.random() * 1000, // Random duration between 1.5-2.5 seconds
-        useNativeDriver: true,
-      }).start();
-
-      return {
-        id: `poop-${i}-${Date.now()}`,
-        x: Math.random() * 300 + 50, // Random x position
-        y: startY,
-        rotation: Math.random() * 360, // Random rotation for more realistic falling
-        scale: Math.random() * 0.4 + 0.6, // Random scale between 0.6 and 1.0
-        targetY: targetY,
-        translateY: translateY,
-      };
-    });
-
-    setPoopAnimation({
-      visible: true,
-      poops,
-    });
-
-    // Hide animation after 3 seconds
-    setTimeout(() => {
-      setPoopAnimation({
-        visible: false,
-        poops: [],
-      });
-    }, 3000);
-  };
-
-  // Calculate bumps for a hole based on handicap
-  const getBumpsForHole = (hole: Hole): number => {
-    if (data.settings.handicap === undefined || data.settings.handicap === 0) {
-      return 0;
-    }
-
-    const handicap = data.settings.handicap;
-    const strokeIndex = hole.strokeIndex;
-
-    // For handicaps 1-18: 1 stroke on holes with difficulty index <= handicap
-    if (handicap <= 18) {
-      return strokeIndex <= handicap ? 1 : 0;
-    }
-
-    // For handicaps > 18:
-    // - 1 stroke on all 18 holes (difficulty index 1-18)
-    // - Additional strokes on the most difficult holes
-    const extraStrokes = handicap - 18;
-    let bumps = 1; // Base stroke for all holes
-
-    // Add extra strokes starting from difficulty index 1
-    if (strokeIndex <= extraStrokes) {
-      bumps += 1;
-    }
-
-    return bumps;
-  };
-
-  const getCurrentHoleHistory = (): HoleHistory => {
-    if (!selectedCourse) {
-      return {
-        holeNumber: currentHole,
-        courseId: "",
-        totalRounds: 0,
-        averageScore: 0,
-        bestScore: 0,
-        worstScore: 0,
-        commonShots: { shot: [], putts: [] },
-        recentRounds: [],
-      };
-    }
-    return calculateHoleHistory(currentHole, selectedCourse.id, data.rounds);
-  };
-
-  // Calculate cumulative over par for current hole
-  const getCumulativeOverPar = (
-    holeNumber: number,
-    currentShots: Shot[] = [],
-    currentPutts: Shot[] = []
-  ): number => {
-    if (!currentRound || !selectedCourse) return 0;
-
-    let cumulativeOverPar = 0;
-
-    for (let i = 1; i <= holeNumber; i++) {
-      const hole = selectedCourse.holes.find((h) => h.number === i);
-      let holeScore = currentRound.holeScores.find((hs) => hs.holeNumber === i);
-
-      // If this is the current hole and no score exists yet, calculate from current shots/putts
-      if (i === holeNumber && !holeScore && hole) {
-        const shotsCount = currentShots.length;
-        const puttsCount = currentPutts.length;
-        const totalShots = shotsCount + puttsCount;
-
-        if (totalShots > 0) {
-          holeScore = {
-            holeNumber: i,
-            courseId: selectedCourse.id,
-            shots: [...currentShots, ...currentPutts],
-            totalScore: totalShots,
-            par: hole.par,
-            netScore: totalShots - hole.par,
-            completedAt: Date.now(),
-          };
-        }
-      }
-
-      if (hole && holeScore) {
-        const overPar = holeScore.totalScore - hole.par;
-        cumulativeOverPar += overPar;
-      }
-    }
-
-    return cumulativeOverPar;
-  };
-
-  const handleResumeRound = (round: Round) => {
-    const course = data.courses.find((c) => c.id === round.courseId);
-    if (course) {
-      setSelectedCourse(course);
-      setCurrentRound(round);
-      setData((prev) => ({
-        ...prev,
-        currentRound: round,
-      }));
-      setCurrentHole(
-        round.holeScores.length > 0
-          ? round.holeScores[round.holeScores.length - 1].holeNumber + 1
-          : 1
-      );
-      setCurrentScreen("hole-detail");
-    }
-  };
-
-  const handleResetData = () => {
-    // Reset to initial state
-    const resetData: GolfBrainData = {
+    const [data, setData] = useState<GolfBrainData>({
       courses: [DEFAULT_COURSE, DEFAULT_COURSE_BACK9],
       rounds: [],
       settings: {
@@ -7331,16 +6436,16 @@ export const GolfBrainSpark: React.FC<
         clubs: DEFAULT_CLUBS,
         defaultClubs: {
           par5: {
-            shot1: "[Driver]",
-            shot2: "[Irons]",
-            shot3: "[Irons]",
+            shot1: "Driver",
+            shot2: "7-Iron",
+            shot3: "9-Iron",
           },
           par4: {
-            shot1: "[Driver]",
-            shot2: "[Irons]",
+            shot1: "Driver",
+            shot2: "9-Iron",
           },
           par3: {
-            shot1: "[Irons]",
+            shot1: "7-Iron",
           },
         },
         swingRecording: {
@@ -7348,298 +6453,1260 @@ export const GolfBrainSpark: React.FC<
           durationSeconds: 30,
         },
       },
+    });
+
+    const [currentScreen, setCurrentScreen] = useState<
+      "course-selection" | "hole-detail" | "round-summary"
+    >("course-selection");
+    const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+    const [currentHole, setCurrentHole] = useState(1);
+    const [currentRound, setCurrentRound] = useState<Round | null>(null);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [showHandicapOnboarding, setShowHandicapOnboarding] = useState(false);
+    const [roundEnded, setRoundEnded] = useState(false);
+    const [flameAnimation, setFlameAnimation] = useState<{
+      visible: boolean;
+      flames: Array<{
+        id: string;
+        x: number;
+        y: number;
+        rotation: number;
+        scale: number;
+        targetY: number;
+        translateY: Animated.Value;
+      }>;
+    }>({
+      visible: false,
+      flames: [],
+    });
+
+    const [poopAnimation, setPoopAnimation] = useState<{
+      visible: boolean;
+      poops: Array<{
+        id: string;
+        x: number;
+        y: number;
+        rotation: number;
+        scale: number;
+        targetY: number;
+        translateY: Animated.Value;
+      }>;
+    }>({
+      visible: false,
+      poops: [],
+    });
+
+    // React to parent signal to open Course Selection for a new round
+    useEffect(() => {
+      if (
+        typeof openCourseSelectionSignal === "number" &&
+        openCourseSelectionSignal > 0
+      ) {
+        setCurrentScreen("course-selection");
+        setSelectedCourse(null);
+        setShowCreateModal(false);
+        HapticFeedback.light();
+
+        // Show a transient confirmation banner so it's obvious the + worked
+        setInfoBanner("Start New Round — choose a course");
+        setTimeout(() => setInfoBanner(null), 2800);
+      }
+    }, [openCourseSelectionSignal]);
+
+    // Load saved data on mount
+    useEffect(() => {
+      const savedData = getSparkData("golf-brain") as GolfBrainData;
+      if (savedData) {
+        // Ensure default courses are always available
+        const hasDefaultCourse = savedData.courses?.some(
+          (course: Course) => course.id === DEFAULT_COURSE.id
+        );
+        const hasDefaultBack9Course = savedData.courses?.some(
+          (course: Course) => course.id === DEFAULT_COURSE_BACK9.id
+        );
+
+        let courses = savedData.courses || [];
+        if (!hasDefaultCourse) {
+          courses = [DEFAULT_COURSE, ...courses];
+        }
+        if (!hasDefaultBack9Course) {
+          courses = [DEFAULT_COURSE_BACK9, ...courses];
+        }
+
+        const mergedData = {
+          ...savedData,
+          courses,
+          rounds: savedData.rounds || [],
+          settings: {
+            showHints: savedData.settings?.showHints ?? true,
+            autoAdvance: savedData.settings?.autoAdvance ?? false,
+            clubs: savedData.settings?.clubs ?? DEFAULT_CLUBS,
+            handicap: savedData.settings?.handicap,
+            defaultClubs: savedData.settings?.defaultClubs ?? {
+              par5: {
+                shot1: "Driver",
+                shot2: "7-Iron",
+                shot3: "9-Iron",
+              },
+              par4: {
+                shot1: "Driver",
+                shot2: "9-Iron",
+              },
+              par3: {
+                shot1: "7-Iron",
+              },
+            },
+            swingRecording: savedData.settings?.swingRecording ?? {
+              countdownSeconds: 5,
+              durationSeconds: 30,
+            },
+          },
+        };
+        setData(mergedData);
+        if (savedData.currentRound) {
+          setCurrentRound(savedData.currentRound);
+          setSelectedCourse(
+            savedData.courses.find(
+              (c) => c.id === savedData.currentRound?.courseId
+            ) || null
+          );
+          setCurrentScreen("hole-detail");
+        }
+        setDataLoaded(true);
+      } else {
+        setDataLoaded(true);
+      }
+    }, [getSparkData]);
+
+    // Handle screen navigation based on data state
+    useEffect(() => {
+      // If no courses exist, go to course selection
+      if (data.courses && data.courses.length === 0) {
+        setCurrentScreen("course-selection");
+        return;
+      }
+
+      // Check for rounds in progress
+      const inProgressRound = data.rounds?.find((round) => !round.isComplete);
+      if (inProgressRound && data.courses) {
+        const course = data.courses.find(
+          (c) => c.id === inProgressRound.courseId
+        );
+        if (course) {
+          setSelectedCourse(course);
+          setCurrentRound(inProgressRound);
+          setData((prev) => ({
+            ...prev,
+            currentRound: inProgressRound,
+          }));
+          setCurrentScreen("hole-detail");
+          return;
+        }
+      }
+
+      // Default to course selection if we have courses but no active round
+      if (
+        data.courses &&
+        data.courses.length > 0 &&
+        currentScreen === "hole-detail" &&
+        !selectedCourse
+      ) {
+        setCurrentScreen("course-selection");
+      }
+    }, [data.courses, data.rounds, currentScreen, selectedCourse]);
+
+    // Show handicap onboarding when no handicap is set
+    useEffect(() => {
+      if (
+        currentScreen === "hole-detail" &&
+        data.settings.handicap === undefined &&
+        !showSettings
+      ) {
+        setShowHandicapOnboarding(true);
+      } else if (
+        data.settings.handicap !== undefined ||
+        currentScreen !== "hole-detail"
+      ) {
+        setShowHandicapOnboarding(false);
+      }
+    }, [data.settings.handicap, showSettings, currentScreen]);
+
+    // Save data whenever it changes
+    useEffect(() => {
+      if (dataLoaded) {
+        setSparkData("golf-brain", data);
+        onStateChange?.({
+          courseCount: data.courses?.length || 0,
+          roundCount: data.rounds?.length || 0,
+        });
+      }
+    }, [data, dataLoaded, setSparkData, onStateChange]);
+
+    const handleSelectCourse = (course: Course) => {
+      setSelectedCourse(course);
+      setCurrentHole(1);
+      setRoundEnded(false); // Reset round ended state when starting new round
+
+      // Create new round
+      const newRound: Round = {
+        id: Date.now().toString() + Math.random().toString(36).substring(2),
+        courseId: course.id,
+        courseName: course.name,
+        holeScores: [],
+        totalScore: 0,
+        totalPar: (course.holes || []).reduce((sum, hole) => sum + hole.par, 0),
+        startedAt: Date.now(),
+        isComplete: false,
+      };
+
+      setCurrentRound(newRound);
+      setData((prev) => ({
+        ...prev,
+        currentRound: newRound,
+      }));
+      setCurrentScreen("hole-detail");
+      HapticFeedback.light();
     };
 
-    setData(resetData);
-    setSparkData("golf-brain", resetData);
-    setCurrentRound(null);
-    setSelectedCourse(null);
-    setCurrentHole(1);
-    setCurrentScreen("course-selection");
+    const handleCreateCourse = (courseData: Omit<Course, "id" | "createdAt">) => {
+      const newCourse: Course = {
+        ...courseData,
+        id: Date.now().toString() + Math.random().toString(36).substring(2),
+        createdAt: Date.now(),
+      };
 
-    Alert.alert("Success", "All data has been reset to default values.");
-  };
+      setData((prev) => ({
+        ...prev,
+        courses: [...(prev.courses || []), newCourse],
+      }));
 
-  const handleUpdateCourse = (courseId: string, updates: Partial<Course>) => {
-    setData((prev) => ({
-      ...prev,
-      courses: (prev.courses || []).map((course) =>
-        course.id === courseId ? { ...course, ...updates } : course
-      ),
-    }));
-    HapticFeedback.success();
-  };
+      HapticFeedback.success();
+    };
 
-  const handleDeleteCourse = (courseId: string) => {
-    console.log("handleDeleteCourse called with courseId:", courseId);
-    console.log(
-      "Current rounds before course deletion:",
-      (data.rounds || []).map((r) => ({
-        id: r.id,
-        courseId: r.courseId,
-        courseName: r.courseName,
-      }))
-    );
+    const handleCompleteHole = (holeScore: HoleScore) => {
+      if (!currentRound || !selectedCourse) return;
 
-    setData((prev) => {
-      const filteredRounds = prev.rounds.filter(
-        (round) => round.courseId !== courseId
+      const updatedRound = {
+        ...currentRound,
+        holeScores: [
+          ...currentRound.holeScores.filter(
+            (h) => h.holeNumber !== holeScore.holeNumber
+          ),
+          holeScore,
+        ],
+        totalScore:
+          currentRound.holeScores
+            .filter((h) => h.holeNumber !== holeScore.holeNumber)
+            .reduce((sum, h) => sum + h.totalScore, 0) + holeScore.totalScore,
+      };
+
+      setCurrentRound(updatedRound);
+      setData((prev) => ({
+        ...prev,
+        currentRound: updatedRound,
+      }));
+
+      // Note: Round completion is now handled by handleEndRound() when "End Round" is clicked
+      // This prevents duplicate rounds from being created
+
+      // Move to next hole if not hole 18
+      if (holeScore.holeNumber < 18) {
+        const nextHole = holeScore.holeNumber + 1;
+        setCurrentHole(nextHole);
+
+        // Clear any temporary data for the next hole to ensure it starts fresh
+        setTempHoleData((prev) => {
+          const updated = { ...prev };
+          delete updated[nextHole];
+          return updated;
+        });
+      }
+
+      HapticFeedback.success();
+    };
+
+    const handleNextHole = () => {
+      if (currentHole < 18) {
+        // Save current hole data before navigating
+        if (holeDetailRef.current) {
+          holeDetailRef.current.saveCurrentData();
+        }
+        const nextHole = currentHole + 1;
+        setCurrentHole(nextHole);
+
+        // Clear any temporary data for the next hole to ensure it starts fresh
+        setTempHoleData((prev) => {
+          const updated = { ...prev };
+          delete updated[nextHole];
+          return updated;
+        });
+      }
+    };
+
+    const handlePreviousHole = () => {
+      if (currentHole > 1) {
+        // Save current hole data before navigating
+        if (holeDetailRef.current) {
+          holeDetailRef.current.saveCurrentData();
+        }
+        setCurrentHole((prev) => prev - 1);
+      }
+    };
+
+    const handleShowHistory = () => {
+      setShowHistoryModal(true);
+    };
+
+    // Store temporary hole data for navigation
+    const [tempHoleData, setTempHoleData] = useState<
+      Record<number, { shots: Shot[]; putts: Shot[] }>
+    >({});
+    const holeDetailRef = useRef<{ saveCurrentData: () => void }>(null);
+
+    const handleSaveHoleData = (
+      holeNumber: number,
+      shots: Shot[],
+      putts: Shot[]
+    ) => {
+      console.log("handleSaveHoleData called:", {
+        holeNumber,
+        shots: shots || [],
+        putts: putts || [],
+        shotsCount: (shots || []).length,
+        puttsCount: (putts || []).length,
+        currentRound: currentRound?.id,
+      });
+
+      // Save to temporary storage for navigation
+      setTempHoleData((prev) => ({
+        ...prev,
+        [holeNumber]: { shots: shots, putts },
+      }));
+
+      // Also save to permanent database if we have a current round
+      if (currentRound) {
+        const totalShots = (shots || []).length + (putts || []).length;
+
+        // Only save holes that have shots
+        if (totalShots > 0) {
+          const holeScore: HoleScore = {
+            holeNumber,
+            courseId: currentRound.courseId,
+            shots: [...(shots || []), ...(putts || [])],
+            totalScore: totalShots,
+            par:
+              selectedCourse?.holes.find((h) => h.number === holeNumber)?.par ||
+              4,
+            netScore:
+              totalShots -
+              (selectedCourse?.holes.find((h) => h.number === holeNumber)?.par ||
+                4),
+            completedAt: Date.now(),
+          };
+
+          console.log("Saving hole score to permanent database:", holeScore);
+
+          // Update the current round with this hole's data
+          setData((prev) => {
+            const updatedRounds = (prev.rounds || []).map((round) =>
+              round.id === currentRound.id
+                ? {
+                  ...round,
+                  holeScores: [
+                    ...(round.holeScores || []).filter(
+                      (hs) => hs.holeNumber !== holeNumber
+                    ),
+                    holeScore,
+                  ],
+                }
+                : round
+            );
+
+            const updatedCurrentRound = {
+              ...currentRound,
+              holeScores: [
+                ...(currentRound.holeScores || []).filter(
+                  (hs) => hs.holeNumber !== holeNumber
+                ),
+                holeScore,
+              ],
+            };
+
+            console.log("Updating current round with hole data:", {
+              holeNumber,
+              updatedHoleScores: updatedCurrentRound.holeScores.length,
+              currentRoundId: currentRound.id,
+            });
+
+            return {
+              ...prev,
+              rounds: updatedRounds,
+              currentRound: updatedCurrentRound,
+            };
+          });
+
+          // Also update local currentRound state to stay in sync
+          setCurrentRound((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              holeScores: [
+                ...(prev.holeScores || []).filter(
+                  (hs) => hs.holeNumber !== holeNumber
+                ),
+                holeScore,
+              ],
+            };
+          });
+        } else {
+          // Remove empty hole from database
+          console.log("Removing empty hole from database:", holeNumber);
+
+          setData((prev) => {
+            const updatedRounds = (prev.rounds || []).map((round) =>
+              round.id === currentRound.id
+                ? {
+                  ...round,
+                  holeScores: (round.holeScores || []).filter(
+                    (hs) => hs.holeNumber !== holeNumber
+                  ),
+                }
+                : round
+            );
+
+            return {
+              ...prev,
+              rounds: updatedRounds,
+              currentRound: {
+                ...currentRound,
+                holeScores: (currentRound.holeScores || []).filter(
+                  (hs) => hs.holeNumber !== holeNumber
+                ),
+              },
+            };
+          });
+
+          // Also update local currentRound state to stay in sync
+          setCurrentRound((prev) => {
+            if (!prev) return null;
+            return {
+              ...prev,
+              holeScores: (prev.holeScores || []).filter(
+                (hs) => hs.holeNumber !== holeNumber
+              ),
+            };
+          });
+        }
+      }
+    };
+
+    const handleLoadHoleData = (holeNumber: number) => {
+      console.log("handleLoadHoleData called for hole:", holeNumber);
+      console.log("tempHoleData:", tempHoleData);
+
+      // First check temporary storage (for current session)
+      if (tempHoleData[holeNumber]) {
+        const tempData = tempHoleData[holeNumber];
+        console.log("Found temp data for hole", holeNumber, ":", tempData);
+        // Migrate putts in temporary storage if needed
+        const migratedPutts = (tempData.putts || []).map((putt) => ({
+          ...putt,
+          puttDistance:
+            putt.puttDistance || (putt as any).feet
+              ? (putt as any).feet < 4
+                ? ("<4ft" as const)
+                : (putt as any).feet <= 10
+                  ? ("5-10ft" as const)
+                  : ("10+ft" as const)
+              : undefined,
+        })) as Shot[];
+        const result = {
+          ...tempData,
+          shots: tempData.shots || [],
+          putts: migratedPutts,
+        };
+        console.log("Returning temp data:", result);
+        return result;
+      }
+
+      // Then check permanent database (for previously saved data)
+      if (currentRound) {
+        const existingHoleScore = (currentRound.holeScores || []).find(
+          (hs) => hs.holeNumber === holeNumber
+        );
+        if (existingHoleScore) {
+          const shots = (existingHoleScore.shots || []).filter(
+            (shot) => shot.type === "shot"
+          );
+          const putts = (existingHoleScore.shots || [])
+            .filter((shot) => shot.type === "putt")
+            .map((putt) => ({
+              ...putt,
+              // Migrate old 'feet' field to 'puttDistance' if needed
+              puttDistance:
+                putt.puttDistance || (putt as any).feet
+                  ? (putt as any).feet < 4
+                    ? ("<4ft" as const)
+                    : (putt as any).feet <= 10
+                      ? ("5-10ft" as const)
+                      : ("10+ft" as const)
+                  : undefined,
+            })) as Shot[];
+          return { shots: shots, putts };
+        }
+      }
+
+      console.log("No data found for hole", holeNumber, "returning null");
+      return null;
+    };
+
+    const handleUpdateTodaysDistance = (
+      holeNumber: number,
+      distance: number | undefined
+    ) => {
+      if (!selectedCourse) return;
+
+      // Update the course's hole todaysDistance
+      const updatedCourse = {
+        ...selectedCourse,
+        holes: selectedCourse.holes.map((hole) =>
+          hole.number === holeNumber
+            ? { ...hole, todaysDistance: distance }
+            : hole
+        ),
+      };
+
+      // Update the course in the data
+      const updatedData = {
+        ...data,
+        courses: (data.courses || []).map((course) =>
+          course.id === selectedCourse.id ? updatedCourse : course
+        ),
+      };
+
+      setSparkData("golf-brain", updatedData);
+      setSelectedCourse(updatedCourse);
+    };
+
+    const handleSetHandicap = (handicap: number) => {
+      setData((prev) => ({
+        ...prev,
+        settings: {
+          ...prev.settings,
+          handicap,
+          swingRecording: prev.settings.swingRecording || {
+            countdownSeconds: 5,
+            durationSeconds: 30,
+          },
+        },
+      }));
+      setShowHandicapOnboarding(false);
+      HapticFeedback.light();
+    };
+
+    const handleEditRound = (round: Round) => {
+      console.log("handleEditRound called with round:", {
+        id: round.id,
+        courseId: round.courseId,
+        courseName: round.courseName,
+      });
+
+      // Check if there's an active round
+      if (data.currentRound && data.currentRound.id !== round.id) {
+        console.log("Active round in progress, showing alert");
+        Alert.alert(
+          "Active Round in Progress",
+          "You must end your current round before editing another round.",
+          [{ text: "OK", style: "default" }]
+        );
+        return;
+      }
+
+      console.log("Setting round as current and navigating to round summary");
+      // Set the round as current and navigate to round summary
+      setData((prev) => ({
+        ...prev,
+        currentRound: round,
+      }));
+      // Also update local currentRound state for consistency
+      setCurrentRound(round);
+      const course = data.courses.find((c) => c.id === round.courseId);
+      console.log("Found course for round:", {
+        courseId: round.courseId,
+        course: course?.name || "Not found",
+      });
+      setSelectedCourse(course || null);
+      setCurrentScreen("round-summary");
+      console.log("Navigation state set:", {
+        currentScreen: "round-summary",
+        selectedCourse: course?.name,
+        currentRound: round.id,
+      });
+      // Close settings when navigating to round summary
+      if (onCloseSettings) {
+        onCloseSettings();
+      }
+    };
+
+    const handleViewRound = (round: Round) => {
+      // For active rounds, just navigate to round summary without changing current round
+      setCurrentRound(round);
+      setData((prev) => ({
+        ...prev,
+        currentRound: round,
+      }));
+      setSelectedCourse(
+        data.courses.find((c) => c.id === round.courseId) || null
       );
+      setCurrentScreen("round-summary");
+      // Close settings when navigating to round summary
+      if (onCloseSettings) {
+        onCloseSettings();
+      }
+    };
+
+    const handleDeleteRound = (roundId: string) => {
+      console.log("handleDeleteRound called with roundId:", roundId);
       console.log(
-        "Rounds after course deletion:",
-        filteredRounds.map((r) => ({
+        "Current rounds before deletion:",
+        (data.rounds || []).map((r) => ({ id: r.id, courseName: r.courseName }))
+      );
+
+      // Safety check - if roundId is undefined or empty, don't delete anything
+      if (!roundId) {
+        console.error("handleDeleteRound called with empty roundId");
+        return;
+      }
+
+      setData((prev) => {
+        const filteredRounds = (prev.rounds || []).filter((round) => {
+          const shouldKeep = round.id !== roundId;
+          console.log(
+            `Round ${round.id} ${shouldKeep ? "kept" : "deleted"
+            } (comparing with ${roundId})`
+          );
+          return shouldKeep;
+        });
+        console.log(
+          "Rounds after filtering:",
+          filteredRounds.map((r) => ({ id: r.id, courseName: r.courseName }))
+        );
+
+        return {
+          ...prev,
+          rounds: filteredRounds,
+          // If we're deleting the current round, clear it
+          currentRound:
+            prev.currentRound?.id === roundId ? undefined : prev.currentRound,
+        };
+      });
+      // Also clear local currentRound state if we're deleting the current round
+      if (currentRound?.id === roundId) {
+        setCurrentRound(null);
+      }
+    };
+
+    const handleEndRound = () => {
+      console.log(
+        "End Round clicked - saving current hole and going to round summary"
+      );
+
+      if (currentRound) {
+        console.log("Saving current hole and going to round summary:", {
+          id: currentRound.id,
+          courseName: currentRound.courseName,
+        });
+
+        // Save current hole data FIRST
+        try {
+          if (holeDetailRef.current) {
+            console.log("Calling saveCurrentData from holeDetailRef");
+            holeDetailRef.current.saveCurrentData();
+          } else {
+            console.log(
+              "holeDetailRef.current is null - cannot save current data"
+            );
+          }
+        } catch (error) {
+          console.error("Error calling saveCurrentData:", error);
+        }
+
+        // Go to round summary with round still active
+        setCurrentScreen("round-summary");
+      } else {
+        console.log("No current round to save");
+        setCurrentScreen("round-summary");
+      }
+    };
+
+    const handleHolePress = (holeNumber: number) => {
+      setCurrentHole(holeNumber);
+      setCurrentScreen("hole-detail");
+    };
+
+    const handleActuallyEndRound = () => {
+      console.log(
+        "Actually ending round - marking as complete and going to settings"
+      );
+
+      if (currentRound) {
+        // Create the completed round
+        const completedRound = {
+          ...currentRound,
+          completedAt: Date.now(),
+          isComplete: true,
+        };
+        console.log("Saving completed round:", completedRound);
+
+        // Save the completed round to the rounds array
+        setData((prev) => {
+          const newRounds = [...(prev.rounds || []), completedRound];
+          console.log(
+            "Rounds after adding completed round:",
+            newRounds.map((r) => ({ id: r.id, courseName: r.courseName }))
+          );
+
+          return {
+            ...prev,
+            rounds: newRounds,
+            currentRound: undefined, // Clear the active round
+          };
+        });
+
+        // Clear the current round
+        setCurrentRound(null);
+        setCurrentScreen("course-selection");
+      }
+    };
+
+    const handleReturnToRound = () => {
+      console.log("Continue clicked - going back to hole detail");
+      setCurrentScreen("hole-detail");
+    };
+
+    const handleViewSummary = () => {
+      console.log(
+        "View summary clicked - saving current hole and going to round summary"
+      );
+
+      // Save current hole data first
+      try {
+        if (holeDetailRef.current) {
+          console.log("Calling saveCurrentData from holeDetailRef");
+          holeDetailRef.current.saveCurrentData();
+        } else {
+          console.log("holeDetailRef.current is null - cannot save current data");
+        }
+      } catch (error) {
+        console.error("Error calling saveCurrentData:", error);
+      }
+
+      setCurrentScreen("round-summary");
+    };
+
+    const triggerFlameAnimation = () => {
+      // Create multiple flame emojis starting from bottom, animating to top
+      const flames = Array.from({ length: 8 }, (_, i) => {
+        const startY = 600 + Math.random() * 200; // Start from bottom of screen
+        const targetY = Math.random() * 200 + 50; // Target position near top
+        const translateY = new Animated.Value(startY);
+
+        // Start the animation
+        Animated.timing(translateY, {
+          toValue: targetY,
+          duration: 2000 + Math.random() * 1000, // Random duration between 2-3 seconds
+          useNativeDriver: true,
+        }).start();
+
+        return {
+          id: `flame-${i}-${Date.now()}`,
+          x: Math.random() * 300 + 50, // Random x position
+          y: startY,
+          rotation: 0, // No rotation - normal orientation
+          scale: Math.random() * 0.6 + 0.8, // Random scale between 0.8 and 1.4
+          targetY: targetY,
+          translateY: translateY,
+        };
+      });
+
+      setFlameAnimation({
+        visible: true,
+        flames,
+      });
+
+      // Hide animation after 3 seconds
+      setTimeout(() => {
+        setFlameAnimation({
+          visible: false,
+          flames: [],
+        });
+      }, 3000);
+    };
+
+    const triggerPoopAnimation = () => {
+      // Create multiple poop emojis starting from top, animating down
+      const poops = Array.from({ length: 6 }, (_, i) => {
+        const startY = -100 - Math.random() * 100; // Start from above screen
+        const targetY = 600 + Math.random() * 200; // Target position near bottom
+        const translateY = new Animated.Value(startY);
+
+        // Start the animation
+        Animated.timing(translateY, {
+          toValue: targetY,
+          duration: 1500 + Math.random() * 1000, // Random duration between 1.5-2.5 seconds
+          useNativeDriver: true,
+        }).start();
+
+        return {
+          id: `poop-${i}-${Date.now()}`,
+          x: Math.random() * 300 + 50, // Random x position
+          y: startY,
+          rotation: Math.random() * 360, // Random rotation for more realistic falling
+          scale: Math.random() * 0.4 + 0.6, // Random scale between 0.6 and 1.0
+          targetY: targetY,
+          translateY: translateY,
+        };
+      });
+
+      setPoopAnimation({
+        visible: true,
+        poops,
+      });
+
+      // Hide animation after 3 seconds
+      setTimeout(() => {
+        setPoopAnimation({
+          visible: false,
+          poops: [],
+        });
+      }, 3000);
+    };
+
+    // Calculate bumps for a hole based on handicap
+    const getBumpsForHole = (hole: Hole): number => {
+      if (data.settings.handicap === undefined || data.settings.handicap === 0) {
+        return 0;
+      }
+
+      const handicap = data.settings.handicap;
+      const strokeIndex = hole.strokeIndex;
+
+      // For handicaps 1-18: 1 stroke on holes with difficulty index <= handicap
+      if (handicap <= 18) {
+        return strokeIndex <= handicap ? 1 : 0;
+      }
+
+      // For handicaps > 18:
+      // - 1 stroke on all 18 holes (difficulty index 1-18)
+      // - Additional strokes on the most difficult holes
+      const extraStrokes = handicap - 18;
+      let bumps = 1; // Base stroke for all holes
+
+      // Add extra strokes starting from difficulty index 1
+      if (strokeIndex <= extraStrokes) {
+        bumps += 1;
+      }
+
+      return bumps;
+    };
+
+    const getCurrentHoleHistory = (): HoleHistory => {
+      if (!selectedCourse) {
+        return {
+          holeNumber: currentHole,
+          courseId: "",
+          totalRounds: 0,
+          averageScore: 0,
+          bestScore: 0,
+          worstScore: 0,
+          commonShots: { shot: [], putts: [] },
+          recentRounds: [],
+        };
+      }
+      return calculateHoleHistory(currentHole, selectedCourse.id, data.rounds);
+    };
+
+    // Calculate cumulative over par for current hole
+    const getCumulativeOverPar = (
+      holeNumber: number,
+      currentShots: Shot[] = [],
+      currentPutts: Shot[] = []
+    ): number => {
+      if (!currentRound || !selectedCourse) return 0;
+
+      let cumulativeOverPar = 0;
+
+      for (let i = 1; i <= holeNumber; i++) {
+        const hole = selectedCourse.holes.find((h) => h.number === i);
+        let holeScore = currentRound.holeScores.find((hs) => hs.holeNumber === i);
+
+        // If this is the current hole and no score exists yet, calculate from current shots/putts
+        if (i === holeNumber && !holeScore && hole) {
+          const shotsCount = currentShots.length;
+          const puttsCount = currentPutts.length;
+          const totalShots = shotsCount + puttsCount;
+
+          if (totalShots > 0) {
+            holeScore = {
+              holeNumber: i,
+              courseId: selectedCourse.id,
+              shots: [...currentShots, ...currentPutts],
+              totalScore: totalShots,
+              par: hole.par,
+              netScore: totalShots - hole.par,
+              completedAt: Date.now(),
+            };
+          }
+        }
+
+        if (hole && holeScore) {
+          const overPar = holeScore.totalScore - hole.par;
+          cumulativeOverPar += overPar;
+        }
+      }
+
+      return cumulativeOverPar;
+    };
+
+    const handleResumeRound = (round: Round) => {
+      const course = data.courses.find((c) => c.id === round.courseId);
+      if (course) {
+        setSelectedCourse(course);
+        setCurrentRound(round);
+        setData((prev) => ({
+          ...prev,
+          currentRound: round,
+        }));
+        setCurrentHole(
+          round.holeScores.length > 0
+            ? round.holeScores[round.holeScores.length - 1].holeNumber + 1
+            : 1
+        );
+        setCurrentScreen("hole-detail");
+      }
+    };
+
+    const handleResetData = () => {
+      // Reset to initial state
+      const resetData: GolfBrainData = {
+        courses: [DEFAULT_COURSE, DEFAULT_COURSE_BACK9],
+        rounds: [],
+        settings: {
+          showHints: true,
+          autoAdvance: false,
+          clubs: DEFAULT_CLUBS,
+          defaultClubs: {
+            par5: {
+              shot1: "[Driver]",
+              shot2: "[Irons]",
+              shot3: "[Irons]",
+            },
+            par4: {
+              shot1: "[Driver]",
+              shot2: "[Irons]",
+            },
+            par3: {
+              shot1: "[Irons]",
+            },
+          },
+          swingRecording: {
+            countdownSeconds: 5,
+            durationSeconds: 30,
+          },
+        },
+      };
+
+      setData(resetData);
+      setSparkData("golf-brain", resetData);
+      setCurrentRound(null);
+      setSelectedCourse(null);
+      setCurrentHole(1);
+      setCurrentScreen("course-selection");
+
+      Alert.alert("Success", "All data has been reset to default values.");
+    };
+
+    const handleUpdateCourse = (courseId: string, updates: Partial<Course>) => {
+      setData((prev) => ({
+        ...prev,
+        courses: (prev.courses || []).map((course) =>
+          course.id === courseId ? { ...course, ...updates } : course
+        ),
+      }));
+      HapticFeedback.success();
+    };
+
+    const handleDeleteCourse = (courseId: string) => {
+      console.log("handleDeleteCourse called with courseId:", courseId);
+      console.log(
+        "Current rounds before course deletion:",
+        (data.rounds || []).map((r) => ({
           id: r.id,
           courseId: r.courseId,
           courseName: r.courseName,
         }))
       );
 
-      return {
+      setData((prev) => {
+        const filteredRounds = prev.rounds.filter(
+          (round) => round.courseId !== courseId
+        );
+        console.log(
+          "Rounds after course deletion:",
+          filteredRounds.map((r) => ({
+            id: r.id,
+            courseId: r.courseId,
+            courseName: r.courseName,
+          }))
+        );
+
+        return {
+          ...prev,
+          courses: prev.courses.filter((course) => course.id !== courseId),
+          rounds: filteredRounds,
+        };
+      });
+      HapticFeedback.light();
+    };
+
+    const handleUpdateSettings = (
+      settings: Partial<GolfBrainData["settings"]>
+    ) => {
+      setData((prev) => ({
         ...prev,
-        courses: prev.courses.filter((course) => course.id !== courseId),
-        rounds: filteredRounds,
-      };
+        settings: { ...prev.settings, ...settings },
+      }));
+      HapticFeedback.light();
+    };
+
+    const styles = StyleSheet.create({
+      container: {
+        flex: 1,
+        backgroundColor: colors.background,
+      },
     });
-    HapticFeedback.light();
-  };
 
-  const handleUpdateSettings = (
-    settings: Partial<GolfBrainData["settings"]>
-  ) => {
-    setData((prev) => ({
-      ...prev,
-      settings: { ...prev.settings, ...settings },
-    }));
-    HapticFeedback.light();
-  };
-
-  const styles = StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-  });
-
-  if (showSettings || internalShowSettings) {
-    return (
-      <GolfBrainSettings
-        onClose={() => {
-          if (onCloseSettings) onCloseSettings();
-          setInternalShowSettings(false);
-        }}
-        courses={data.courses}
-        onUpdateCourse={handleUpdateCourse}
-        onDeleteCourse={handleDeleteCourse}
-        data={data}
-        onUpdateSettings={handleUpdateSettings}
-        onEditRound={handleEditRound}
-        onViewRound={handleViewRound}
-        onDeleteRound={handleDeleteRound}
-        onResetData={handleResetData}
-        onNavigateToRound={() => {
-          setCurrentScreen("round-summary");
-          setSelectedCourse(
-            data.courses.find((c) => c.id === data.currentRound?.courseId) ||
-              null
-          );
-          // Close settings when navigating to round summary
-          if (onCloseSettings) {
-            onCloseSettings();
-          }
-        }}
-        onNavigateToCourse={(courseId) => {
-          setSelectedCourse(
-            data.courses.find((c) => c.id === courseId) || null
-          );
-          setCurrentScreen("hole-detail");
-        }}
-        colors={colors}
-      />
-    );
-  }
-
-  return (
-    <View style={styles.container}>
-      {/* Transient confirmation banner */}
-      {infoBanner && (
-        <View
-          style={{
-            position: "absolute",
-            top: 12,
-            left: 20,
-            right: 20,
-            zIndex: 1000,
+    if (showSettings || internalShowSettings) {
+      return (
+        <GolfBrainSettings
+          onClose={() => {
+            if (onCloseSettings) onCloseSettings();
+            setInternalShowSettings(false);
           }}
-        >
+          courses={data.courses}
+          onUpdateCourse={handleUpdateCourse}
+          onDeleteCourse={handleDeleteCourse}
+          data={data}
+          onUpdateSettings={handleUpdateSettings}
+          onEditRound={handleEditRound}
+          onViewRound={handleViewRound}
+          onDeleteRound={handleDeleteRound}
+          onResetData={handleResetData}
+          onNavigateToRound={() => {
+            setCurrentScreen("round-summary");
+            setSelectedCourse(
+              data.courses.find((c) => c.id === data.currentRound?.courseId) ||
+              null
+            );
+            // Close settings when navigating to round summary
+            if (onCloseSettings) {
+              onCloseSettings();
+            }
+          }}
+          onNavigateToCourse={(courseId) => {
+            setSelectedCourse(
+              data.courses.find((c) => c.id === courseId) || null
+            );
+            setCurrentScreen("hole-detail");
+          }}
+          colors={colors}
+        />
+      );
+    }
+
+    return (
+      <View style={styles.container}>
+        {/* Transient confirmation banner */}
+        {infoBanner && (
           <View
             style={{
-              backgroundColor: "#111",
-              padding: 10,
-              borderRadius: 8,
-              alignItems: "center",
+              position: "absolute",
+              top: 12,
+              left: 20,
+              right: 20,
+              zIndex: 1000,
             }}
           >
-            <Text style={{ color: "#fff", fontWeight: "600" }}>
-              {infoBanner}
-            </Text>
+            <View
+              style={{
+                backgroundColor: "#111",
+                padding: 10,
+                borderRadius: 8,
+                alignItems: "center",
+              }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "600" }}>
+                {infoBanner}
+              </Text>
+            </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {currentScreen === "course-selection" && (
-        <CourseSelectionScreen
-          courses={
-            data.courses.sort((a, b) => a.name.localeCompare(b.name)) || []
-          }
-          onSelectCourse={handleSelectCourse}
-          onCreateCourse={() => setShowCreateModal(true)}
-          onManageCourses={() => setInternalShowSettings(true)}
+        {currentScreen === "course-selection" && (
+          <CourseSelectionScreen
+            courses={
+              data.courses.sort((a, b) => a.name.localeCompare(b.name)) || []
+            }
+            onSelectCourse={handleSelectCourse}
+            onCreateCourse={() => setShowCreateModal(true)}
+            onManageCourses={() => setInternalShowSettings(true)}
+            colors={colors}
+          />
+        )}
+
+        {currentScreen === "hole-detail" && selectedCourse && currentRound && (
+          <HoleDetailScreen
+            ref={holeDetailRef}
+            course={selectedCourse}
+            currentHole={currentHole}
+            currentRound={currentRound}
+            data={data}
+            onNextHole={handleNextHole}
+            onPreviousHole={handlePreviousHole}
+            onCompleteHole={handleCompleteHole}
+            onShowHistory={handleShowHistory}
+            onSaveHoleData={handleSaveHoleData}
+            onLoadHoleData={handleLoadHoleData}
+            onUpdateTodaysDistance={handleUpdateTodaysDistance}
+            onEndRound={handleEndRound}
+            onViewSummary={handleViewSummary}
+            onClose={() => setCurrentScreen("course-selection")}
+            clubs={data.settings.clubs || DEFAULT_CLUBS}
+            handicap={data.settings.handicap}
+            getBumpsForHole={getBumpsForHole}
+            getCumulativeOverPar={getCumulativeOverPar}
+            colors={colors}
+            onFlameAnimation={triggerFlameAnimation}
+            onPoopAnimation={triggerPoopAnimation}
+          />
+        )}
+
+        {currentScreen === "round-summary" && selectedCourse && currentRound && (
+          <RoundSummaryScreen
+            round={currentRound}
+            course={selectedCourse}
+            onClose={() => {
+              // Clear currentRound when leaving round summary
+              setCurrentRound(null);
+              setData((prev) => ({
+                ...prev,
+                currentRound: undefined,
+              }));
+              setCurrentScreen(roundEnded ? "course-selection" : "hole-detail");
+            }}
+            onHolePress={handleHolePress}
+            onReturnToRound={handleReturnToRound}
+            onEndRound={handleActuallyEndRound}
+            handicap={data.settings.handicap}
+            getBumpsForHole={getBumpsForHole}
+            colors={colors}
+          />
+        )}
+
+        <CreateCourseModal
+          visible={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          onCreateCourse={handleCreateCourse}
           colors={colors}
         />
-      )}
 
-      {currentScreen === "hole-detail" && selectedCourse && currentRound && (
-        <HoleDetailScreen
-          ref={holeDetailRef}
-          course={selectedCourse}
-          currentHole={currentHole}
-          currentRound={currentRound}
-          data={data}
-          onNextHole={handleNextHole}
-          onPreviousHole={handlePreviousHole}
-          onCompleteHole={handleCompleteHole}
-          onShowHistory={handleShowHistory}
-          onSaveHoleData={handleSaveHoleData}
-          onLoadHoleData={handleLoadHoleData}
-          onUpdateTodaysDistance={handleUpdateTodaysDistance}
-          onEndRound={handleEndRound}
-          onViewSummary={handleViewSummary}
-          onClose={() => setCurrentScreen("course-selection")}
-          clubs={data.settings.clubs || DEFAULT_CLUBS}
-          handicap={data.settings.handicap}
-          getBumpsForHole={getBumpsForHole}
-          getCumulativeOverPar={getCumulativeOverPar}
-          colors={colors}
-          onFlameAnimation={triggerFlameAnimation}
-          onPoopAnimation={triggerPoopAnimation}
-        />
-      )}
-
-      {currentScreen === "round-summary" && selectedCourse && currentRound && (
-        <RoundSummaryScreen
-          round={currentRound}
-          course={selectedCourse}
-          onClose={() => {
-            // Clear currentRound when leaving round summary
-            setCurrentRound(null);
-            setData((prev) => ({
-              ...prev,
-              currentRound: undefined,
-            }));
-            setCurrentScreen(roundEnded ? "course-selection" : "hole-detail");
-          }}
-          onHolePress={handleHolePress}
-          onReturnToRound={handleReturnToRound}
-          onEndRound={handleActuallyEndRound}
-          handicap={data.settings.handicap}
-          getBumpsForHole={getBumpsForHole}
+        <HoleHistoryModal
+          visible={showHistoryModal}
+          onClose={() => setShowHistoryModal(false)}
+          holeHistory={getCurrentHoleHistory()}
+          courseName={selectedCourse?.name || ""}
           colors={colors}
         />
-      )}
 
-      <CreateCourseModal
-        visible={showCreateModal}
-        onClose={() => setShowCreateModal(false)}
-        onCreateCourse={handleCreateCourse}
-        colors={colors}
-      />
+        {currentScreen === "hole-detail" && (
+          <HandicapOnboardingModal
+            visible={showHandicapOnboarding}
+            onClose={() => setShowHandicapOnboarding(false)}
+            onSetHandicap={handleSetHandicap}
+            colors={colors}
+          />
+        )}
 
-      <HoleHistoryModal
-        visible={showHistoryModal}
-        onClose={() => setShowHistoryModal(false)}
-        holeHistory={getCurrentHoleHistory()}
-        courseName={selectedCourse?.name || ""}
-        colors={colors}
-      />
+        {/* Flame Animation Overlay */}
+        {flameAnimation.visible && (
+          <View
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              pointerEvents: "none",
+              zIndex: 1000,
+            }}
+          >
+            {flameAnimation.flames.map((flame) => (
+              <Animated.Text
+                key={flame.id}
+                style={{
+                  position: "absolute",
+                  left: flame.x,
+                  top: 0, // Fixed top position
+                  fontSize: 30,
+                  transform: [
+                    { translateY: flame.translateY },
+                    { scale: flame.scale },
+                  ],
+                  opacity: 0.8,
+                }}
+              >
+                🔥
+              </Animated.Text>
+            ))}
+          </View>
+        )}
 
-      {currentScreen === "hole-detail" && (
-        <HandicapOnboardingModal
-          visible={showHandicapOnboarding}
-          onClose={() => setShowHandicapOnboarding(false)}
-          onSetHandicap={handleSetHandicap}
-          colors={colors}
-        />
-      )}
-
-      {/* Flame Animation Overlay */}
-      {flameAnimation.visible && (
-        <View
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            pointerEvents: "none",
-            zIndex: 1000,
-          }}
-        >
-          {flameAnimation.flames.map((flame) => (
-            <Animated.Text
-              key={flame.id}
-              style={{
-                position: "absolute",
-                left: flame.x,
-                top: 0, // Fixed top position
-                fontSize: 30,
-                transform: [
-                  { translateY: flame.translateY },
-                  { scale: flame.scale },
-                ],
-                opacity: 0.8,
-              }}
-            >
-              🔥
-            </Animated.Text>
-          ))}
-        </View>
-      )}
-
-      {/* Poop Animation Overlay */}
-      {poopAnimation.visible && (
-        <View
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            pointerEvents: "none",
-            zIndex: 1000,
-            backgroundColor: "rgba(139, 69, 19, 0.1)", // Light brown background
-          }}
-        >
-          {poopAnimation.poops.map((poop) => (
-            <Animated.Text
-              key={poop.id}
-              style={{
-                position: "absolute",
-                left: poop.x,
-                top: 0, // Fixed top position
-                fontSize: 25,
-                transform: [
-                  { translateY: poop.translateY },
-                  { scale: poop.scale },
-                  { rotate: `${poop.rotation}deg` },
-                ],
-                opacity: 0.9,
-              }}
-            >
-              💩
-            </Animated.Text>
-          ))}
-        </View>
-      )}
-    </View>
-  );
-};
+        {/* Poop Animation Overlay */}
+        {poopAnimation.visible && (
+          <View
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              pointerEvents: "none",
+              zIndex: 1000,
+              backgroundColor: "rgba(139, 69, 19, 0.1)", // Light brown background
+            }}
+          >
+            {poopAnimation.poops.map((poop) => (
+              <Animated.Text
+                key={poop.id}
+                style={{
+                  position: "absolute",
+                  left: poop.x,
+                  top: 0, // Fixed top position
+                  fontSize: 25,
+                  transform: [
+                    { translateY: poop.translateY },
+                    { scale: poop.scale },
+                    { rotate: `${poop.rotation}deg` },
+                  ],
+                  opacity: 0.9,
+                }}
+              >
+                💩
+              </Animated.Text>
+            ))}
+          </View>
+        )}
+      </View>
+    );
+  };

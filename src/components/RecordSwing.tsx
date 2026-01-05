@@ -7,8 +7,8 @@ import {
   StyleSheet,
   Alert,
 } from "react-native";
-import { CameraView, useCameraPermissions } from "expo-camera";
-import { Video, ResizeMode } from "expo-av";
+import { CameraView, useCameraPermissions, useMicrophonePermissions } from "expo-camera";
+import { Video, ResizeMode, AVPlaybackStatus, VideoFullscreenUpdate } from "expo-av";
 import * as MediaLibrary from "expo-media-library";
 import { HapticFeedback } from "../utils/haptics";
 
@@ -50,13 +50,18 @@ export const RecordSwing: React.FC<RecordSwingProps> = ({
   const [countdown, setCountdown] = useState<number | null>(null);
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [micPermission, requestMicPermission] = useMicrophonePermissions();
   const [mediaLibraryPermission, requestMediaLibraryPermission] =
     MediaLibrary.usePermissions();
   const [showCamera, setShowCamera] = useState(false);
+  const [isCameraReady, setIsCameraReady] = useState(false);
   const [recordedSwing, setRecordedSwing] = useState<RecordedSwing | null>(
     null
   );
   const [showVideoPlayer, setShowVideoPlayer] = useState(false);
+  const [playbackRate, setPlaybackRate] = useState(1.0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const modalVideoRef = useRef<Video>(null);
 
   // Refs
   const cameraRef = useRef<any>(null);
@@ -101,33 +106,50 @@ export const RecordSwing: React.FC<RecordSwingProps> = ({
         }
       }
 
+      // Check microphone permission
+      if (!micPermission?.granted) {
+        const { granted } = await requestMicPermission();
+        if (!granted) {
+          Alert.alert(
+            "Permission Required",
+            "Microphone permission is required to record video with audio."
+          );
+          return;
+        }
+      }
+
       // Reset state
       setRecordedSwing(null);
+      setIsCameraReady(false);
 
       // Show camera and start countdown
       setShowCamera(true);
-      setCountdown(countdownSeconds);
-
-      // Start countdown
-      let count = countdownSeconds;
-      countdownTimerRef.current = setInterval(() => {
-        count--;
-        if (count > 0) {
-          setCountdown(count);
-          HapticFeedback.light();
-        } else {
-          setCountdown(null);
-          if (countdownTimerRef.current) {
-            clearInterval(countdownTimerRef.current);
-            countdownTimerRef.current = null;
-          }
-          startRecording();
-        }
-      }, 1000);
+      // Wait for onCameraReady to start countdown (handled in CameraView prop)
     } catch (error) {
       console.error("Error starting record swing:", error);
       Alert.alert("Error", "Failed to start recording");
     }
+  };
+
+  const startCountdown = () => {
+    if (countdownTimerRef.current) return;
+
+    setCountdown(countdownSeconds);
+    let count = countdownSeconds;
+    countdownTimerRef.current = setInterval(() => {
+      count--;
+      if (count > 0) {
+        setCountdown(count);
+        HapticFeedback.light();
+      } else {
+        setCountdown(null);
+        if (countdownTimerRef.current) {
+          clearInterval(countdownTimerRef.current);
+          countdownTimerRef.current = null;
+        }
+        startRecording();
+      }
+    }, 1000);
   };
 
   const startRecording = async () => {
@@ -153,17 +175,20 @@ export const RecordSwing: React.FC<RecordSwingProps> = ({
         }
       }, 1000);
 
-      // Start recording - this is async and returns when recording stops
+      // Start recording
       const video = await cameraRef.current.recordAsync({
         maxDuration: durationSeconds,
+        mute: true, // Use mute: true to avoid audio session conflicts/permissions
       });
 
       // Recording stopped (either manually or auto-stop)
       if (video && video.uri) {
         await saveVideoToGallery(video.uri);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error during recording:", error);
+      console.error("Error message:", error?.message);
+      console.error("Error code:", error?.code);
       // Clean up on error
       if (recordingTimerRef.current) {
         clearInterval(recordingTimerRef.current);
@@ -171,7 +196,7 @@ export const RecordSwing: React.FC<RecordSwingProps> = ({
       }
       setIsRecording(false);
       setShowCamera(false);
-      Alert.alert("Error", "Failed to record video");
+      Alert.alert("Error", `Failed to record video: ${error?.message || "Unknown error"}`);
     }
   };
 
@@ -389,6 +414,35 @@ export const RecordSwing: React.FC<RecordSwingProps> = ({
       fontWeight: "600",
       color: "#FFFFFF",
     },
+    speedControls: {
+      flexDirection: "row",
+      justifyContent: "center",
+      alignItems: "center",
+      gap: 16,
+      backgroundColor: "#000000",
+      paddingVertical: 20,
+      paddingBottom: 40,
+    },
+    speedButton: {
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 20,
+      backgroundColor: "rgba(0, 0, 0, 0.8)",
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 1,
+      borderColor: "rgba(255, 255, 255, 0.3)",
+      minWidth: 80,
+    },
+    speedButtonActive: {
+      backgroundColor: colors.primary,
+      borderColor: "#FFFFFF",
+    },
+    speedButtonText: {
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "700",
+    },
   });
 
   return (
@@ -406,8 +460,8 @@ export const RecordSwing: React.FC<RecordSwingProps> = ({
           {countdown !== null
             ? `${countdown}`
             : isRecording
-            ? `Stop Recording (${recordingDuration}s)`
-            : "Record Swing"}
+              ? `Stop Recording (${recordingDuration}s)`
+              : "Record Swing"}
         </Text>
       </TouchableOpacity>
 
@@ -450,8 +504,19 @@ export const RecordSwing: React.FC<RecordSwingProps> = ({
             <CameraView
               ref={cameraRef}
               style={styles.cameraView}
-              facing="front"
+              facing="front" // Back to front camera per user request
               mode="video"
+              onCameraReady={() => {
+                console.log("Camera ready");
+                setIsCameraReady(true);
+                startCountdown();
+              }}
+              onMountError={(error) => {
+                console.error("Camera mount error:", error);
+                Alert.alert("Camera Error", `Failed to start camera: ${error.message}`);
+                setShowCamera(false);
+              }}
+              mute={true}
             >
               <View style={styles.cameraOverlay}>
                 {countdown !== null && (
@@ -507,16 +572,57 @@ export const RecordSwing: React.FC<RecordSwingProps> = ({
           {recordedSwing && (
             <>
               <Video
+                ref={modalVideoRef}
                 source={{ uri: recordedSwing.uri }}
                 style={styles.videoPlayer}
                 resizeMode={ResizeMode.CONTAIN}
                 shouldPlay
                 useNativeControls
                 isLooping
+                rate={playbackRate}
+                shouldCorrectPitch={false}
+                onPlaybackStatusUpdate={(status: AVPlaybackStatus) => {
+                  if (status.isLoaded) {
+                    setIsPlaying(status.isPlaying);
+                  }
+                }}
+                onFullscreenUpdate={(event) => {
+                  if (
+                    event.fullscreenUpdate ===
+                    VideoFullscreenUpdate.PLAYER_DID_DISMISS
+                  ) {
+                    if (modalVideoRef.current) {
+                      modalVideoRef.current.pauseAsync();
+                    }
+                  }
+                }}
               />
+              <View style={styles.speedControls}>
+                {[1.0, 0.5, 0.25].map((rate) => (
+                  <TouchableOpacity
+                    key={rate}
+                    style={styles.speedButton}
+                    onPress={async () => {
+                      setPlaybackRate(rate);
+                      if (modalVideoRef.current) {
+                        await modalVideoRef.current.playAsync();
+                        await modalVideoRef.current.presentFullscreenPlayer();
+                      }
+                      HapticFeedback.light();
+                    }}
+                  >
+                    <Text style={styles.speedButtonText}>
+                      {rate === 1.0 ? "1x" : `${rate}x`}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
               <TouchableOpacity
                 style={styles.closeButton}
-                onPress={() => setShowVideoPlayer(false)}
+                onPress={() => {
+                  setShowVideoPlayer(false);
+                  setPlaybackRate(1.0); // Reset on close
+                }}
               >
                 <Text style={styles.closeButtonText}>Close</Text>
               </TouchableOpacity>
